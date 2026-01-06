@@ -15,10 +15,6 @@ body:
     attributes:
       label: 범위 / Not-in-scope
   - type: textarea
-    id: design
-    attributes:
-      label: 디자인/문서 링크
-  - type: textarea
     id: breakdown
     attributes:
       label: 하위 스토리(체크리스트)

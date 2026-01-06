@@ -16,10 +16,6 @@ body:
     validations:
       required: true
   - type: textarea
-    id: design
-    attributes:
-      label: 디자인/계약 링크
-  - type: textarea
     id: notes
     attributes:
       label: 구현 메모/리스크
