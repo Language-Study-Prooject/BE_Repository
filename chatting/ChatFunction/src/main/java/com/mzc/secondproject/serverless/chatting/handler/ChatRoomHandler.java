@@ -273,14 +273,32 @@ public class ChatRoomHandler implements RequestHandler<APIGatewayProxyRequestEve
 
     private APIGatewayProxyResponseEvent deleteRoom(APIGatewayProxyRequestEvent request) {
         Map<String, String> pathParams = request.getPathParameters();
+        Map<String, String> queryParams = request.getQueryStringParameters();
+
         String roomId = pathParams != null ? pathParams.get("roomId") : null;
+        String userId = queryParams != null ? queryParams.get("userId") : null;
 
         if (roomId == null) {
             return createResponse(400, ApiResponse.error("roomId is required"));
         }
 
+        if (userId == null) {
+            return createResponse(400, ApiResponse.error("userId is required"));
+        }
+
+        // 방장 확인
+        Optional<ChatRoom> optRoom = roomRepository.findById(roomId);
+        if (optRoom.isEmpty()) {
+            return createResponse(404, ApiResponse.error("Room not found"));
+        }
+
+        ChatRoom room = optRoom.get();
+        if (!userId.equals(room.getCreatedBy())) {
+            return createResponse(403, ApiResponse.error("Only the room owner can delete the room"));
+        }
+
         roomRepository.delete(roomId);
-        logger.info("Deleted room: {}", roomId);
+        logger.info("Deleted room: {} by owner: {}", roomId, userId);
 
         return createResponse(200, ApiResponse.success("Room deleted", null));
     }

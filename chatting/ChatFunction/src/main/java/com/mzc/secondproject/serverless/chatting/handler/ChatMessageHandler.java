@@ -8,7 +8,9 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.mzc.secondproject.serverless.chatting.dto.ApiResponse;
 import com.mzc.secondproject.serverless.chatting.model.ChatMessage;
+import com.mzc.secondproject.serverless.chatting.model.ChatRoom;
 import com.mzc.secondproject.serverless.chatting.repository.ChatMessageRepository;
+import com.mzc.secondproject.serverless.chatting.repository.ChatRoomRepository;
 import com.mzc.secondproject.serverless.chatting.service.ChatMessageService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,9 +27,11 @@ public class ChatMessageHandler implements RequestHandler<APIGatewayProxyRequest
     private static final Gson gson = new GsonBuilder().setPrettyPrinting().create();
 
     private final ChatMessageService chatMessageService;
+    private final ChatRoomRepository chatRoomRepository;
 
     public ChatMessageHandler() {
         this.chatMessageService = new ChatMessageService();
+        this.chatRoomRepository = new ChatRoomRepository();
     }
 
     @Override
@@ -82,6 +86,12 @@ public class ChatMessageHandler implements RequestHandler<APIGatewayProxyRequest
                 .build();
 
         ChatMessage savedMessage = chatMessageService.saveMessage(message);
+
+        // 채팅방 lastMessageAt 업데이트
+        chatRoomRepository.findById(roomId).ifPresent(room -> {
+            room.setLastMessageAt(now);
+            chatRoomRepository.save(room);
+        });
 
         logger.info("Message sent: {} in room: {}", messageId, roomId);
         return createResponse(201, ApiResponse.success("Message sent", savedMessage));
