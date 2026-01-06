@@ -36,13 +36,18 @@ public class PollyService {
     }
 
     public String synthesizeSpeech(String text) {
-        logger.info("Synthesizing speech for text");
+        return synthesizeSpeech(text, "FEMALE");
+    }
+
+    public String synthesizeSpeech(String text, String voice) {
+        VoiceId voiceId = resolveVoiceId(voice);
+        logger.info("Synthesizing speech with voice: {}", voiceId);
 
         try {
             SynthesizeSpeechRequest request = SynthesizeSpeechRequest.builder()
                     .text(text)
-                    .voiceId(VoiceId.JOANNA)  // 미국 영어 여성 (Neural 지원)
-                    .engine("neural")          // Neural 엔진 (더 자연스러운 발음)
+                    .voiceId(voiceId)
+                    .engine("neural")
                     .outputFormat(OutputFormat.MP3)
                     .build();
 
@@ -90,5 +95,12 @@ public class PollyService {
             logger.error("Error synthesizing speech", e);
             throw new RuntimeException("Failed to synthesize speech", e);
         }
+    }
+
+    private VoiceId resolveVoiceId(String voice) {
+        if ("MALE".equalsIgnoreCase(voice)) {
+            return VoiceId.MATTHEW;  // 미국 영어 남성 (Neural 지원)
+        }
+        return VoiceId.JOANNA;  // 미국 영어 여성 (Neural 지원, 기본값)
     }
 }
