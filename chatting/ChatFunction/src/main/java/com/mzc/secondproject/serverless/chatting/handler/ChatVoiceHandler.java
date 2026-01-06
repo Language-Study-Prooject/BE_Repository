@@ -36,12 +36,13 @@ public class ChatVoiceHandler implements RequestHandler<APIGatewayProxyRequestEv
             String body = request.getBody();
             Map<String, String> requestBody = gson.fromJson(body, Map.class);
             String text = requestBody.get("text");
+            String voice = requestBody.getOrDefault("voice", "FEMALE");
 
             if (text == null || text.isEmpty()) {
                 return createResponse(400, ApiResponse.error("text is required"));
             }
 
-            String audioUrl = pollyService.synthesizeSpeech(text);
+            String audioUrl = pollyService.synthesizeSpeech(text, voice);
 
             return createResponse(200, ApiResponse.success("Speech synthesized", Map.of("audioUrl", audioUrl)));
 
