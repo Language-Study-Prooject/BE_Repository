@@ -1,0 +1,33 @@
+# IDE
+.idea/
+
+# Build
+target/
+build/
+out/
+*.class
+
+# Gradle
+.gradle/
+gradle/
+
+# Maven
+*.jar
+*.war
+*.ear
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.env.local
+*.local
+
+# Test
+*.test.ts
+coverage/
