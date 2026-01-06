@@ -1,0 +1,10 @@
+{
+  "httpMethod": "GET",
+  "path": "/chat/messages",
+  "headers": {
+    "Content-Type": "application/json"
+  },
+  "queryStringParameters": {
+    "roomId": "room-123"
+  }
+}

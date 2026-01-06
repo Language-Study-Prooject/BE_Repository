@@ -1,6 +1,9 @@
 # IDE
 .idea/
 
+# Claude
+.claude/
+
 # Build
 target/
 build/
@@ -27,6 +30,11 @@ Thumbs.db
 .env
 .env.local
 *.local
+env.json
+
+# AWS SAM
+.aws-sam/
+samconfig.toml
 
 # Test
 *.test.ts

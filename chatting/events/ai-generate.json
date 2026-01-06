@@ -1,0 +1,8 @@
+{
+  "httpMethod": "POST",
+  "path": "/chat/ai/generate",
+  "headers": {
+    "Content-Type": "application/json"
+  },
+  "body": "{\"prompt\": \"안녕하세요, 오늘 날씨가 어떤가요?\"}"
+}

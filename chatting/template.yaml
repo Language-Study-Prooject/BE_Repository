@@ -1,0 +1,263 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Group2 English Study - Chatting Domain
+
+Globals:
+  Function:
+    Timeout: 30
+    MemorySize: 512
+    Runtime: java21
+    Architectures:
+      - x86_64
+    Environment:
+      Variables:
+        CHAT_TABLE_NAME: !Ref ChatTable
+        CHAT_BUCKET_NAME: group2-englishstudy
+        AWS_REGION_NAME: !Ref AWS::Region
+
+Resources:
+  #############################################
+  # Lambda Functions
+  #############################################
+
+  # 채팅방 관리 함수
+  ChatRoomFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: group2-englishstudy-room-handler
+      CodeUri: ChatFunction
+      Handler: com.mzc.secondproject.serverless.chatting.handler.ChatRoomHandler::handleRequest
+      Description: Handle chat room CRUD operations
+      SnapStart:
+        ApplyOn: PublishedVersions
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ChatTable
+      Events:
+        CreateRoom:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ChatApi
+            Path: /chat/rooms
+            Method: POST
+        GetRooms:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ChatApi
+            Path: /chat/rooms
+            Method: GET
+        GetRoom:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ChatApi
+            Path: /chat/rooms/{roomId}
+            Method: GET
+        DeleteRoom:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ChatApi
+            Path: /chat/rooms/{roomId}
+            Method: DELETE
+        JoinRoom:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ChatApi
+            Path: /chat/rooms/{roomId}/join
+            Method: POST
+        LeaveRoom:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ChatApi
+            Path: /chat/rooms/{roomId}/leave
+            Method: POST
+
+  # 채팅 메시지 처리 함수
+  ChatMessageFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: group2-englishstudy-message-handler
+      CodeUri: ChatFunction
+      Handler: com.mzc.secondproject.serverless.chatting.handler.ChatMessageHandler::handleRequest
+      Description: Handle chat messages
+      SnapStart:
+        ApplyOn: PublishedVersions
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ChatTable
+        - S3CrudPolicy:
+            BucketName: group2-englishstudy
+        - Statement:
+            - Effect: Allow
+              Action:
+                - bedrock:InvokeModel
+                - bedrock:InvokeModelWithResponseStream
+              Resource: "*"
+        - Statement:
+            - Effect: Allow
+              Action:
+                - polly:SynthesizeSpeech
+                - polly:DescribeVoices
+              Resource: "*"
+      Events:
+        SendMessage:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ChatApi
+            Path: /chat/rooms/{roomId}/messages
+            Method: POST
+        GetMessages:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ChatApi
+            Path: /chat/rooms/{roomId}/messages
+            Method: GET
+        GetMessage:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ChatApi
+            Path: /chat/rooms/{roomId}/messages/{messageId}
+            Method: GET
+
+  # AI 응답 생성 함수 (Bedrock)
+  ChatAIFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: group2-englishstudy-ai-handler
+      CodeUri: ChatFunction
+      Handler: com.mzc.secondproject.serverless.chatting.handler.ChatAIHandler::handleRequest
+      Description: Generate AI responses using Bedrock
+      Timeout: 60
+      MemorySize: 1024
+      SnapStart:
+        ApplyOn: PublishedVersions
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ChatTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - bedrock:InvokeModel
+                - bedrock:InvokeModelWithResponseStream
+              Resource: "*"
+      Events:
+        GenerateAI:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ChatApi
+            Path: /chat/ai/generate
+            Method: POST
+
+  # 음성 변환 함수 (Polly)
+  ChatVoiceFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: group2-englishstudy-voice-handler
+      CodeUri: ChatFunction
+      Handler: com.mzc.secondproject.serverless.chatting.handler.ChatVoiceHandler::handleRequest
+      Description: Convert text to speech using Polly
+      SnapStart:
+        ApplyOn: PublishedVersions
+      Policies:
+        - S3CrudPolicy:
+            BucketName: group2-englishstudy
+        - Statement:
+            - Effect: Allow
+              Action:
+                - polly:SynthesizeSpeech
+                - polly:DescribeVoices
+              Resource: "*"
+      Events:
+        TextToSpeech:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ChatApi
+            Path: /chat/voice/synthesize
+            Method: POST
+
+  #############################################
+  # API Gateway
+  #############################################
+
+  ChatApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      Name: group2-englishstudy-chat-api
+      StageName: dev
+      Cors:
+        AllowMethods: "'GET,POST,PUT,DELETE,OPTIONS'"
+        AllowHeaders: "'Content-Type,Authorization,X-Amz-Date,X-Api-Key'"
+        AllowOrigin: "'*'"
+
+  #############################################
+  # DynamoDB
+  #############################################
+
+  ChatTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: group2-englishstudy-chat
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: PK
+          AttributeType: S
+        - AttributeName: SK
+          AttributeType: S
+        - AttributeName: GSI1PK
+          AttributeType: S
+        - AttributeName: GSI1SK
+          AttributeType: S
+      KeySchema:
+        - AttributeName: PK
+          KeyType: HASH
+        - AttributeName: SK
+          KeyType: RANGE
+      GlobalSecondaryIndexes:
+        - IndexName: GSI1
+          KeySchema:
+            - AttributeName: GSI1PK
+              KeyType: HASH
+            - AttributeName: GSI1SK
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+
+  #############################################
+  # S3 Bucket (기존 버킷 사용)
+  #############################################
+  # 기존 버킷 group2-englishstudy 사용 - 버킷 생성 제거
+
+#############################################
+# Outputs
+#############################################
+
+Outputs:
+  ChatApiUrl:
+    Description: API Gateway endpoint URL
+    Value: !Sub 'https://${ChatApi}.execute-api.${AWS::Region}.amazonaws.com/dev/'
+
+  ChatTableName:
+    Description: DynamoDB Table Name
+    Value: !Ref ChatTable
+
+  ChatBucketName:
+    Description: S3 Bucket Name
+    Value: group2-englishstudy
+
+  ChatRoomFunctionArn:
+    Description: Chat Room Lambda Function ARN
+    Value: !GetAtt ChatRoomFunction.Arn
+
+  ChatMessageFunctionArn:
+    Description: Chat Message Lambda Function ARN
+    Value: !GetAtt ChatMessageFunction.Arn
+
+  ChatAIFunctionArn:
+    Description: Chat AI Lambda Function ARN
+    Value: !GetAtt ChatAIFunction.Arn
+
+  ChatVoiceFunctionArn:
+    Description: Chat Voice Lambda Function ARN
+    Value: !GetAtt ChatVoiceFunction.Arn

@@ -1,0 +1,8 @@
+{
+  "httpMethod": "POST",
+  "path": "/chat/messages",
+  "headers": {
+    "Content-Type": "application/json"
+  },
+  "body": "{\"roomId\": \"room-123\", \"userId\": \"user-456\", \"content\": \"Hello, World!\", \"messageType\": \"TEXT\"}"
+}
