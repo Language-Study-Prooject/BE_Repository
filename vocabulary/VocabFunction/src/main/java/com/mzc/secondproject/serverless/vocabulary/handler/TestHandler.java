@@ -19,11 +19,14 @@ import org.slf4j.LoggerFactory;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Random;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 public class TestHandler implements RequestHandler<APIGatewayProxyRequestEvent, APIGatewayProxyResponseEvent> {
 
@@ -102,12 +105,30 @@ public class TestHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
 
         // 시험 문제 생성 (BatchGetItem으로 한 번에 조회)
         List<Word> words = wordRepository.findByIds(allWordIds);
+
+        // 레벨별로 단어 그룹화하여 오답 후보 준비
+        Map<String, List<Word>> wordsByLevel = words.stream()
+                .collect(Collectors.groupingBy(Word::getLevel));
+
+        // 각 레벨별 추가 오답 후보 단어 조회 (문제 단어 외의 다른 단어들)
+        Map<String, List<String>> distractorsByLevel = new HashMap<>();
+        for (String level : wordsByLevel.keySet()) {
+            List<String> distractors = getDistractorsForLevel(level, allWordIds);
+            distractorsByLevel.put(level, distractors);
+        }
+
+        Random random = new Random();
         List<Map<String, Object>> questions = new ArrayList<>();
         for (Word word : words) {
             Map<String, Object> question = new HashMap<>();
             question.put("wordId", word.getWordId());
             question.put("english", word.getEnglish());
             question.put("example", word.getExample());
+
+            // 4지선다 옵션 생성
+            List<String> options = generateOptions(word, wordsByLevel, distractorsByLevel, random);
+            question.put("options", options);
+
             questions.add(question);
         }
 
@@ -230,6 +251,60 @@ public class TestHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
         result.put("hasMore", resultPage.hasMore());
 
         return createResponse(200, ApiResponse.success("Test results retrieved", result));
+    }
+
+    /**
+     * 해당 레벨에서 오답 후보 단어들의 한국어 뜻 목록을 가져옴
+     */
+    private List<String> getDistractorsForLevel(String level, List<String> excludeWordIds) {
+        WordRepository.WordPage wordPage = wordRepository.findByLevelWithPagination(level, 50, null);
+        return wordPage.getWords().stream()
+                .filter(w -> !excludeWordIds.contains(w.getWordId()))
+                .map(Word::getKorean)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * 4지선다 옵션 생성 (정답 1개 + 오답 3개, 셔플됨)
+     */
+    private List<String> generateOptions(Word correctWord, Map<String, List<Word>> wordsByLevel,
+                                         Map<String, List<String>> distractorsByLevel, Random random) {
+        List<String> options = new ArrayList<>();
+        String correctAnswer = correctWord.getKorean();
+        options.add(correctAnswer);
+
+        String level = correctWord.getLevel();
+
+        // 같은 레벨의 다른 문제 단어들에서 오답 후보 추출
+        List<String> sameLevelOptions = wordsByLevel.getOrDefault(level, new ArrayList<>()).stream()
+                .filter(w -> !w.getWordId().equals(correctWord.getWordId()))
+                .map(Word::getKorean)
+                .collect(Collectors.toList());
+
+        // 추가 오답 후보 (문제에 포함되지 않은 단어들)
+        List<String> additionalDistractors = distractorsByLevel.getOrDefault(level, new ArrayList<>());
+
+        // 모든 오답 후보 합치기
+        List<String> allDistractors = new ArrayList<>();
+        allDistractors.addAll(sameLevelOptions);
+        allDistractors.addAll(additionalDistractors);
+
+        // 중복 및 정답 제거
+        allDistractors = allDistractors.stream()
+                .filter(d -> !d.equals(correctAnswer))
+                .distinct()
+                .collect(Collectors.toList());
+
+        // 랜덤하게 3개 선택
+        Collections.shuffle(allDistractors, random);
+        int distractorCount = Math.min(3, allDistractors.size());
+        for (int i = 0; i < distractorCount; i++) {
+            options.add(allDistractors.get(i));
+        }
+
+        // 옵션 셔플
+        Collections.shuffle(options, random);
+        return options;
     }
 
     private APIGatewayProxyResponseEvent createResponse(int statusCode, Object body) {
