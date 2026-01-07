@@ -33,8 +33,8 @@ public class ChatMessageService {
         return repository.findByRoomIdWithPagination(roomId, limit, cursor);
     }
 
-    public List<ChatMessage> getMessagesByUser(String userId) {
-        logger.info("Getting messages for user: {}", userId);
-        return repository.findByUserId(userId);
+    public ChatMessageRepository.MessagePage getMessagesByUserWithPagination(String userId, int limit, String cursor) {
+        logger.info("Getting messages for user: {} with limit: {}", userId, limit);
+        return repository.findByUserIdWithPagination(userId, limit, cursor);
     }
 }
