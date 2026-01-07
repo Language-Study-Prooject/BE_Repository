@@ -8,15 +8,20 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.mzc.secondproject.serverless.vocabulary.dto.ApiResponse;
 import com.mzc.secondproject.serverless.vocabulary.model.UserWord;
+import com.mzc.secondproject.serverless.vocabulary.model.Word;
 import com.mzc.secondproject.serverless.vocabulary.repository.UserWordRepository;
+import com.mzc.secondproject.serverless.vocabulary.repository.WordRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 public class UserWordHandler implements RequestHandler<APIGatewayProxyRequestEvent, APIGatewayProxyResponseEvent> {
 
@@ -24,9 +29,11 @@ public class UserWordHandler implements RequestHandler<APIGatewayProxyRequestEve
     private static final Gson gson = new GsonBuilder().setPrettyPrinting().create();
 
     private final UserWordRepository userWordRepository;
+    private final WordRepository wordRepository;
 
     public UserWordHandler() {
         this.userWordRepository = new UserWordRepository();
+        this.wordRepository = new WordRepository();
     }
 
     @Override
@@ -97,8 +104,12 @@ public class UserWordHandler implements RequestHandler<APIGatewayProxyRequestEve
             userWordPage = userWordRepository.findByUserIdWithPagination(userId, limit, cursor);
         }
 
+        // Word 정보 조인 (BatchGetItem)
+        List<UserWord> userWords = userWordPage.getUserWords();
+        List<Map<String, Object>> enrichedUserWords = enrichWithWordInfo(userWords);
+
         Map<String, Object> result = new HashMap<>();
-        result.put("userWords", userWordPage.getUserWords());
+        result.put("userWords", enrichedUserWords);
         result.put("nextCursor", userWordPage.getNextCursor());
         result.put("hasMore", userWordPage.hasMore());
 
@@ -286,6 +297,64 @@ public class UserWordHandler implements RequestHandler<APIGatewayProxyRequestEve
         // 다음 복습일 계산
         LocalDate nextReview = LocalDate.now().plusDays(userWord.getInterval());
         userWord.setNextReviewAt(nextReview.toString());
+    }
+
+    /**
+     * UserWord 목록에 Word 정보(english, korean, level 등)를 조인
+     * BatchGetItem으로 한 번에 조회하여 N+1 문제 방지
+     */
+    private List<Map<String, Object>> enrichWithWordInfo(List<UserWord> userWords) {
+        if (userWords == null || userWords.isEmpty()) {
+            return new ArrayList<>();
+        }
+
+        // wordId 목록 추출
+        List<String> wordIds = userWords.stream()
+                .map(UserWord::getWordId)
+                .collect(Collectors.toList());
+
+        // BatchGetItem으로 Word 정보 한 번에 조회
+        List<Word> words = wordRepository.findByIds(wordIds);
+
+        // wordId -> Word 맵 생성
+        Map<String, Word> wordMap = words.stream()
+                .collect(Collectors.toMap(Word::getWordId, w -> w, (w1, w2) -> w1));
+
+        // UserWord + Word 정보 합치기
+        List<Map<String, Object>> enrichedList = new ArrayList<>();
+        for (UserWord userWord : userWords) {
+            Map<String, Object> enriched = new HashMap<>();
+
+            // UserWord 정보
+            enriched.put("wordId", userWord.getWordId());
+            enriched.put("userId", userWord.getUserId());
+            enriched.put("status", userWord.getStatus());
+            enriched.put("correctCount", userWord.getCorrectCount());
+            enriched.put("incorrectCount", userWord.getIncorrectCount());
+            enriched.put("bookmarked", userWord.getBookmarked());
+            enriched.put("favorite", userWord.getFavorite());
+            enriched.put("difficulty", userWord.getDifficulty());
+            enriched.put("nextReviewAt", userWord.getNextReviewAt());
+            enriched.put("lastReviewedAt", userWord.getLastReviewedAt());
+            enriched.put("repetitions", userWord.getRepetitions());
+            enriched.put("interval", userWord.getInterval());
+
+            // Word 정보 추가
+            Word word = wordMap.get(userWord.getWordId());
+            if (word != null) {
+                enriched.put("english", word.getEnglish());
+                enriched.put("korean", word.getKorean());
+                enriched.put("level", word.getLevel());
+                enriched.put("category", word.getCategory());
+                enriched.put("example", word.getExample());
+                enriched.put("maleVoiceKey", word.getMaleVoiceKey());
+                enriched.put("femaleVoiceKey", word.getFemaleVoiceKey());
+            }
+
+            enrichedList.add(enriched);
+        }
+
+        return enrichedList;
     }
 
     private APIGatewayProxyResponseEvent createResponse(int statusCode, Object body) {
