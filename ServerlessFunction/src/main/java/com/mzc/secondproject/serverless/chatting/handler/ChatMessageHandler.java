@@ -6,7 +6,7 @@ import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyRequestEvent;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyResponseEvent;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-import com.mzc.secondproject.serverless.chatting.dto.ApiResponse;
+import com.mzc.secondproject.serverless.common.dto.ApiResponse;
 import com.mzc.secondproject.serverless.chatting.model.ChatMessage;
 import com.mzc.secondproject.serverless.chatting.model.ChatRoom;
 import com.mzc.secondproject.serverless.chatting.repository.ChatMessageRepository;
