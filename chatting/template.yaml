@@ -1,6 +1,6 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
-Description: Group2 English Study - Chatting Domain
+Description: Group2 English Study - Unified API (Chatting + Vocabulary)
 
 Globals:
   Function:
@@ -12,15 +12,30 @@ Globals:
     Environment:
       Variables:
         CHAT_TABLE_NAME: !Ref ChatTable
+        VOCAB_TABLE_NAME: !Ref VocabTable
         CHAT_BUCKET_NAME: group2-englishstudy
+        VOCAB_BUCKET_NAME: group2-englishstudy
         AWS_REGION_NAME: !Ref AWS::Region
 
 Resources:
   #############################################
-  # Lambda Functions
+  # API Gateway (Unified)
   #############################################
 
-  # 채팅방 관리 함수
+  MainApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      Name: group2-englishstudy-api
+      StageName: dev
+      Cors:
+        AllowMethods: "'GET,POST,PUT,DELETE,OPTIONS'"
+        AllowHeaders: "'Content-Type,Authorization,X-Amz-Date,X-Api-Key'"
+        AllowOrigin: "'*'"
+
+  #############################################
+  # Chatting Lambda Functions
+  #############################################
+
   ChatRoomFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -37,41 +52,40 @@ Resources:
         CreateRoom:
           Type: Api
           Properties:
-            RestApiId: !Ref ChatApi
+            RestApiId: !Ref MainApi
             Path: /chat/rooms
             Method: POST
         GetRooms:
           Type: Api
           Properties:
-            RestApiId: !Ref ChatApi
+            RestApiId: !Ref MainApi
             Path: /chat/rooms
             Method: GET
         GetRoom:
           Type: Api
           Properties:
-            RestApiId: !Ref ChatApi
+            RestApiId: !Ref MainApi
             Path: /chat/rooms/{roomId}
             Method: GET
         DeleteRoom:
           Type: Api
           Properties:
-            RestApiId: !Ref ChatApi
+            RestApiId: !Ref MainApi
             Path: /chat/rooms/{roomId}
             Method: DELETE
         JoinRoom:
           Type: Api
           Properties:
-            RestApiId: !Ref ChatApi
+            RestApiId: !Ref MainApi
             Path: /chat/rooms/{roomId}/join
             Method: POST
         LeaveRoom:
           Type: Api
           Properties:
-            RestApiId: !Ref ChatApi
+            RestApiId: !Ref MainApi
             Path: /chat/rooms/{roomId}/leave
             Method: POST
 
-  # 채팅 메시지 처리 함수
   ChatMessageFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -102,23 +116,22 @@ Resources:
         SendMessage:
           Type: Api
           Properties:
-            RestApiId: !Ref ChatApi
+            RestApiId: !Ref MainApi
             Path: /chat/rooms/{roomId}/messages
             Method: POST
         GetMessages:
           Type: Api
           Properties:
-            RestApiId: !Ref ChatApi
+            RestApiId: !Ref MainApi
             Path: /chat/rooms/{roomId}/messages
             Method: GET
         GetMessage:
           Type: Api
           Properties:
-            RestApiId: !Ref ChatApi
+            RestApiId: !Ref MainApi
             Path: /chat/rooms/{roomId}/messages/{messageId}
             Method: GET
 
-  # AI 응답 생성 함수 (Bedrock)
   ChatAIFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -143,11 +156,10 @@ Resources:
         GenerateAI:
           Type: Api
           Properties:
-            RestApiId: !Ref ChatApi
+            RestApiId: !Ref MainApi
             Path: /chat/ai/generate
             Method: POST
 
-  # 음성 변환 함수 (Polly)
   ChatVoiceFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -172,26 +184,228 @@ Resources:
         TextToSpeech:
           Type: Api
           Properties:
-            RestApiId: !Ref ChatApi
+            RestApiId: !Ref MainApi
             Path: /chat/voice/synthesize
             Method: POST
 
   #############################################
-  # API Gateway
+  # Vocabulary Lambda Functions
   #############################################
 
-  ChatApi:
-    Type: AWS::Serverless::Api
+  WordFunction:
+    Type: AWS::Serverless::Function
     Properties:
-      Name: group2-englishstudy-chat-api
-      StageName: dev
-      Cors:
-        AllowMethods: "'GET,POST,PUT,DELETE,OPTIONS'"
-        AllowHeaders: "'Content-Type,Authorization,X-Amz-Date,X-Api-Key'"
-        AllowOrigin: "'*'"
+      FunctionName: group2-englishstudy-vocab-word-handler
+      CodeUri: ../vocabulary/VocabFunction
+      Handler: com.mzc.secondproject.serverless.vocabulary.handler.WordHandler::handleRequest
+      Description: Handle word CRUD operations
+      SnapStart:
+        ApplyOn: PublishedVersions
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref VocabTable
+      Events:
+        CreateWord:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /vocab/words
+            Method: POST
+        BatchCreateWords:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /vocab/words/batch
+            Method: POST
+        SearchWords:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /vocab/words/search
+            Method: GET
+        GetWords:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /vocab/words
+            Method: GET
+        GetWord:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /vocab/words/{wordId}
+            Method: GET
+        UpdateWord:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /vocab/words/{wordId}
+            Method: PUT
+        DeleteWord:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /vocab/words/{wordId}
+            Method: DELETE
+
+  UserWordFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: group2-englishstudy-vocab-userword-handler
+      CodeUri: ../vocabulary/VocabFunction
+      Handler: com.mzc.secondproject.serverless.vocabulary.handler.UserWordHandler::handleRequest
+      Description: Handle user word learning status
+      SnapStart:
+        ApplyOn: PublishedVersions
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref VocabTable
+      Events:
+        GetUserWords:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /vocab/users/{userId}/words
+            Method: GET
+        GetUserWord:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /vocab/users/{userId}/words/{wordId}
+            Method: GET
+        UpdateUserWord:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /vocab/users/{userId}/words/{wordId}
+            Method: PUT
+        UpdateUserWordTag:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /vocab/users/{userId}/words/{wordId}/tag
+            Method: PUT
+
+  DailyStudyFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: group2-englishstudy-vocab-daily-handler
+      CodeUri: ../vocabulary/VocabFunction
+      Handler: com.mzc.secondproject.serverless.vocabulary.handler.DailyStudyHandler::handleRequest
+      Description: Handle daily study word assignment
+      SnapStart:
+        ApplyOn: PublishedVersions
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref VocabTable
+      Events:
+        GetDailyWords:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /vocab/daily/{userId}
+            Method: GET
+        MarkWordLearned:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /vocab/daily/{userId}/words/{wordId}/learned
+            Method: POST
+
+  TestFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: group2-englishstudy-vocab-test-handler
+      CodeUri: ../vocabulary/VocabFunction
+      Handler: com.mzc.secondproject.serverless.vocabulary.handler.TestHandler::handleRequest
+      Description: Handle vocabulary tests
+      SnapStart:
+        ApplyOn: PublishedVersions
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref VocabTable
+      Events:
+        StartTest:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /vocab/test/{userId}/start
+            Method: POST
+        SubmitAnswer:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /vocab/test/{userId}/submit
+            Method: POST
+        GetTestResult:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /vocab/test/{userId}/results
+            Method: GET
+
+  StatsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: group2-englishstudy-vocab-stats-handler
+      CodeUri: ../vocabulary/VocabFunction
+      Handler: com.mzc.secondproject.serverless.vocabulary.handler.StatsHandler::handleRequest
+      Description: Handle user learning statistics
+      SnapStart:
+        ApplyOn: PublishedVersions
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref VocabTable
+      Events:
+        GetStats:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /vocab/stats/{userId}
+            Method: GET
+        GetDailyStats:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /vocab/stats/{userId}/daily
+            Method: GET
+        GetWeaknessAnalysis:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /vocab/stats/{userId}/weakness
+            Method: GET
+
+  VocabVoiceFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: group2-englishstudy-vocab-voice-handler
+      CodeUri: ../vocabulary/VocabFunction
+      Handler: com.mzc.secondproject.serverless.vocabulary.handler.VoiceHandler::handleRequest
+      Description: Convert word to speech using Polly
+      SnapStart:
+        ApplyOn: PublishedVersions
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref VocabTable
+        - S3CrudPolicy:
+            BucketName: group2-englishstudy
+        - Statement:
+            - Effect: Allow
+              Action:
+                - polly:SynthesizeSpeech
+                - polly:DescribeVoices
+              Resource: "*"
+      Events:
+        TextToSpeech:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /vocab/voice/synthesize
+            Method: POST
 
   #############################################
-  # DynamoDB
+  # DynamoDB Tables
   #############################################
 
   ChatTable:
@@ -238,40 +452,67 @@ Resources:
         AttributeName: ttl
         Enabled: true
 
-  #############################################
-  # S3 Bucket (기존 버킷 사용)
-  #############################################
-  # 기존 버킷 group2-englishstudy 사용 - 버킷 생성 제거
+  VocabTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: group2-englishstudy-vocab
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: PK
+          AttributeType: S
+        - AttributeName: SK
+          AttributeType: S
+        - AttributeName: GSI1PK
+          AttributeType: S
+        - AttributeName: GSI1SK
+          AttributeType: S
+        - AttributeName: GSI2PK
+          AttributeType: S
+        - AttributeName: GSI2SK
+          AttributeType: S
+      KeySchema:
+        - AttributeName: PK
+          KeyType: HASH
+        - AttributeName: SK
+          KeyType: RANGE
+      GlobalSecondaryIndexes:
+        - IndexName: GSI1
+          KeySchema:
+            - AttributeName: GSI1PK
+              KeyType: HASH
+            - AttributeName: GSI1SK
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+        - IndexName: GSI2
+          KeySchema:
+            - AttributeName: GSI2PK
+              KeyType: HASH
+            - AttributeName: GSI2SK
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
 
 #############################################
 # Outputs
 #############################################
 
 Outputs:
-  ChatApiUrl:
-    Description: API Gateway endpoint URL
-    Value: !Sub 'https://${ChatApi}.execute-api.${AWS::Region}.amazonaws.com/dev/'
+  ApiUrl:
+    Description: Unified API Gateway endpoint URL
+    Value: !Sub 'https://${MainApi}.execute-api.${AWS::Region}.amazonaws.com/dev/'
 
   ChatTableName:
-    Description: DynamoDB Table Name
+    Description: Chat DynamoDB Table Name
     Value: !Ref ChatTable
 
-  ChatBucketName:
+  VocabTableName:
+    Description: Vocab DynamoDB Table Name
+    Value: !Ref VocabTable
+
+  BucketName:
     Description: S3 Bucket Name
     Value: group2-englishstudy
-
-  ChatRoomFunctionArn:
-    Description: Chat Room Lambda Function ARN
-    Value: !GetAtt ChatRoomFunction.Arn
-
-  ChatMessageFunctionArn:
-    Description: Chat Message Lambda Function ARN
-    Value: !GetAtt ChatMessageFunction.Arn
-
-  ChatAIFunctionArn:
-    Description: Chat AI Lambda Function ARN
-    Value: !GetAtt ChatAIFunction.Arn
-
-  ChatVoiceFunctionArn:
-    Description: Chat Voice Lambda Function ARN
-    Value: !GetAtt ChatVoiceFunction.Arn

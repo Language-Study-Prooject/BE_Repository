@@ -11,8 +11,12 @@ import software.amazon.awssdk.enhanced.dynamodb.TableSchema;
 import software.amazon.awssdk.enhanced.dynamodb.model.Page;
 import software.amazon.awssdk.enhanced.dynamodb.model.QueryConditional;
 import software.amazon.awssdk.enhanced.dynamodb.model.QueryEnhancedRequest;
+import software.amazon.awssdk.enhanced.dynamodb.model.ScanEnhancedRequest;
+import software.amazon.awssdk.enhanced.dynamodb.Expression;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
+
+import java.util.ArrayList;
 
 import java.util.Base64;
 import java.util.HashMap;
@@ -144,6 +148,52 @@ public class WordRepository {
             logger.error("Failed to decode cursor: {}", cursor, e);
             return null;
         }
+    }
+
+    /**
+     * 키워드로 단어 검색 (영어/한국어 contains)
+     * 참고: Scan은 비용이 높으므로 데이터가 많아지면 OpenSearch 도입 권장
+     */
+    public WordPage searchByKeyword(String keyword, int limit, String cursor) {
+        String lowerKeyword = keyword.toLowerCase();
+
+        // Filter: PK가 WORD#로 시작하고, english 또는 korean에 keyword 포함
+        Expression filterExpression = Expression.builder()
+                .expression("begins_with(PK, :pk) AND (contains(#eng, :keyword) OR contains(korean, :keyword))")
+                .putExpressionName("#eng", "english")
+                .putExpressionValue(":pk", AttributeValue.builder().s("WORD#").build())
+                .putExpressionValue(":keyword", AttributeValue.builder().s(lowerKeyword).build())
+                .build();
+
+        ScanEnhancedRequest.Builder requestBuilder = ScanEnhancedRequest.builder()
+                .filterExpression(filterExpression)
+                .limit(limit * 3);  // filter 적용되므로 넉넉히
+
+        if (cursor != null && !cursor.isEmpty()) {
+            Map<String, AttributeValue> exclusiveStartKey = decodeCursor(cursor);
+            if (exclusiveStartKey != null) {
+                requestBuilder.exclusiveStartKey(exclusiveStartKey);
+            }
+        }
+
+        List<Word> results = new ArrayList<>();
+        Map<String, AttributeValue> lastKey = null;
+
+        for (Page<Word> page : table.scan(requestBuilder.build())) {
+            for (Word word : page.items()) {
+                // 대소문자 무시 검색
+                if (word.getEnglish().toLowerCase().contains(lowerKeyword) ||
+                    word.getKorean().contains(keyword)) {
+                    results.add(word);
+                    if (results.size() >= limit) break;
+                }
+            }
+            lastKey = page.lastEvaluatedKey();
+            if (results.size() >= limit) break;
+        }
+
+        String nextCursor = results.size() >= limit ? encodeCursor(lastKey) : null;
+        return new WordPage(results, nextCursor);
     }
 
     public static class WordPage {

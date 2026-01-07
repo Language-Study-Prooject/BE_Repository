@@ -1,6 +1,6 @@
 #!/bin/bash
 
-API_URL="https://ha3vg3u73g.execute-api.ap-northeast-2.amazonaws.com/dev"
+API_URL="https://gc8l9ijhzc.execute-api.ap-northeast-2.amazonaws.com/dev"
 
 echo "=== 채팅방 15개 생성 ==="
 LEVELS=("beginner" "intermediate" "advanced")
