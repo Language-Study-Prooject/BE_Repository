@@ -77,6 +77,8 @@ public class ChatMessageHandler implements RequestHandler<APIGatewayProxyRequest
                 .sk("MSG#" + now + "#" + messageId)
                 .gsi1pk("USER#" + userId)
                 .gsi1sk("MSG#" + now)
+                .gsi2pk("MSG#" + messageId)        // GSI2: messageId로 직접 조회용
+                .gsi2sk("ROOM#" + roomId)
                 .messageId(messageId)
                 .roomId(roomId)
                 .userId(userId)
@@ -87,11 +89,8 @@ public class ChatMessageHandler implements RequestHandler<APIGatewayProxyRequest
 
         ChatMessage savedMessage = chatMessageService.saveMessage(message);
 
-        // 채팅방 lastMessageAt 업데이트
-        chatRoomRepository.findById(roomId).ifPresent(room -> {
-            room.setLastMessageAt(now);
-            chatRoomRepository.save(room);
-        });
+        // 채팅방 lastMessageAt 업데이트 (UpdateExpression으로 1회 호출)
+        chatRoomRepository.updateLastMessageAt(roomId, now);
 
         logger.info("Message sent: {} in room: {}", messageId, roomId);
         return createResponse(201, ApiResponse.success("Message sent", savedMessage));

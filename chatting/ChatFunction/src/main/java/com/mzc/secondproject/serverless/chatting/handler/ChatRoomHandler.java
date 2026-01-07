@@ -9,6 +9,7 @@ import com.google.gson.GsonBuilder;
 import com.mzc.secondproject.serverless.chatting.dto.ApiResponse;
 import com.mzc.secondproject.serverless.chatting.model.ChatRoom;
 import com.mzc.secondproject.serverless.chatting.repository.ChatRoomRepository;
+import org.mindrot.jbcrypt.BCrypt;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -108,7 +109,7 @@ public class ChatRoomHandler implements RequestHandler<APIGatewayProxyRequestEve
                 .currentMembers(1)  // 방장 포함
                 .maxMembers(maxMembers)
                 .isPrivate(isPrivate)
-                .password(isPrivate ? password : null)
+                .password(isPrivate && password != null ? BCrypt.hashpw(password, BCrypt.gensalt()) : null)
                 .createdBy(createdBy)
                 .createdAt(now)
                 .lastMessageAt(now)
@@ -203,9 +204,11 @@ public class ChatRoomHandler implements RequestHandler<APIGatewayProxyRequestEve
 
         ChatRoom room = optRoom.get();
 
-        // 비밀번호 확인
-        if (room.getIsPrivate() && !room.getPassword().equals(password)) {
-            return createResponse(403, ApiResponse.error("Invalid password"));
+        // 비밀번호 확인 (BCrypt 해시 검증)
+        if (room.getIsPrivate()) {
+            if (password == null || room.getPassword() == null || !BCrypt.checkpw(password, room.getPassword())) {
+                return createResponse(403, ApiResponse.error("Invalid password"));
+            }
         }
 
         // 인원 확인
