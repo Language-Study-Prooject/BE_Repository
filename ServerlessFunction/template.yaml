@@ -40,7 +40,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: group2-englishstudy-chat-room-handler
-      CodeUri: ServerlessFunction
+      CodeUri: .
       Handler: com.mzc.secondproject.serverless.domain.chatting.handler.ChatRoomHandler::handleRequest
       Description: Handle chat room CRUD operations
       SnapStart:
@@ -90,7 +90,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: group2-englishstudy-chat-message-handler
-      CodeUri: ServerlessFunction
+      CodeUri: .
       Handler: com.mzc.secondproject.serverless.domain.chatting.handler.ChatMessageHandler::handleRequest
       Description: Handle chat messages
       SnapStart:
@@ -136,7 +136,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: group2-englishstudy-chat-ai-handler
-      CodeUri: ServerlessFunction
+      CodeUri: .
       Handler: com.mzc.secondproject.serverless.domain.chatting.handler.ChatAIHandler::handleRequest
       Description: Generate AI responses using Bedrock
       Timeout: 60
@@ -164,7 +164,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: group2-englishstudy-chat-voice-handler
-      CodeUri: ServerlessFunction
+      CodeUri: .
       Handler: com.mzc.secondproject.serverless.domain.chatting.handler.ChatVoiceHandler::handleRequest
       Description: Convert text to speech using Polly
       SnapStart:
@@ -196,7 +196,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: group2-englishstudy-vocab-word-handler
-      CodeUri: ServerlessFunction
+      CodeUri: .
       Handler: com.mzc.secondproject.serverless.domain.vocabulary.handler.WordHandler::handleRequest
       Description: Handle word CRUD operations
       SnapStart:
@@ -252,7 +252,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: group2-englishstudy-vocab-userword-handler
-      CodeUri: ServerlessFunction
+      CodeUri: .
       Handler: com.mzc.secondproject.serverless.domain.vocabulary.handler.UserWordHandler::handleRequest
       Description: Handle user word learning status
       SnapStart:
@@ -290,7 +290,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: group2-englishstudy-vocab-daily-handler
-      CodeUri: ServerlessFunction
+      CodeUri: .
       Handler: com.mzc.secondproject.serverless.domain.vocabulary.handler.DailyStudyHandler::handleRequest
       Description: Handle daily study word assignment
       SnapStart:
@@ -316,7 +316,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: group2-englishstudy-vocab-test-handler
-      CodeUri: ServerlessFunction
+      CodeUri: .
       Handler: com.mzc.secondproject.serverless.domain.vocabulary.handler.TestHandler::handleRequest
       Description: Handle vocabulary tests
       SnapStart:
@@ -353,7 +353,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: group2-englishstudy-vocab-stats-handler
-      CodeUri: ServerlessFunction
+      CodeUri: .
       Handler: com.mzc.secondproject.serverless.domain.vocabulary.handler.StatsHandler::handleRequest
       Description: Handle user learning statistics
       SnapStart:
@@ -385,7 +385,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: group2-englishstudy-vocab-voice-handler
-      CodeUri: ServerlessFunction
+      CodeUri: .
       Handler: com.mzc.secondproject.serverless.domain.vocabulary.handler.VoiceHandler::handleRequest
       Description: Convert word to speech using Polly
       SnapStart:
@@ -559,7 +559,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: group2-englishstudy-statistics-processor
-      CodeUri: ServerlessFunction
+      CodeUri: .
       Handler: com.mzc.secondproject.serverless.domain.vocabulary.handler.StatisticsHandler::handleRequest
       Description: Process test results and update user word statistics
       Timeout: 60
