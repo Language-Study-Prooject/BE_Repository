@@ -3,8 +3,7 @@ package com.mzc.secondproject.serverless.domain.vocabulary.handler;
 import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.lambda.runtime.RequestHandler;
 import com.amazonaws.services.lambda.runtime.events.SQSEvent;
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
+import com.mzc.secondproject.serverless.common.util.ResponseUtil;
 import com.mzc.secondproject.serverless.domain.vocabulary.model.UserWord;
 import com.mzc.secondproject.serverless.domain.vocabulary.repository.UserWordRepository;
 import org.slf4j.Logger;
@@ -23,7 +22,6 @@ import java.util.Optional;
 public class StatisticsHandler implements RequestHandler<SQSEvent, Void> {
 
     private static final Logger logger = LoggerFactory.getLogger(StatisticsHandler.class);
-    private static final Gson gson = new GsonBuilder().create();
 
     private final UserWordRepository userWordRepository;
 
@@ -53,7 +51,7 @@ public class StatisticsHandler implements RequestHandler<SQSEvent, Void> {
         String body = message.getBody();
         logger.info("Processing message: {}", body);
 
-        Map<String, Object> testResult = gson.fromJson(body, Map.class);
+        Map<String, Object> testResult = ResponseUtil.gson().fromJson(body, Map.class);
 
         String userId = (String) testResult.get("userId");
         List<Map<String, Object>> results = (List<Map<String, Object>>) testResult.get("results");

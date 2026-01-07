@@ -4,9 +4,8 @@ import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.lambda.runtime.RequestHandler;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyRequestEvent;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyResponseEvent;
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
 import com.mzc.secondproject.serverless.common.dto.ApiResponse;
+import static com.mzc.secondproject.serverless.common.util.ResponseUtil.createResponse;
 import com.mzc.secondproject.serverless.domain.vocabulary.model.DailyStudy;
 import com.mzc.secondproject.serverless.domain.vocabulary.model.TestResult;
 import com.mzc.secondproject.serverless.domain.vocabulary.model.UserWord;
@@ -28,7 +27,6 @@ import java.util.stream.Collectors;
 public class StatsHandler implements RequestHandler<APIGatewayProxyRequestEvent, APIGatewayProxyResponseEvent> {
 
     private static final Logger logger = LoggerFactory.getLogger(StatsHandler.class);
-    private static final Gson gson = new GsonBuilder().setPrettyPrinting().create();
 
     private final UserWordRepository userWordRepository;
     private final DailyStudyRepository dailyStudyRepository;
@@ -324,17 +322,5 @@ public class StatsHandler implements RequestHandler<APIGatewayProxyRequestEvent,
         result.put("suggestions", suggestions);
 
         return createResponse(200, ApiResponse.success("Weakness analysis completed", result));
-    }
-
-    private APIGatewayProxyResponseEvent createResponse(int statusCode, Object body) {
-        return new APIGatewayProxyResponseEvent()
-                .withStatusCode(statusCode)
-                .withHeaders(Map.of(
-                        "Content-Type", "application/json",
-                        "Access-Control-Allow-Origin", "*",
-                        "Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS",
-                        "Access-Control-Allow-Headers", "Content-Type,Authorization"
-                ))
-                .withBody(gson.toJson(body));
     }
 }

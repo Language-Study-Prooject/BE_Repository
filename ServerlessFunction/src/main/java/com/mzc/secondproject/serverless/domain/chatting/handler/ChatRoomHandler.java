@@ -4,9 +4,9 @@ import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.lambda.runtime.RequestHandler;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyRequestEvent;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyResponseEvent;
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
 import com.mzc.secondproject.serverless.common.dto.ApiResponse;
+import com.mzc.secondproject.serverless.common.util.ResponseUtil;
+import static com.mzc.secondproject.serverless.common.util.ResponseUtil.createResponse;
 import com.mzc.secondproject.serverless.domain.chatting.model.ChatRoom;
 import com.mzc.secondproject.serverless.domain.chatting.repository.ChatRoomRepository;
 import org.mindrot.jbcrypt.BCrypt;
@@ -24,7 +24,6 @@ import java.util.UUID;
 public class ChatRoomHandler implements RequestHandler<APIGatewayProxyRequestEvent, APIGatewayProxyResponseEvent> {
 
     private static final Logger logger = LoggerFactory.getLogger(ChatRoomHandler.class);
-    private static final Gson gson = new GsonBuilder().setPrettyPrinting().create();
 
     private final ChatRoomRepository roomRepository;
 
@@ -80,7 +79,7 @@ public class ChatRoomHandler implements RequestHandler<APIGatewayProxyRequestEve
 
     private APIGatewayProxyResponseEvent createRoom(APIGatewayProxyRequestEvent request) {
         String body = request.getBody();
-        Map<String, Object> requestBody = gson.fromJson(body, Map.class);
+        Map<String, Object> requestBody = ResponseUtil.gson().fromJson(body, Map.class);
 
         String name = (String) requestBody.get("name");
         String description = (String) requestBody.get("description");
@@ -189,7 +188,7 @@ public class ChatRoomHandler implements RequestHandler<APIGatewayProxyRequestEve
         String roomId = pathParams != null ? pathParams.get("roomId") : null;
 
         String body = request.getBody();
-        Map<String, String> requestBody = gson.fromJson(body, Map.class);
+        Map<String, String> requestBody = ResponseUtil.gson().fromJson(body, Map.class);
         String userId = requestBody.get("userId");
         String password = requestBody.get("password");
 
@@ -241,7 +240,7 @@ public class ChatRoomHandler implements RequestHandler<APIGatewayProxyRequestEve
         String roomId = pathParams != null ? pathParams.get("roomId") : null;
 
         String body = request.getBody();
-        Map<String, String> requestBody = gson.fromJson(body, Map.class);
+        Map<String, String> requestBody = ResponseUtil.gson().fromJson(body, Map.class);
         String userId = requestBody.get("userId");
 
         if (roomId == null || userId == null) {
@@ -304,17 +303,5 @@ public class ChatRoomHandler implements RequestHandler<APIGatewayProxyRequestEve
         logger.info("Deleted room: {} by owner: {}", roomId, userId);
 
         return createResponse(200, ApiResponse.success("Room deleted", null));
-    }
-
-    private APIGatewayProxyResponseEvent createResponse(int statusCode, Object body) {
-        return new APIGatewayProxyResponseEvent()
-                .withStatusCode(statusCode)
-                .withHeaders(Map.of(
-                        "Content-Type", "application/json",
-                        "Access-Control-Allow-Origin", "*",
-                        "Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS",
-                        "Access-Control-Allow-Headers", "Content-Type,Authorization"
-                ))
-                .withBody(gson.toJson(body));
     }
 }
