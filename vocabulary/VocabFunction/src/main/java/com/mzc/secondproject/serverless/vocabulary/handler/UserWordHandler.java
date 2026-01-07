@@ -72,6 +72,8 @@ public class UserWordHandler implements RequestHandler<APIGatewayProxyRequestEve
         String userId = pathParams != null ? pathParams.get("userId") : null;
         String status = queryParams != null ? queryParams.get("status") : null;
         String cursor = queryParams != null ? queryParams.get("cursor") : null;
+        String bookmarked = queryParams != null ? queryParams.get("bookmarked") : null;
+        String incorrectOnly = queryParams != null ? queryParams.get("incorrectOnly") : null;
 
         if (userId == null) {
             return createResponse(400, ApiResponse.error("userId is required"));
@@ -83,7 +85,13 @@ public class UserWordHandler implements RequestHandler<APIGatewayProxyRequestEve
         }
 
         UserWordRepository.UserWordPage userWordPage;
-        if (status != null && !status.isEmpty()) {
+
+        // 필터 우선순위: bookmarked > incorrectOnly > status > 전체
+        if ("true".equalsIgnoreCase(bookmarked)) {
+            userWordPage = userWordRepository.findBookmarkedWords(userId, limit, cursor);
+        } else if ("true".equalsIgnoreCase(incorrectOnly)) {
+            userWordPage = userWordRepository.findIncorrectWords(userId, limit, cursor);
+        } else if (status != null && !status.isEmpty()) {
             userWordPage = userWordRepository.findByUserIdAndStatus(userId, status, limit, cursor);
         } else {
             userWordPage = userWordRepository.findByUserIdWithPagination(userId, limit, cursor);
