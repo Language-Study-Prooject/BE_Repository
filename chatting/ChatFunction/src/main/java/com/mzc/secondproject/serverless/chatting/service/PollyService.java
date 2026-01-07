@@ -14,10 +14,12 @@ import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignReques
 import software.amazon.awssdk.services.s3.presigner.model.PresignedGetObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 
+import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
+import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
+
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.time.Duration;
-import java.util.UUID;
 
 public class PollyService {
 
@@ -35,13 +37,65 @@ public class PollyService {
         this.bucketName = System.getenv("CHAT_BUCKET_NAME");
     }
 
-    public String synthesizeSpeech(String text) {
-        return synthesizeSpeech(text, "FEMALE");
+    /**
+     * 메시지 ID 기반으로 음성 합성 (캐시 지원)
+     * S3에 파일이 있으면 바로 URL 반환, 없으면 Polly 변환 후 저장
+     */
+    public VoiceSynthesisResult synthesizeSpeechForMessage(String messageId, String text, String voice) {
+        String s3Key = generateS3Key(messageId, voice);
+
+        // 캐시 확인: S3에 이미 존재하는지 체크
+        if (existsInS3(s3Key)) {
+            logger.info("Cache hit: {}", s3Key);
+            String presignedUrl = getPresignedUrl(s3Key);
+            return new VoiceSynthesisResult(s3Key, presignedUrl, true);
+        }
+
+        // 캐시 미스: Polly 변환 후 S3 저장
+        logger.info("Cache miss: synthesizing and saving to {}", s3Key);
+        synthesizeAndSave(text, voice, s3Key);
+        String presignedUrl = getPresignedUrl(s3Key);
+        return new VoiceSynthesisResult(s3Key, presignedUrl, false);
     }
 
-    public String synthesizeSpeech(String text, String voice) {
+    /**
+     * S3 키로 Pre-signed URL 생성
+     */
+    public String getPresignedUrl(String s3Key) {
+        GetObjectRequest getObjectRequest = GetObjectRequest.builder()
+                .bucket(bucketName)
+                .key(s3Key)
+                .build();
+
+        GetObjectPresignRequest presignRequest = GetObjectPresignRequest.builder()
+                .signatureDuration(Duration.ofHours(1))
+                .getObjectRequest(getObjectRequest)
+                .build();
+
+        PresignedGetObjectRequest presignedRequest = s3Presigner.presignGetObject(presignRequest);
+        return presignedRequest.url().toString();
+    }
+
+    /**
+     * S3에 파일 존재 여부 확인
+     */
+    public boolean existsInS3(String s3Key) {
+        try {
+            s3Client.headObject(HeadObjectRequest.builder()
+                    .bucket(bucketName)
+                    .key(s3Key)
+                    .build());
+            return true;
+        } catch (NoSuchKeyException e) {
+            return false;
+        }
+    }
+
+    /**
+     * Polly로 음성 변환 후 지정된 S3 키로 저장
+     */
+    private void synthesizeAndSave(String text, String voice, String s3Key) {
         VoiceId voiceId = resolveVoiceId(voice);
-        logger.info("Synthesizing speech with voice: {}", voiceId);
 
         try {
             SynthesizeSpeechRequest request = SynthesizeSpeechRequest.builder()
@@ -53,7 +107,6 @@ public class PollyService {
 
             InputStream audioStream = pollyClient.synthesizeSpeech(request);
 
-            // InputStream을 byte[]로 변환
             ByteArrayOutputStream buffer = new ByteArrayOutputStream();
             byte[] data = new byte[4096];
             int bytesRead;
@@ -62,39 +115,47 @@ public class PollyService {
             }
             byte[] audioBytes = buffer.toByteArray();
 
-            // S3에 저장
-            String audioKey = "voice/" + UUID.randomUUID() + ".mp3";
-
             s3Client.putObject(
                     PutObjectRequest.builder()
                             .bucket(bucketName)
-                            .key(audioKey)
+                            .key(s3Key)
                             .contentType("audio/mpeg")
                             .build(),
                     RequestBody.fromBytes(audioBytes)
             );
 
-            // Pre-signed URL 생성 (1시간 유효)
-            GetObjectRequest getObjectRequest = GetObjectRequest.builder()
-                    .bucket(bucketName)
-                    .key(audioKey)
-                    .build();
-
-            GetObjectPresignRequest presignRequest = GetObjectPresignRequest.builder()
-                    .signatureDuration(Duration.ofHours(1))
-                    .getObjectRequest(getObjectRequest)
-                    .build();
-
-            PresignedGetObjectRequest presignedRequest = s3Presigner.presignGetObject(presignRequest);
-            String presignedUrl = presignedRequest.url().toString();
-
-            logger.info("Generated pre-signed URL for audio: {}", audioKey);
-            return presignedUrl;
-
+            logger.info("Saved audio to S3: {}", s3Key);
         } catch (Exception e) {
             logger.error("Error synthesizing speech", e);
             throw new RuntimeException("Failed to synthesize speech", e);
         }
+    }
+
+    /**
+     * 메시지 ID와 음성 타입으로 S3 키 생성
+     */
+    public String generateS3Key(String messageId, String voice) {
+        String voiceSuffix = "MALE".equalsIgnoreCase(voice) ? "male" : "female";
+        return "voice/" + messageId + "_" + voiceSuffix + ".mp3";
+    }
+
+    /**
+     * 음성 합성 결과
+     */
+    public static class VoiceSynthesisResult {
+        private final String s3Key;
+        private final String audioUrl;
+        private final boolean cached;
+
+        public VoiceSynthesisResult(String s3Key, String audioUrl, boolean cached) {
+            this.s3Key = s3Key;
+            this.audioUrl = audioUrl;
+            this.cached = cached;
+        }
+
+        public String getS3Key() { return s3Key; }
+        public String getAudioUrl() { return audioUrl; }
+        public boolean isCached() { return cached; }
     }
 
     private VoiceId resolveVoiceId(String voice) {

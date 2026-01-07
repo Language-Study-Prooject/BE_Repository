@@ -31,6 +31,9 @@ dependencies {
     // JSON Processing
     implementation 'com.google.code.gson:gson:2.10.1'
 
+    // Password Hashing
+    implementation 'org.mindrot:jbcrypt:0.4'
+
     // Logging
     implementation 'com.amazonaws:aws-lambda-java-log4j2:1.6.0'
     implementation 'org.apache.logging.log4j:log4j-api:2.22.1'
