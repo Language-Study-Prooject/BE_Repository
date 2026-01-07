@@ -23,16 +23,16 @@ public class ChatMessageRepository {
 
     private static final Logger logger = LoggerFactory.getLogger(ChatMessageRepository.class);
 
-    private final DynamoDbEnhancedClient enhancedClient;
+    // Singleton 패턴으로 Cold Start 최적화
+    private static final DynamoDbClient dynamoDbClient = DynamoDbClient.builder().build();
+    private static final DynamoDbEnhancedClient enhancedClient = DynamoDbEnhancedClient.builder()
+            .dynamoDbClient(dynamoDbClient)
+            .build();
+    private static final String tableName = System.getenv("CHAT_TABLE_NAME");
+
     private final DynamoDbTable<ChatMessage> table;
 
     public ChatMessageRepository() {
-        DynamoDbClient dynamoDbClient = DynamoDbClient.builder().build();
-        this.enhancedClient = DynamoDbEnhancedClient.builder()
-                .dynamoDbClient(dynamoDbClient)
-                .build();
-
-        String tableName = System.getenv("CHAT_TABLE_NAME");
         this.table = enhancedClient.table(tableName, TableSchema.fromBean(ChatMessage.class));
     }
 
@@ -43,13 +43,18 @@ public class ChatMessageRepository {
     }
 
     public Optional<ChatMessage> findByRoomIdAndMessageId(String roomId, String messageId) {
-        Key key = Key.builder()
-                .partitionValue("ROOM#" + roomId)
-                .sortValue("MSG#" + messageId)
-                .build();
+        // GSI2를 사용하여 messageId로 직접 조회 (풀스캔 방지)
+        QueryConditional queryConditional = QueryConditional
+                .keyEqualTo(Key.builder()
+                        .partitionValue("MSG#" + messageId)
+                        .sortValue("ROOM#" + roomId)
+                        .build());
 
-        ChatMessage message = table.getItem(key);
-        return Optional.ofNullable(message);
+        return table.index("GSI2")
+                .query(queryConditional)
+                .stream()
+                .flatMap(page -> page.items().stream())
+                .findFirst();
     }
 
     /**
@@ -127,20 +132,32 @@ public class ChatMessageRepository {
         }
     }
 
-    public List<ChatMessage> findByUserId(String userId) {
+    /**
+     * 사용자별 메시지 조회 - 페이지네이션 지원 (OOM 방지)
+     */
+    public MessagePage findByUserIdWithPagination(String userId, int limit, String cursor) {
         QueryConditional queryConditional = QueryConditional
                 .keyEqualTo(Key.builder().partitionValue("USER#" + userId).build());
 
-        QueryEnhancedRequest request = QueryEnhancedRequest.builder()
+        QueryEnhancedRequest.Builder requestBuilder = QueryEnhancedRequest.builder()
                 .queryConditional(queryConditional)
                 .scanIndexForward(false)  // 최신순
-                .build();
+                .limit(limit);
 
-        return table.index("GSI1")
-                .query(request)
-                .stream()
-                .flatMap(page -> page.items().stream())
-                .toList();
+        if (cursor != null && !cursor.isEmpty()) {
+            Map<String, AttributeValue> exclusiveStartKey = decodeCursor(cursor);
+            if (exclusiveStartKey != null) {
+                requestBuilder.exclusiveStartKey(exclusiveStartKey);
+            }
+        }
+
+        Page<ChatMessage> page = table.index("GSI1")
+                .query(requestBuilder.build())
+                .iterator()
+                .next();
+
+        String nextCursor = encodeCursor(page.lastEvaluatedKey());
+        return new MessagePage(page.items(), nextCursor);
     }
 
     /**

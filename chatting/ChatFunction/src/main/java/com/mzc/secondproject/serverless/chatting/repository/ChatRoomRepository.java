@@ -13,6 +13,7 @@ import software.amazon.awssdk.enhanced.dynamodb.model.QueryConditional;
 import software.amazon.awssdk.enhanced.dynamodb.model.QueryEnhancedRequest;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
+import software.amazon.awssdk.services.dynamodb.model.UpdateItemRequest;
 
 import java.util.Base64;
 import java.util.HashMap;
@@ -24,16 +25,16 @@ public class ChatRoomRepository {
 
     private static final Logger logger = LoggerFactory.getLogger(ChatRoomRepository.class);
 
-    private final DynamoDbEnhancedClient enhancedClient;
+    // Singleton 패턴으로 Cold Start 최적화
+    private static final DynamoDbClient dynamoDbClient = DynamoDbClient.builder().build();
+    private static final DynamoDbEnhancedClient enhancedClient = DynamoDbEnhancedClient.builder()
+            .dynamoDbClient(dynamoDbClient)
+            .build();
+    private static final String tableName = System.getenv("CHAT_TABLE_NAME");
+
     private final DynamoDbTable<ChatRoom> table;
 
     public ChatRoomRepository() {
-        DynamoDbClient dynamoDbClient = DynamoDbClient.builder().build();
-        this.enhancedClient = DynamoDbEnhancedClient.builder()
-                .dynamoDbClient(dynamoDbClient)
-                .build();
-
-        String tableName = System.getenv("CHAT_TABLE_NAME");
         this.table = enhancedClient.table(tableName, TableSchema.fromBean(ChatRoom.class));
     }
 
@@ -164,6 +165,28 @@ public class ChatRoomRepository {
 
         table.deleteItem(key);
         logger.info("Deleted room: {}", roomId);
+    }
+
+    /**
+     * 채팅방 lastMessageAt 업데이트 (N+1 방지 - UpdateExpression 사용)
+     */
+    public void updateLastMessageAt(String roomId, String timestamp) {
+        Map<String, AttributeValue> key = new HashMap<>();
+        key.put("PK", AttributeValue.builder().s("ROOM#" + roomId).build());
+        key.put("SK", AttributeValue.builder().s("METADATA").build());
+
+        Map<String, AttributeValue> expressionValues = new HashMap<>();
+        expressionValues.put(":ts", AttributeValue.builder().s(timestamp).build());
+
+        UpdateItemRequest updateRequest = UpdateItemRequest.builder()
+                .tableName(tableName)
+                .key(key)
+                .updateExpression("SET lastMessageAt = :ts")
+                .expressionAttributeValues(expressionValues)
+                .build();
+
+        dynamoDbClient.updateItem(updateRequest);
+        logger.info("Updated lastMessageAt for room: {}", roomId);
     }
 
     /**
