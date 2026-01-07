@@ -50,6 +50,11 @@ public class UserWord {
     private String updatedAt;
     private Long ttl;
 
+    // 사용자 태그
+    private Boolean bookmarked;     // 북마크 여부
+    private Boolean favorite;       // 즐겨찾기 여부
+    private String difficulty;      // 사용자 지정 난이도 (EASY, NORMAL, HARD)
+
     @DynamoDbPartitionKey
     @DynamoDbAttribute("PK")
     public String getPk() {
