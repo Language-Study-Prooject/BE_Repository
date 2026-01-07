@@ -47,6 +47,11 @@ public class UserWordHandler implements RequestHandler<APIGatewayProxyRequestEve
                 return getUserWord(request);
             }
 
+            // PUT /vocab/users/{userId}/words/{wordId}/tag - 태그 변경
+            if ("PUT".equals(httpMethod) && path.endsWith("/tag")) {
+                return updateUserWordTag(request);
+            }
+
             // PUT /vocab/users/{userId}/words/{wordId} - 학습 상태 업데이트
             if ("PUT".equals(httpMethod) && path.contains("/words/")) {
                 return updateUserWord(request);
@@ -67,6 +72,8 @@ public class UserWordHandler implements RequestHandler<APIGatewayProxyRequestEve
         String userId = pathParams != null ? pathParams.get("userId") : null;
         String status = queryParams != null ? queryParams.get("status") : null;
         String cursor = queryParams != null ? queryParams.get("cursor") : null;
+        String bookmarked = queryParams != null ? queryParams.get("bookmarked") : null;
+        String incorrectOnly = queryParams != null ? queryParams.get("incorrectOnly") : null;
 
         if (userId == null) {
             return createResponse(400, ApiResponse.error("userId is required"));
@@ -78,7 +85,13 @@ public class UserWordHandler implements RequestHandler<APIGatewayProxyRequestEve
         }
 
         UserWordRepository.UserWordPage userWordPage;
-        if (status != null && !status.isEmpty()) {
+
+        // 필터 우선순위: bookmarked > incorrectOnly > status > 전체
+        if ("true".equalsIgnoreCase(bookmarked)) {
+            userWordPage = userWordRepository.findBookmarkedWords(userId, limit, cursor);
+        } else if ("true".equalsIgnoreCase(incorrectOnly)) {
+            userWordPage = userWordRepository.findIncorrectWords(userId, limit, cursor);
+        } else if (status != null && !status.isEmpty()) {
             userWordPage = userWordRepository.findByUserIdAndStatus(userId, status, limit, cursor);
         } else {
             userWordPage = userWordRepository.findByUserIdWithPagination(userId, limit, cursor);
@@ -165,6 +178,72 @@ public class UserWordHandler implements RequestHandler<APIGatewayProxyRequestEve
 
         logger.info("Updated user word: userId={}, wordId={}, isCorrect={}", userId, wordId, isCorrect);
         return createResponse(200, ApiResponse.success("UserWord updated", userWord));
+    }
+
+    /**
+     * 사용자 단어 태그 변경 (북마크, 즐겨찾기, 난이도)
+     */
+    private APIGatewayProxyResponseEvent updateUserWordTag(APIGatewayProxyRequestEvent request) {
+        Map<String, String> pathParams = request.getPathParameters();
+        String userId = pathParams != null ? pathParams.get("userId") : null;
+        String wordId = pathParams != null ? pathParams.get("wordId") : null;
+
+        if (userId == null || wordId == null) {
+            return createResponse(400, ApiResponse.error("userId and wordId are required"));
+        }
+
+        String body = request.getBody();
+        Map<String, Object> requestBody = gson.fromJson(body, Map.class);
+
+        Optional<UserWord> optUserWord = userWordRepository.findByUserIdAndWordId(userId, wordId);
+        UserWord userWord;
+        String now = Instant.now().toString();
+
+        if (optUserWord.isEmpty()) {
+            // 새로운 UserWord 생성 (태그만 설정)
+            userWord = UserWord.builder()
+                    .pk("USER#" + userId)
+                    .sk("WORD#" + wordId)
+                    .gsi1pk("USER#" + userId + "#REVIEW")
+                    .gsi2pk("USER#" + userId + "#STATUS")
+                    .gsi2sk("STATUS#NEW")
+                    .userId(userId)
+                    .wordId(wordId)
+                    .status("NEW")
+                    .interval(1)
+                    .easeFactor(2.5)
+                    .repetitions(0)
+                    .correctCount(0)
+                    .incorrectCount(0)
+                    .bookmarked(false)
+                    .favorite(false)
+                    .createdAt(now)
+                    .build();
+        } else {
+            userWord = optUserWord.get();
+        }
+
+        // 태그 업데이트
+        if (requestBody.containsKey("bookmarked")) {
+            userWord.setBookmarked((Boolean) requestBody.get("bookmarked"));
+        }
+        if (requestBody.containsKey("favorite")) {
+            userWord.setFavorite((Boolean) requestBody.get("favorite"));
+        }
+        if (requestBody.containsKey("difficulty")) {
+            String difficulty = (String) requestBody.get("difficulty");
+            if (difficulty != null && (difficulty.equals("EASY") || difficulty.equals("NORMAL") || difficulty.equals("HARD"))) {
+                userWord.setDifficulty(difficulty);
+            } else if (difficulty != null) {
+                return createResponse(400, ApiResponse.error("difficulty must be EASY, NORMAL, or HARD"));
+            }
+        }
+
+        userWord.setUpdatedAt(now);
+        userWordRepository.save(userWord);
+
+        logger.info("Updated user word tag: userId={}, wordId={}", userId, wordId);
+        return createResponse(200, ApiResponse.success("Tag updated", userWord));
     }
 
     /**

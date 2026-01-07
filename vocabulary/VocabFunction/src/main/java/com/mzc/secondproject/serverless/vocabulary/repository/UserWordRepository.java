@@ -12,6 +12,7 @@ import software.amazon.awssdk.enhanced.dynamodb.model.Page;
 import software.amazon.awssdk.enhanced.dynamodb.model.QueryConditional;
 import software.amazon.awssdk.enhanced.dynamodb.model.QueryEnhancedRequest;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
+import software.amazon.awssdk.enhanced.dynamodb.Expression;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 
 import java.util.Base64;
@@ -103,6 +104,72 @@ public class UserWordRepository {
 
         DynamoDbIndex<UserWord> gsi1 = table.index("GSI1");
         Page<UserWord> page = gsi1.query(requestBuilder.build()).iterator().next();
+        String nextCursor = encodeCursor(page.lastEvaluatedKey());
+
+        return new UserWordPage(page.items(), nextCursor);
+    }
+
+    /**
+     * 북마크된 단어만 조회 - FilterExpression 사용 (GSI 추가 없이 비용 최적화)
+     */
+    public UserWordPage findBookmarkedWords(String userId, int limit, String cursor) {
+        QueryConditional queryConditional = QueryConditional
+                .sortBeginsWith(Key.builder()
+                        .partitionValue("USER#" + userId)
+                        .sortValue("WORD#")
+                        .build());
+
+        Expression filterExpression = Expression.builder()
+                .expression("bookmarked = :bookmarked")
+                .putExpressionValue(":bookmarked", AttributeValue.builder().bool(true).build())
+                .build();
+
+        QueryEnhancedRequest.Builder requestBuilder = QueryEnhancedRequest.builder()
+                .queryConditional(queryConditional)
+                .filterExpression(filterExpression)
+                .limit(limit);
+
+        if (cursor != null && !cursor.isEmpty()) {
+            Map<String, AttributeValue> exclusiveStartKey = decodeCursor(cursor);
+            if (exclusiveStartKey != null) {
+                requestBuilder.exclusiveStartKey(exclusiveStartKey);
+            }
+        }
+
+        Page<UserWord> page = table.query(requestBuilder.build()).iterator().next();
+        String nextCursor = encodeCursor(page.lastEvaluatedKey());
+
+        return new UserWordPage(page.items(), nextCursor);
+    }
+
+    /**
+     * 틀린 적 있는 단어만 조회 - FilterExpression 사용 (GSI 추가 없이 비용 최적화)
+     */
+    public UserWordPage findIncorrectWords(String userId, int limit, String cursor) {
+        QueryConditional queryConditional = QueryConditional
+                .sortBeginsWith(Key.builder()
+                        .partitionValue("USER#" + userId)
+                        .sortValue("WORD#")
+                        .build());
+
+        Expression filterExpression = Expression.builder()
+                .expression("incorrectCount > :zero")
+                .putExpressionValue(":zero", AttributeValue.builder().n("0").build())
+                .build();
+
+        QueryEnhancedRequest.Builder requestBuilder = QueryEnhancedRequest.builder()
+                .queryConditional(queryConditional)
+                .filterExpression(filterExpression)
+                .limit(limit);
+
+        if (cursor != null && !cursor.isEmpty()) {
+            Map<String, AttributeValue> exclusiveStartKey = decodeCursor(cursor);
+            if (exclusiveStartKey != null) {
+                requestBuilder.exclusiveStartKey(exclusiveStartKey);
+            }
+        }
+
+        Page<UserWord> page = table.query(requestBuilder.build()).iterator().next();
         String nextCursor = encodeCursor(page.lastEvaluatedKey());
 
         return new UserWordPage(page.items(), nextCursor);
