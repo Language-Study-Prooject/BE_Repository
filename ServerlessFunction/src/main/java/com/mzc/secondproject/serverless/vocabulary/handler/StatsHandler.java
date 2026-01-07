@@ -6,7 +6,7 @@ import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyRequestEvent;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyResponseEvent;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-import com.mzc.secondproject.serverless.vocabulary.dto.ApiResponse;
+import com.mzc.secondproject.serverless.common.dto.ApiResponse;
 import com.mzc.secondproject.serverless.vocabulary.model.DailyStudy;
 import com.mzc.secondproject.serverless.vocabulary.model.TestResult;
 import com.mzc.secondproject.serverless.vocabulary.model.UserWord;

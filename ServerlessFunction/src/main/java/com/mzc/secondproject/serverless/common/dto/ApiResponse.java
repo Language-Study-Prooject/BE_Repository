@@ -1,4 +1,4 @@
-package com.mzc.secondproject.serverless.chatting.dto;
+package com.mzc.secondproject.serverless.common.dto;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
