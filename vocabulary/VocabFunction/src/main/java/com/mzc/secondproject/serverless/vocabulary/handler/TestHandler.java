@@ -15,6 +15,8 @@ import com.mzc.secondproject.serverless.vocabulary.repository.TestResultReposito
 import com.mzc.secondproject.serverless.vocabulary.repository.WordRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import software.amazon.awssdk.services.sns.SnsClient;
+import software.amazon.awssdk.services.sns.model.PublishRequest;
 
 import java.time.Instant;
 import java.time.LocalDate;
@@ -32,6 +34,8 @@ public class TestHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
 
     private static final Logger logger = LoggerFactory.getLogger(TestHandler.class);
     private static final Gson gson = new GsonBuilder().setPrettyPrinting().create();
+    private static final SnsClient snsClient = SnsClient.builder().build();
+    private static final String TEST_RESULT_TOPIC_ARN = System.getenv("TEST_RESULT_TOPIC_ARN");
 
     private final TestResultRepository testResultRepository;
     private final DailyStudyRepository dailyStudyRepository;
@@ -233,6 +237,9 @@ public class TestHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
 
         testResultRepository.save(testResult);
 
+        // SNS로 시험 결과 발행 (비동기 통계 처리용)
+        publishTestResultToSns(userId, results);
+
         // 응답 데이터 구성 (results 포함)
         Map<String, Object> responseData = new HashMap<>();
         responseData.put("testId", testId);
@@ -325,6 +332,35 @@ public class TestHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
         // 옵션 셔플
         Collections.shuffle(options, random);
         return options;
+    }
+
+    /**
+     * SNS로 시험 결과 발행 (비동기 통계 처리용)
+     */
+    private void publishTestResultToSns(String userId, List<Map<String, Object>> results) {
+        if (TEST_RESULT_TOPIC_ARN == null || TEST_RESULT_TOPIC_ARN.isEmpty()) {
+            logger.warn("TEST_RESULT_TOPIC_ARN is not configured, skipping SNS publish");
+            return;
+        }
+
+        try {
+            Map<String, Object> message = new HashMap<>();
+            message.put("userId", userId);
+            message.put("results", results);
+
+            String messageJson = gson.toJson(message);
+
+            PublishRequest publishRequest = PublishRequest.builder()
+                    .topicArn(TEST_RESULT_TOPIC_ARN)
+                    .message(messageJson)
+                    .build();
+
+            snsClient.publish(publishRequest);
+            logger.info("Published test result to SNS for user: {}", userId);
+        } catch (Exception e) {
+            // SNS 발행 실패해도 API 응답에는 영향 없음 (fire-and-forget)
+            logger.error("Failed to publish test result to SNS for user: {}", userId, e);
+        }
     }
 
     private APIGatewayProxyResponseEvent createResponse(int statusCode, Object body) {

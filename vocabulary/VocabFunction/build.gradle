@@ -26,6 +26,7 @@ dependencies {
     implementation 'software.amazon.awssdk:dynamodb-enhanced'
     implementation 'software.amazon.awssdk:polly'
     implementation 'software.amazon.awssdk:s3'
+    implementation 'software.amazon.awssdk:sns'
 
     // JSON Processing
     implementation 'com.google.code.gson:gson:2.10.1'

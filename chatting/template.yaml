@@ -321,9 +321,14 @@ Resources:
       Description: Handle vocabulary tests
       SnapStart:
         ApplyOn: PublishedVersions
+      Environment:
+        Variables:
+          TEST_RESULT_TOPIC_ARN: !Ref TestResultTopic
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref VocabTable
+        - SNSPublishMessagePolicy:
+            TopicName: !GetAtt TestResultTopic.TopicName
       Events:
         StartTest:
           Type: Api
@@ -495,6 +500,82 @@ Resources:
       TimeToLiveSpecification:
         AttributeName: ttl
         Enabled: true
+
+  #############################################
+  # SNS / SQS for Async Statistics Processing
+  #############################################
+
+  # SNS Topic - 시험 결과 이벤트 발행
+  TestResultTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: group2-englishstudy-test-result-topic
+
+  # SQS Dead Letter Queue - 실패한 메시지 보관
+  StatisticsDeadLetterQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: group2-englishstudy-statistics-dlq
+      MessageRetentionPeriod: 1209600  # 14일
+
+  # SQS Queue - 통계 처리용
+  StatisticsQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: group2-englishstudy-statistics-queue
+      VisibilityTimeout: 60
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt StatisticsDeadLetterQueue.Arn
+        maxReceiveCount: 3
+
+  # SQS Queue Policy - SNS에서 메시지 수신 허용
+  StatisticsQueuePolicy:
+    Type: AWS::SQS::QueuePolicy
+    Properties:
+      Queues:
+        - !Ref StatisticsQueue
+      PolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: sns.amazonaws.com
+            Action: sqs:SendMessage
+            Resource: !GetAtt StatisticsQueue.Arn
+            Condition:
+              ArnEquals:
+                aws:SourceArn: !Ref TestResultTopic
+
+  # SNS → SQS 구독
+  StatisticsQueueSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      Protocol: sqs
+      TopicArn: !Ref TestResultTopic
+      Endpoint: !GetAtt StatisticsQueue.Arn
+      RawMessageDelivery: true
+
+  # Statistics Processor Lambda - SQS에서 메시지 소비하여 통계 업데이트
+  StatisticsProcessorFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: group2-englishstudy-statistics-processor
+      CodeUri: ../vocabulary/VocabFunction
+      Handler: com.mzc.secondproject.serverless.vocabulary.handler.StatisticsHandler::handleRequest
+      Description: Process test results and update user word statistics
+      Timeout: 60
+      SnapStart:
+        ApplyOn: PublishedVersions
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref VocabTable
+        - SQSPollerPolicy:
+            QueueName: !GetAtt StatisticsQueue.QueueName
+      Events:
+        SQSEvent:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt StatisticsQueue.Arn
+            BatchSize: 10
 
 #############################################
 # Outputs
