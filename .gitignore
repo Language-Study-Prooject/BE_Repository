@@ -39,3 +39,6 @@ samconfig.toml
 # Test
 *.test.ts
 coverage/
+
+# Seed Data (already uploaded to DynamoDB)
+vocabulary/seed-data/

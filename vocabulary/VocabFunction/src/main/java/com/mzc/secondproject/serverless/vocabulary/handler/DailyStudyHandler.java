@@ -71,11 +71,15 @@ public class DailyStudyHandler implements RequestHandler<APIGatewayProxyRequestE
 
     private APIGatewayProxyResponseEvent getDailyWords(APIGatewayProxyRequestEvent request) {
         Map<String, String> pathParams = request.getPathParameters();
+        Map<String, String> queryParams = request.getQueryStringParameters();
         String userId = pathParams != null ? pathParams.get("userId") : null;
 
         if (userId == null) {
             return createResponse(400, ApiResponse.error("userId is required"));
         }
+
+        // 레벨 파라미터 (첫 생성 시 필수)
+        String level = queryParams != null ? queryParams.get("level") : null;
 
         String today = LocalDate.now().toString();
 
@@ -86,8 +90,16 @@ public class DailyStudyHandler implements RequestHandler<APIGatewayProxyRequestE
         if (optDailyStudy.isPresent()) {
             dailyStudy = optDailyStudy.get();
         } else {
+            // 첫 생성 시 레벨 필수
+            if (level == null || level.isEmpty()) {
+                return createResponse(400, ApiResponse.error("level is required for first daily study (BEGINNER, INTERMEDIATE, ADVANCED)"));
+            }
+            // 레벨 유효성 검사
+            if (!level.equals("BEGINNER") && !level.equals("INTERMEDIATE") && !level.equals("ADVANCED")) {
+                return createResponse(400, ApiResponse.error("Invalid level. Must be BEGINNER, INTERMEDIATE, or ADVANCED"));
+            }
             // 새로운 일일 학습 생성
-            dailyStudy = createDailyStudy(userId, today);
+            dailyStudy = createDailyStudy(userId, today, level);
         }
 
         // 단어 상세 정보 조회
@@ -103,7 +115,7 @@ public class DailyStudyHandler implements RequestHandler<APIGatewayProxyRequestE
         return createResponse(200, ApiResponse.success("Daily words retrieved", result));
     }
 
-    private DailyStudy createDailyStudy(String userId, String date) {
+    private DailyStudy createDailyStudy(String userId, String date, String level) {
         String now = Instant.now().toString();
 
         // 복습 대상 단어 조회 (5개)
@@ -112,8 +124,8 @@ public class DailyStudyHandler implements RequestHandler<APIGatewayProxyRequestE
                 .map(UserWord::getWordId)
                 .collect(Collectors.toList());
 
-        // 신규 단어 조회 (50개) - 아직 학습하지 않은 단어
-        List<String> newWordIds = getNewWordsForUser(userId, NEW_WORDS_COUNT);
+        // 신규 단어 조회 (50개) - 해당 레벨에서 아직 학습하지 않은 단어
+        List<String> newWordIds = getNewWordsForUser(userId, level, NEW_WORDS_COUNT);
 
         DailyStudy dailyStudy = DailyStudy.builder()
                 .pk("DAILY#" + userId)
@@ -138,29 +150,30 @@ public class DailyStudyHandler implements RequestHandler<APIGatewayProxyRequestE
         return dailyStudy;
     }
 
-    private List<String> getNewWordsForUser(String userId, int count) {
+    private List<String> getNewWordsForUser(String userId, String level, int count) {
         // 사용자가 학습한 단어 목록
         UserWordRepository.UserWordPage userWordPage = userWordRepository.findByUserIdWithPagination(userId, 1000, null);
         List<String> learnedWordIds = userWordPage.getUserWords().stream()
                 .map(UserWord::getWordId)
                 .collect(Collectors.toList());
 
-        // 전체 단어에서 학습하지 않은 단어 선택
+        // 해당 레벨에서 학습하지 않은 단어 선택
         List<String> newWordIds = new ArrayList<>();
-        String[] levels = {"BEGINNER", "INTERMEDIATE", "ADVANCED"};
+        String lastEvaluatedKey = null;
 
-        for (String level : levels) {
-            if (newWordIds.size() >= count) break;
-
-            WordRepository.WordPage wordPage = wordRepository.findByLevelWithPagination(level, count * 2, null);
+        // 페이지네이션으로 해당 레벨의 모든 단어 조회
+        do {
+            WordRepository.WordPage wordPage = wordRepository.findByLevelWithPagination(level, count * 2, lastEvaluatedKey);
             for (Word word : wordPage.getWords()) {
                 if (!learnedWordIds.contains(word.getWordId()) && !newWordIds.contains(word.getWordId())) {
                     newWordIds.add(word.getWordId());
                     if (newWordIds.size() >= count) break;
                 }
             }
-        }
+            lastEvaluatedKey = wordPage.getNextCursor();
+        } while (newWordIds.size() < count && lastEvaluatedKey != null);
 
+        logger.info("Selected {} new words for user {} at level {}", newWordIds.size(), userId, level);
         return newWordIds;
     }
 
@@ -169,11 +182,8 @@ public class DailyStudyHandler implements RequestHandler<APIGatewayProxyRequestE
             return new ArrayList<>();
         }
 
-        List<Word> words = new ArrayList<>();
-        for (String wordId : wordIds) {
-            wordRepository.findById(wordId).ifPresent(words::add);
-        }
-        return words;
+        // BatchGetItem으로 한 번에 조회 (N+1 문제 해결)
+        return wordRepository.findByIds(wordIds);
     }
 
     private Map<String, Object> calculateProgress(DailyStudy dailyStudy) {
