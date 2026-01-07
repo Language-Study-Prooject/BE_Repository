@@ -4,9 +4,9 @@ import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.lambda.runtime.RequestHandler;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyRequestEvent;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyResponseEvent;
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
 import com.mzc.secondproject.serverless.common.dto.ApiResponse;
+import com.mzc.secondproject.serverless.common.util.ResponseUtil;
+import static com.mzc.secondproject.serverless.common.util.ResponseUtil.createResponse;
 import com.mzc.secondproject.serverless.domain.vocabulary.model.UserWord;
 import com.mzc.secondproject.serverless.domain.vocabulary.model.Word;
 import com.mzc.secondproject.serverless.domain.vocabulary.repository.UserWordRepository;
@@ -26,7 +26,6 @@ import java.util.stream.Collectors;
 public class UserWordHandler implements RequestHandler<APIGatewayProxyRequestEvent, APIGatewayProxyResponseEvent> {
 
     private static final Logger logger = LoggerFactory.getLogger(UserWordHandler.class);
-    private static final Gson gson = new GsonBuilder().setPrettyPrinting().create();
 
     private final UserWordRepository userWordRepository;
     private final WordRepository wordRepository;
@@ -143,7 +142,7 @@ public class UserWordHandler implements RequestHandler<APIGatewayProxyRequestEve
         }
 
         String body = request.getBody();
-        Map<String, Object> requestBody = gson.fromJson(body, Map.class);
+        Map<String, Object> requestBody = ResponseUtil.gson().fromJson(body, Map.class);
 
         // 정답/오답 여부
         Boolean isCorrect = (Boolean) requestBody.get("isCorrect");
@@ -204,7 +203,7 @@ public class UserWordHandler implements RequestHandler<APIGatewayProxyRequestEve
         }
 
         String body = request.getBody();
-        Map<String, Object> requestBody = gson.fromJson(body, Map.class);
+        Map<String, Object> requestBody = ResponseUtil.gson().fromJson(body, Map.class);
 
         Optional<UserWord> optUserWord = userWordRepository.findByUserIdAndWordId(userId, wordId);
         UserWord userWord;
@@ -355,17 +354,5 @@ public class UserWordHandler implements RequestHandler<APIGatewayProxyRequestEve
         }
 
         return enrichedList;
-    }
-
-    private APIGatewayProxyResponseEvent createResponse(int statusCode, Object body) {
-        return new APIGatewayProxyResponseEvent()
-                .withStatusCode(statusCode)
-                .withHeaders(Map.of(
-                        "Content-Type", "application/json",
-                        "Access-Control-Allow-Origin", "*",
-                        "Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS",
-                        "Access-Control-Allow-Headers", "Content-Type,Authorization"
-                ))
-                .withBody(gson.toJson(body));
     }
 }

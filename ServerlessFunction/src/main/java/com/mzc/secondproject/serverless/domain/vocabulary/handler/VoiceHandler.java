@@ -4,9 +4,9 @@ import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.lambda.runtime.RequestHandler;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyRequestEvent;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyResponseEvent;
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
 import com.mzc.secondproject.serverless.common.dto.ApiResponse;
+import com.mzc.secondproject.serverless.common.util.ResponseUtil;
+import static com.mzc.secondproject.serverless.common.util.ResponseUtil.createResponse;
 import com.mzc.secondproject.serverless.domain.vocabulary.model.Word;
 import com.mzc.secondproject.serverless.domain.vocabulary.repository.WordRepository;
 import com.mzc.secondproject.serverless.domain.vocabulary.service.PollyService;
@@ -20,7 +20,6 @@ import java.util.Optional;
 public class VoiceHandler implements RequestHandler<APIGatewayProxyRequestEvent, APIGatewayProxyResponseEvent> {
 
     private static final Logger logger = LoggerFactory.getLogger(VoiceHandler.class);
-    private static final Gson gson = new GsonBuilder().setPrettyPrinting().create();
 
     private final WordRepository wordRepository;
     private final PollyService pollyService;
@@ -53,7 +52,7 @@ public class VoiceHandler implements RequestHandler<APIGatewayProxyRequestEvent,
 
     private APIGatewayProxyResponseEvent synthesizeSpeech(APIGatewayProxyRequestEvent request) {
         String body = request.getBody();
-        Map<String, Object> requestBody = gson.fromJson(body, Map.class);
+        Map<String, Object> requestBody = ResponseUtil.gson().fromJson(body, Map.class);
 
         String wordId = (String) requestBody.get("wordId");
         String voice = (String) requestBody.getOrDefault("voice", "FEMALE");
@@ -107,17 +106,5 @@ public class VoiceHandler implements RequestHandler<APIGatewayProxyRequestEvent,
         responseData.put("cached", cached);
 
         return createResponse(200, ApiResponse.success("Speech synthesized", responseData));
-    }
-
-    private APIGatewayProxyResponseEvent createResponse(int statusCode, Object body) {
-        return new APIGatewayProxyResponseEvent()
-                .withStatusCode(statusCode)
-                .withHeaders(Map.of(
-                        "Content-Type", "application/json",
-                        "Access-Control-Allow-Origin", "*",
-                        "Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS",
-                        "Access-Control-Allow-Headers", "Content-Type,Authorization"
-                ))
-                .withBody(gson.toJson(body));
     }
 }
