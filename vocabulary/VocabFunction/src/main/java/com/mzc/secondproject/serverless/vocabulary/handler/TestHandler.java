@@ -172,6 +172,7 @@ public class TestHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
         int correctCount = 0;
         int incorrectCount = 0;
         List<String> incorrectWordIds = new ArrayList<>();
+        List<Map<String, Object>> results = new ArrayList<>();
 
         // 모든 wordId를 추출하여 BatchGetItem으로 한 번에 조회
         List<String> wordIds = answers.stream()
@@ -191,6 +192,15 @@ public class TestHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
             if (word != null) {
                 // 대소문자 무시, 공백 제거 후 비교
                 boolean isCorrect = word.getKorean().trim().equalsIgnoreCase(userAnswer.trim());
+
+                // 결과 상세 정보 추가
+                Map<String, Object> resultItem = new HashMap<>();
+                resultItem.put("wordId", wordId);
+                resultItem.put("english", word.getEnglish());
+                resultItem.put("correctAnswer", word.getKorean());
+                resultItem.put("userAnswer", userAnswer);
+                resultItem.put("isCorrect", isCorrect);
+                results.add(resultItem);
 
                 if (isCorrect) {
                     correctCount++;
@@ -223,8 +233,18 @@ public class TestHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
 
         testResultRepository.save(testResult);
 
+        // 응답 데이터 구성 (results 포함)
+        Map<String, Object> responseData = new HashMap<>();
+        responseData.put("testId", testId);
+        responseData.put("testType", testType);
+        responseData.put("totalQuestions", totalQuestions);
+        responseData.put("correctCount", correctCount);
+        responseData.put("incorrectCount", incorrectCount);
+        responseData.put("successRate", successRate);
+        responseData.put("results", results);
+
         logger.info("Test submitted: userId={}, testId={}, successRate={}%", userId, testId, successRate);
-        return createResponse(200, ApiResponse.success("Test submitted", testResult));
+        return createResponse(200, ApiResponse.success("Test submitted", responseData));
     }
 
     private APIGatewayProxyResponseEvent getTestResults(APIGatewayProxyRequestEvent request) {
