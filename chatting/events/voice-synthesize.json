@@ -1,8 +1,0 @@
-{
-  "httpMethod": "POST",
-  "path": "/chat/voice/synthesize",
-  "headers": {
-    "Content-Type": "application/json"
-  },
-  "body": "{\"text\": \"안녕하세요, 반갑습니다.\"}"
-}
