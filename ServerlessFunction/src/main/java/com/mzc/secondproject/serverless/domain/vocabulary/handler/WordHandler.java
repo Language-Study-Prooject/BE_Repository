@@ -4,9 +4,9 @@ import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.lambda.runtime.RequestHandler;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyRequestEvent;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyResponseEvent;
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
 import com.mzc.secondproject.serverless.common.dto.ApiResponse;
+import com.mzc.secondproject.serverless.common.util.ResponseUtil;
+import static com.mzc.secondproject.serverless.common.util.ResponseUtil.createResponse;
 import com.mzc.secondproject.serverless.domain.vocabulary.model.Word;
 import com.mzc.secondproject.serverless.domain.vocabulary.repository.WordRepository;
 import org.slf4j.Logger;
@@ -23,7 +23,6 @@ import java.util.UUID;
 public class WordHandler implements RequestHandler<APIGatewayProxyRequestEvent, APIGatewayProxyResponseEvent> {
 
     private static final Logger logger = LoggerFactory.getLogger(WordHandler.class);
-    private static final Gson gson = new GsonBuilder().setPrettyPrinting().create();
 
     private final WordRepository wordRepository;
 
@@ -84,7 +83,7 @@ public class WordHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
 
     private APIGatewayProxyResponseEvent createWord(APIGatewayProxyRequestEvent request) {
         String body = request.getBody();
-        Map<String, Object> requestBody = gson.fromJson(body, Map.class);
+        Map<String, Object> requestBody = ResponseUtil.gson().fromJson(body, Map.class);
 
         String english = (String) requestBody.get("english");
         String korean = (String) requestBody.get("korean");
@@ -185,7 +184,7 @@ public class WordHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
 
         Word word = optWord.get();
         String body = request.getBody();
-        Map<String, Object> requestBody = gson.fromJson(body, Map.class);
+        Map<String, Object> requestBody = ResponseUtil.gson().fromJson(body, Map.class);
 
         if (requestBody.containsKey("english")) {
             word.setEnglish((String) requestBody.get("english"));
@@ -235,7 +234,7 @@ public class WordHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
     @SuppressWarnings("unchecked")
     private APIGatewayProxyResponseEvent createWordsBatch(APIGatewayProxyRequestEvent request) {
         String body = request.getBody();
-        Map<String, Object> requestBody = gson.fromJson(body, Map.class);
+        Map<String, Object> requestBody = ResponseUtil.gson().fromJson(body, Map.class);
 
         List<Map<String, Object>> wordsList = (List<Map<String, Object>>) requestBody.get("words");
         if (wordsList == null || wordsList.isEmpty()) {
@@ -321,17 +320,5 @@ public class WordHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
         result.put("hasMore", wordPage.hasMore());
 
         return createResponse(200, ApiResponse.success("Search completed", result));
-    }
-
-    private APIGatewayProxyResponseEvent createResponse(int statusCode, Object body) {
-        return new APIGatewayProxyResponseEvent()
-                .withStatusCode(statusCode)
-                .withHeaders(Map.of(
-                        "Content-Type", "application/json",
-                        "Access-Control-Allow-Origin", "*",
-                        "Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS",
-                        "Access-Control-Allow-Headers", "Content-Type,Authorization"
-                ))
-                .withBody(gson.toJson(body));
     }
 }

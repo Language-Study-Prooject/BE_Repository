@@ -4,9 +4,9 @@ import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.lambda.runtime.RequestHandler;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyRequestEvent;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyResponseEvent;
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
 import com.mzc.secondproject.serverless.common.dto.ApiResponse;
+import com.mzc.secondproject.serverless.common.util.ResponseUtil;
+import static com.mzc.secondproject.serverless.common.util.ResponseUtil.createResponse;
 import com.mzc.secondproject.serverless.domain.vocabulary.model.DailyStudy;
 import com.mzc.secondproject.serverless.domain.vocabulary.model.TestResult;
 import com.mzc.secondproject.serverless.domain.vocabulary.model.Word;
@@ -33,7 +33,6 @@ import java.util.stream.Collectors;
 public class TestHandler implements RequestHandler<APIGatewayProxyRequestEvent, APIGatewayProxyResponseEvent> {
 
     private static final Logger logger = LoggerFactory.getLogger(TestHandler.class);
-    private static final Gson gson = new GsonBuilder().setPrettyPrinting().create();
     private static final SnsClient snsClient = SnsClient.builder().build();
     private static final String TEST_RESULT_TOPIC_ARN = System.getenv("TEST_RESULT_TOPIC_ARN");
 
@@ -87,7 +86,7 @@ public class TestHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
         }
 
         String body = request.getBody();
-        Map<String, Object> requestBody = gson.fromJson(body, Map.class);
+        Map<String, Object> requestBody = ResponseUtil.gson().fromJson(body, Map.class);
         String testType = (String) requestBody.getOrDefault("testType", "DAILY");
 
         String today = LocalDate.now().toString();
@@ -160,7 +159,7 @@ public class TestHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
         }
 
         String body = request.getBody();
-        Map<String, Object> requestBody = gson.fromJson(body, Map.class);
+        Map<String, Object> requestBody = ResponseUtil.gson().fromJson(body, Map.class);
 
         String testId = (String) requestBody.get("testId");
         String testType = (String) requestBody.getOrDefault("testType", "DAILY");
@@ -348,7 +347,7 @@ public class TestHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
             message.put("userId", userId);
             message.put("results", results);
 
-            String messageJson = gson.toJson(message);
+            String messageJson = ResponseUtil.gson().toJson(message);
 
             PublishRequest publishRequest = PublishRequest.builder()
                     .topicArn(TEST_RESULT_TOPIC_ARN)
@@ -361,17 +360,5 @@ public class TestHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
             // SNS 발행 실패해도 API 응답에는 영향 없음 (fire-and-forget)
             logger.error("Failed to publish test result to SNS for user: {}", userId, e);
         }
-    }
-
-    private APIGatewayProxyResponseEvent createResponse(int statusCode, Object body) {
-        return new APIGatewayProxyResponseEvent()
-                .withStatusCode(statusCode)
-                .withHeaders(Map.of(
-                        "Content-Type", "application/json",
-                        "Access-Control-Allow-Origin", "*",
-                        "Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS",
-                        "Access-Control-Allow-Headers", "Content-Type,Authorization"
-                ))
-                .withBody(gson.toJson(body));
     }
 }
