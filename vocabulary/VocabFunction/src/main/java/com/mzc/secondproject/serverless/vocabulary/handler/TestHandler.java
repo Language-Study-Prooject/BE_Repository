@@ -100,18 +100,15 @@ public class TestHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
             return createResponse(400, ApiResponse.error("No words to test"));
         }
 
-        // 시험 문제 생성
+        // 시험 문제 생성 (BatchGetItem으로 한 번에 조회)
+        List<Word> words = wordRepository.findByIds(allWordIds);
         List<Map<String, Object>> questions = new ArrayList<>();
-        for (String wordId : allWordIds) {
-            Optional<Word> optWord = wordRepository.findById(wordId);
-            if (optWord.isPresent()) {
-                Word word = optWord.get();
-                Map<String, Object> question = new HashMap<>();
-                question.put("wordId", word.getWordId());
-                question.put("english", word.getEnglish());
-                question.put("example", word.getExample());
-                questions.add(question);
-            }
+        for (Word word : words) {
+            Map<String, Object> question = new HashMap<>();
+            question.put("wordId", word.getWordId());
+            question.put("english", word.getEnglish());
+            question.put("example", word.getExample());
+            questions.add(question);
         }
 
         String testId = UUID.randomUUID().toString();
@@ -155,13 +152,22 @@ public class TestHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
         int incorrectCount = 0;
         List<String> incorrectWordIds = new ArrayList<>();
 
+        // 모든 wordId를 추출하여 BatchGetItem으로 한 번에 조회
+        List<String> wordIds = answers.stream()
+                .map(a -> (String) a.get("wordId"))
+                .collect(java.util.stream.Collectors.toList());
+        List<Word> words = wordRepository.findByIds(wordIds);
+
+        // wordId -> Word 맵 생성
+        Map<String, Word> wordMap = words.stream()
+                .collect(java.util.stream.Collectors.toMap(Word::getWordId, w -> w));
+
         for (Map<String, Object> answer : answers) {
             String wordId = (String) answer.get("wordId");
             String userAnswer = (String) answer.get("answer");
 
-            Optional<Word> optWord = wordRepository.findById(wordId);
-            if (optWord.isPresent()) {
-                Word word = optWord.get();
+            Word word = wordMap.get(wordId);
+            if (word != null) {
                 // 대소문자 무시, 공백 제거 후 비교
                 boolean isCorrect = word.getKorean().trim().equalsIgnoreCase(userAnswer.trim());
 

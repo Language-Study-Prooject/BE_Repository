@@ -169,11 +169,8 @@ public class DailyStudyHandler implements RequestHandler<APIGatewayProxyRequestE
             return new ArrayList<>();
         }
 
-        List<Word> words = new ArrayList<>();
-        for (String wordId : wordIds) {
-            wordRepository.findById(wordId).ifPresent(words::add);
-        }
-        return words;
+        // BatchGetItem으로 한 번에 조회 (N+1 문제 해결)
+        return wordRepository.findByIds(wordIds);
     }
 
     private Map<String, Object> calculateProgress(DailyStudy dailyStudy) {
