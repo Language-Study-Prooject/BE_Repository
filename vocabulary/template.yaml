@@ -37,31 +37,43 @@ Resources:
         CreateWord:
           Type: Api
           Properties:
-            RestApiId: !Ref VocabApi
+            RestApiId: !ImportValue group2-englishstudy-api-id
             Path: /vocab/words
             Method: POST
+        BatchCreateWords:
+          Type: Api
+          Properties:
+            RestApiId: !ImportValue group2-englishstudy-api-id
+            Path: /vocab/words/batch
+            Method: POST
+        SearchWords:
+          Type: Api
+          Properties:
+            RestApiId: !ImportValue group2-englishstudy-api-id
+            Path: /vocab/words/search
+            Method: GET
         GetWords:
           Type: Api
           Properties:
-            RestApiId: !Ref VocabApi
+            RestApiId: !ImportValue group2-englishstudy-api-id
             Path: /vocab/words
             Method: GET
         GetWord:
           Type: Api
           Properties:
-            RestApiId: !Ref VocabApi
+            RestApiId: !ImportValue group2-englishstudy-api-id
             Path: /vocab/words/{wordId}
             Method: GET
         UpdateWord:
           Type: Api
           Properties:
-            RestApiId: !Ref VocabApi
+            RestApiId: !ImportValue group2-englishstudy-api-id
             Path: /vocab/words/{wordId}
             Method: PUT
         DeleteWord:
           Type: Api
           Properties:
-            RestApiId: !Ref VocabApi
+            RestApiId: !ImportValue group2-englishstudy-api-id
             Path: /vocab/words/{wordId}
             Method: DELETE
 
@@ -82,20 +94,26 @@ Resources:
         GetUserWords:
           Type: Api
           Properties:
-            RestApiId: !Ref VocabApi
+            RestApiId: !ImportValue group2-englishstudy-api-id
             Path: /vocab/users/{userId}/words
             Method: GET
         GetUserWord:
           Type: Api
           Properties:
-            RestApiId: !Ref VocabApi
+            RestApiId: !ImportValue group2-englishstudy-api-id
             Path: /vocab/users/{userId}/words/{wordId}
             Method: GET
         UpdateUserWord:
           Type: Api
           Properties:
-            RestApiId: !Ref VocabApi
+            RestApiId: !ImportValue group2-englishstudy-api-id
             Path: /vocab/users/{userId}/words/{wordId}
+            Method: PUT
+        UpdateUserWordTag:
+          Type: Api
+          Properties:
+            RestApiId: !ImportValue group2-englishstudy-api-id
+            Path: /vocab/users/{userId}/words/{wordId}/tag
             Method: PUT
 
   # 일일 학습 관리 함수 (55개 단어 할당)
@@ -115,13 +133,13 @@ Resources:
         GetDailyWords:
           Type: Api
           Properties:
-            RestApiId: !Ref VocabApi
+            RestApiId: !ImportValue group2-englishstudy-api-id
             Path: /vocab/daily/{userId}
             Method: GET
         MarkWordLearned:
           Type: Api
           Properties:
-            RestApiId: !Ref VocabApi
+            RestApiId: !ImportValue group2-englishstudy-api-id
             Path: /vocab/daily/{userId}/words/{wordId}/learned
             Method: POST
 
@@ -142,19 +160,19 @@ Resources:
         StartTest:
           Type: Api
           Properties:
-            RestApiId: !Ref VocabApi
+            RestApiId: !ImportValue group2-englishstudy-api-id
             Path: /vocab/test/{userId}/start
             Method: POST
         SubmitAnswer:
           Type: Api
           Properties:
-            RestApiId: !Ref VocabApi
+            RestApiId: !ImportValue group2-englishstudy-api-id
             Path: /vocab/test/{userId}/submit
             Method: POST
         GetTestResult:
           Type: Api
           Properties:
-            RestApiId: !Ref VocabApi
+            RestApiId: !ImportValue group2-englishstudy-api-id
             Path: /vocab/test/{userId}/results
             Method: GET
 
@@ -175,14 +193,20 @@ Resources:
         GetStats:
           Type: Api
           Properties:
-            RestApiId: !Ref VocabApi
+            RestApiId: !ImportValue group2-englishstudy-api-id
             Path: /vocab/stats/{userId}
             Method: GET
         GetDailyStats:
           Type: Api
           Properties:
-            RestApiId: !Ref VocabApi
+            RestApiId: !ImportValue group2-englishstudy-api-id
             Path: /vocab/stats/{userId}/daily
+            Method: GET
+        GetWeaknessAnalysis:
+          Type: Api
+          Properties:
+            RestApiId: !ImportValue group2-englishstudy-api-id
+            Path: /vocab/stats/{userId}/weakness
             Method: GET
 
   # 음성 변환 함수 (Polly)
@@ -210,23 +234,14 @@ Resources:
         TextToSpeech:
           Type: Api
           Properties:
-            RestApiId: !Ref VocabApi
+            RestApiId: !ImportValue group2-englishstudy-api-id
             Path: /vocab/voice/synthesize
             Method: POST
 
   #############################################
-  # API Gateway
+  # API Gateway - chatting 스택에서 공유 API Gateway 참조
   #############################################
-
-  VocabApi:
-    Type: AWS::Serverless::Api
-    Properties:
-      Name: group2-englishstudy-vocab-api
-      StageName: dev
-      Cors:
-        AllowMethods: "'GET,POST,PUT,DELETE,OPTIONS'"
-        AllowHeaders: "'Content-Type,Authorization,X-Amz-Date,X-Api-Key'"
-        AllowOrigin: "'*'"
+  # VocabApi는 chatting 스택의 ChatApi를 ImportValue로 참조
 
   #############################################
   # DynamoDB
@@ -282,8 +297,8 @@ Resources:
 
 Outputs:
   VocabApiUrl:
-    Description: API Gateway endpoint URL
-    Value: !Sub 'https://${VocabApi}.execute-api.${AWS::Region}.amazonaws.com/dev/'
+    Description: API Gateway endpoint URL (Shared with chatting)
+    Value: !ImportValue group2-englishstudy-api-url
 
   VocabTableName:
     Description: DynamoDB Table Name
