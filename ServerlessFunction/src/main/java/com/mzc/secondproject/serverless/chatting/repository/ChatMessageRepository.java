@@ -1,0 +1,187 @@
+package com.mzc.secondproject.serverless.chatting.repository;
+
+import com.mzc.secondproject.serverless.chatting.model.ChatMessage;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import software.amazon.awssdk.enhanced.dynamodb.DynamoDbEnhancedClient;
+import software.amazon.awssdk.enhanced.dynamodb.DynamoDbTable;
+import software.amazon.awssdk.enhanced.dynamodb.Key;
+import software.amazon.awssdk.enhanced.dynamodb.TableSchema;
+import software.amazon.awssdk.enhanced.dynamodb.model.Page;
+import software.amazon.awssdk.enhanced.dynamodb.model.QueryConditional;
+import software.amazon.awssdk.enhanced.dynamodb.model.QueryEnhancedRequest;
+import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
+import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
+
+import java.util.Base64;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+
+public class ChatMessageRepository {
+
+    private static final Logger logger = LoggerFactory.getLogger(ChatMessageRepository.class);
+
+    // Singleton 패턴으로 Cold Start 최적화
+    private static final DynamoDbClient dynamoDbClient = DynamoDbClient.builder().build();
+    private static final DynamoDbEnhancedClient enhancedClient = DynamoDbEnhancedClient.builder()
+            .dynamoDbClient(dynamoDbClient)
+            .build();
+    private static final String tableName = System.getenv("CHAT_TABLE_NAME");
+
+    private final DynamoDbTable<ChatMessage> table;
+
+    public ChatMessageRepository() {
+        this.table = enhancedClient.table(tableName, TableSchema.fromBean(ChatMessage.class));
+    }
+
+    public ChatMessage save(ChatMessage message) {
+        logger.info("Saving message to DynamoDB: {}", message.getMessageId());
+        table.putItem(message);
+        return message;
+    }
+
+    public Optional<ChatMessage> findByRoomIdAndMessageId(String roomId, String messageId) {
+        // GSI2를 사용하여 messageId로 직접 조회 (풀스캔 방지)
+        QueryConditional queryConditional = QueryConditional
+                .keyEqualTo(Key.builder()
+                        .partitionValue("MSG#" + messageId)
+                        .sortValue("ROOM#" + roomId)
+                        .build());
+
+        return table.index("GSI2")
+                .query(queryConditional)
+                .stream()
+                .flatMap(page -> page.items().stream())
+                .findFirst();
+    }
+
+    /**
+     * 채팅방 메시지 조회 - 최신순, 페이지네이션 지원
+     * @param roomId 채팅방 ID
+     * @param limit 조회 개수 (기본 20)
+     * @param cursor Base64 인코딩된 커서 (무한스크롤용)
+     * @return 메시지 목록과 다음 페이지 커서
+     */
+    public MessagePage findByRoomIdWithPagination(String roomId, int limit, String cursor) {
+        QueryConditional queryConditional = QueryConditional
+                .sortBeginsWith(Key.builder()
+                        .partitionValue("ROOM#" + roomId)
+                        .sortValue("MSG#")
+                        .build());
+
+        QueryEnhancedRequest.Builder requestBuilder = QueryEnhancedRequest.builder()
+                .queryConditional(queryConditional)
+                .scanIndexForward(false)  // 최신순 (역순)
+                .limit(limit);
+
+        // 커서 기반 페이지네이션 (Base64 디코딩)
+        if (cursor != null && !cursor.isEmpty()) {
+            Map<String, AttributeValue> exclusiveStartKey = decodeCursor(cursor);
+            if (exclusiveStartKey != null) {
+                requestBuilder.exclusiveStartKey(exclusiveStartKey);
+            }
+        }
+
+        Page<ChatMessage> page = table.query(requestBuilder.build()).iterator().next();
+        List<ChatMessage> messages = page.items();
+
+        // 다음 페이지 커서 (Base64 인코딩)
+        String nextCursor = encodeCursor(page.lastEvaluatedKey());
+
+        return new MessagePage(messages, nextCursor);
+    }
+
+    /**
+     * 커서 인코딩 (lastEvaluatedKey -> Base64)
+     */
+    private String encodeCursor(Map<String, AttributeValue> lastEvaluatedKey) {
+        if (lastEvaluatedKey == null || lastEvaluatedKey.isEmpty()) {
+            return null;
+        }
+
+        StringBuilder sb = new StringBuilder();
+        for (Map.Entry<String, AttributeValue> entry : lastEvaluatedKey.entrySet()) {
+            if (sb.length() > 0) sb.append("|");
+            sb.append(entry.getKey()).append("=").append(entry.getValue().s());
+        }
+
+        return Base64.getUrlEncoder().encodeToString(sb.toString().getBytes());
+    }
+
+    /**
+     * 커서 디코딩 (Base64 -> exclusiveStartKey)
+     */
+    private Map<String, AttributeValue> decodeCursor(String cursor) {
+        try {
+            String decoded = new String(Base64.getUrlDecoder().decode(cursor));
+            Map<String, AttributeValue> result = new HashMap<>();
+
+            for (String pair : decoded.split("\\|")) {
+                String[] kv = pair.split("=", 2);
+                if (kv.length == 2) {
+                    result.put(kv[0], AttributeValue.builder().s(kv[1]).build());
+                }
+            }
+
+            return result.isEmpty() ? null : result;
+        } catch (Exception e) {
+            logger.error("Failed to decode cursor: {}", cursor, e);
+            return null;
+        }
+    }
+
+    /**
+     * 사용자별 메시지 조회 - 페이지네이션 지원 (OOM 방지)
+     */
+    public MessagePage findByUserIdWithPagination(String userId, int limit, String cursor) {
+        QueryConditional queryConditional = QueryConditional
+                .keyEqualTo(Key.builder().partitionValue("USER#" + userId).build());
+
+        QueryEnhancedRequest.Builder requestBuilder = QueryEnhancedRequest.builder()
+                .queryConditional(queryConditional)
+                .scanIndexForward(false)  // 최신순
+                .limit(limit);
+
+        if (cursor != null && !cursor.isEmpty()) {
+            Map<String, AttributeValue> exclusiveStartKey = decodeCursor(cursor);
+            if (exclusiveStartKey != null) {
+                requestBuilder.exclusiveStartKey(exclusiveStartKey);
+            }
+        }
+
+        Page<ChatMessage> page = table.index("GSI1")
+                .query(requestBuilder.build())
+                .iterator()
+                .next();
+
+        String nextCursor = encodeCursor(page.lastEvaluatedKey());
+        return new MessagePage(page.items(), nextCursor);
+    }
+
+    /**
+     * 페이지네이션 결과 클래스
+     */
+    public static class MessagePage {
+        private final List<ChatMessage> messages;
+        private final String nextCursor;
+
+        public MessagePage(List<ChatMessage> messages, String nextCursor) {
+            this.messages = messages;
+            this.nextCursor = nextCursor;
+        }
+
+        public List<ChatMessage> getMessages() {
+            return messages;
+        }
+
+        public String getNextCursor() {
+            return nextCursor;
+        }
+
+        public boolean hasMore() {
+            return nextCursor != null;
+        }
+    }
+}
