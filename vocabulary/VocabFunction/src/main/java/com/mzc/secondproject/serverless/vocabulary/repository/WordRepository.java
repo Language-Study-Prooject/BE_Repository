@@ -8,9 +8,11 @@ import software.amazon.awssdk.enhanced.dynamodb.DynamoDbIndex;
 import software.amazon.awssdk.enhanced.dynamodb.DynamoDbTable;
 import software.amazon.awssdk.enhanced.dynamodb.Key;
 import software.amazon.awssdk.enhanced.dynamodb.TableSchema;
+import software.amazon.awssdk.enhanced.dynamodb.model.BatchGetResultPageIterable;
 import software.amazon.awssdk.enhanced.dynamodb.model.Page;
 import software.amazon.awssdk.enhanced.dynamodb.model.QueryConditional;
 import software.amazon.awssdk.enhanced.dynamodb.model.QueryEnhancedRequest;
+import software.amazon.awssdk.enhanced.dynamodb.model.ReadBatch;
 import software.amazon.awssdk.enhanced.dynamodb.model.ScanEnhancedRequest;
 import software.amazon.awssdk.enhanced.dynamodb.Expression;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
@@ -55,6 +57,48 @@ public class WordRepository {
 
         Word word = table.getItem(key);
         return Optional.ofNullable(word);
+    }
+
+    /**
+     * 여러 단어를 한 번에 조회 (BatchGetItem) - N+1 문제 해결
+     * DynamoDB BatchGetItem은 최대 100개까지 지원
+     */
+    public List<Word> findByIds(List<String> wordIds) {
+        if (wordIds == null || wordIds.isEmpty()) {
+            return new ArrayList<>();
+        }
+
+        List<Word> results = new ArrayList<>();
+
+        // BatchGetItem은 최대 100개까지 지원하므로 분할 처리
+        int batchSize = 100;
+        for (int i = 0; i < wordIds.size(); i += batchSize) {
+            List<String> batch = wordIds.subList(i, Math.min(i + batchSize, wordIds.size()));
+            results.addAll(batchGetWords(batch));
+        }
+
+        return results;
+    }
+
+    private List<Word> batchGetWords(List<String> wordIds) {
+        ReadBatch.Builder<Word> readBatchBuilder = ReadBatch.builder(Word.class)
+                .mappedTableResource(table);
+
+        for (String wordId : wordIds) {
+            Key key = Key.builder()
+                    .partitionValue("WORD#" + wordId)
+                    .sortValue("METADATA")
+                    .build();
+            readBatchBuilder.addGetItem(key);
+        }
+
+        BatchGetResultPageIterable resultPages = enhancedClient.batchGetItem(r -> r.readBatches(readBatchBuilder.build()));
+
+        List<Word> words = new ArrayList<>();
+        resultPages.resultsForTable(table).forEach(words::add);
+        logger.info("BatchGetItem: requested={}, retrieved={}", wordIds.size(), words.size());
+
+        return words;
     }
 
     public void delete(String wordId) {
