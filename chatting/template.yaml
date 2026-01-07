@@ -24,7 +24,7 @@ Resources:
   ChatRoomFunction:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: group2-englishstudy-room-handler
+      FunctionName: group2-englishstudy-chat-room-handler
       CodeUri: ChatFunction
       Handler: com.mzc.secondproject.serverless.chatting.handler.ChatRoomHandler::handleRequest
       Description: Handle chat room CRUD operations
@@ -75,7 +75,7 @@ Resources:
   ChatMessageFunction:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: group2-englishstudy-message-handler
+      FunctionName: group2-englishstudy-chat-message-handler
       CodeUri: ChatFunction
       Handler: com.mzc.secondproject.serverless.chatting.handler.ChatMessageHandler::handleRequest
       Description: Handle chat messages
@@ -122,7 +122,7 @@ Resources:
   ChatAIFunction:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: group2-englishstudy-ai-handler
+      FunctionName: group2-englishstudy-chat-ai-handler
       CodeUri: ChatFunction
       Handler: com.mzc.secondproject.serverless.chatting.handler.ChatAIHandler::handleRequest
       Description: Generate AI responses using Bedrock
@@ -151,7 +151,7 @@ Resources:
   ChatVoiceFunction:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: group2-englishstudy-voice-handler
+      FunctionName: group2-englishstudy-chat-voice-handler
       CodeUri: ChatFunction
       Handler: com.mzc.secondproject.serverless.chatting.handler.ChatVoiceHandler::handleRequest
       Description: Convert text to speech using Polly
