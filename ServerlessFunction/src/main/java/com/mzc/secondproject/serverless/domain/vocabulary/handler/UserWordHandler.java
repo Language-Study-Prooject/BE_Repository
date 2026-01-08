@@ -5,6 +5,8 @@ import com.amazonaws.services.lambda.runtime.RequestHandler;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyRequestEvent;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyResponseEvent;
 import com.mzc.secondproject.serverless.common.dto.ApiResponse;
+import com.mzc.secondproject.serverless.common.dto.request.vocabulary.UpdateUserWordRequest;
+import com.mzc.secondproject.serverless.common.dto.request.vocabulary.UpdateUserWordTagRequest;
 import com.mzc.secondproject.serverless.common.router.HandlerRouter;
 import com.mzc.secondproject.serverless.common.router.Route;
 import com.mzc.secondproject.serverless.common.util.ResponseUtil;
@@ -104,14 +106,13 @@ public class UserWordHandler implements RequestHandler<APIGatewayProxyRequestEve
         }
 
         String body = request.getBody();
-        Map<String, Object> requestBody = ResponseUtil.gson().fromJson(body, Map.class);
+        UpdateUserWordRequest req = ResponseUtil.gson().fromJson(body, UpdateUserWordRequest.class);
 
-        Boolean isCorrect = (Boolean) requestBody.get("isCorrect");
-        if (isCorrect == null) {
+        if (req.getIsCorrect() == null) {
             return createResponse(400, ApiResponse.error("isCorrect is required"));
         }
 
-        UserWord userWord = commandService.updateUserWord(userId, wordId, isCorrect);
+        UserWord userWord = commandService.updateUserWord(userId, wordId, req.getIsCorrect());
         return createResponse(200, ApiResponse.success("UserWord updated", userWord));
     }
 
@@ -125,13 +126,9 @@ public class UserWordHandler implements RequestHandler<APIGatewayProxyRequestEve
         }
 
         String body = request.getBody();
-        Map<String, Object> requestBody = ResponseUtil.gson().fromJson(body, Map.class);
+        UpdateUserWordTagRequest req = ResponseUtil.gson().fromJson(body, UpdateUserWordTagRequest.class);
 
-        Boolean bookmarked = (Boolean) requestBody.get("bookmarked");
-        Boolean favorite = (Boolean) requestBody.get("favorite");
-        String difficulty = (String) requestBody.get("difficulty");
-
-        UserWord userWord = commandService.updateUserWordTag(userId, wordId, bookmarked, favorite, difficulty);
+        UserWord userWord = commandService.updateUserWordTag(userId, wordId, req.getBookmarked(), req.getFavorite(), req.getDifficulty());
         return createResponse(200, ApiResponse.success("Tag updated", userWord));
     }
 }

@@ -5,6 +5,7 @@ import com.amazonaws.services.lambda.runtime.RequestHandler;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyRequestEvent;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyResponseEvent;
 import com.mzc.secondproject.serverless.common.dto.ApiResponse;
+import com.mzc.secondproject.serverless.common.dto.request.vocabulary.SynthesizeVoiceRequest;
 import com.mzc.secondproject.serverless.common.util.ResponseUtil;
 import static com.mzc.secondproject.serverless.common.util.ResponseUtil.createResponse;
 import com.mzc.secondproject.serverless.domain.vocabulary.model.Word;
@@ -53,14 +54,14 @@ public class VoiceHandler implements RequestHandler<APIGatewayProxyRequestEvent,
 
     private APIGatewayProxyResponseEvent synthesizeSpeech(APIGatewayProxyRequestEvent request) {
         String body = request.getBody();
-        Map<String, Object> requestBody = ResponseUtil.gson().fromJson(body, Map.class);
+        SynthesizeVoiceRequest req = ResponseUtil.gson().fromJson(body, SynthesizeVoiceRequest.class);
 
-        String wordId = (String) requestBody.get("wordId");
-        String voice = (String) requestBody.getOrDefault("voice", "FEMALE");
-
-        if (wordId == null || wordId.isEmpty()) {
+        if (req.getWordId() == null || req.getWordId().isEmpty()) {
             return createResponse(400, ApiResponse.error("wordId is required"));
         }
+
+        String wordId = req.getWordId();
+        String voice = req.getVoice() != null ? req.getVoice() : "FEMALE";
 
         // 단어 조회
         Optional<Word> optWord = wordRepository.findById(wordId);
