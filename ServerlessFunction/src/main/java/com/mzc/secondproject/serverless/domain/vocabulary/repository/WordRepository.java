@@ -19,6 +19,7 @@ import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 
 import com.mzc.secondproject.serverless.common.dto.PaginatedResult;
+import com.mzc.secondproject.serverless.common.util.AwsClients;
 import com.mzc.secondproject.serverless.common.util.CursorUtil;
 
 import java.util.ArrayList;
@@ -29,18 +30,14 @@ import java.util.Optional;
 public class WordRepository {
 
     private static final Logger logger = LoggerFactory.getLogger(WordRepository.class);
+    private static final String TABLE_NAME = System.getenv("VOCAB_TABLE_NAME");
 
-    // Singleton 패턴으로 Cold Start 최적화
-    private static final DynamoDbClient dynamoDbClient = DynamoDbClient.builder().build();
-    private static final DynamoDbEnhancedClient enhancedClient = DynamoDbEnhancedClient.builder()
-            .dynamoDbClient(dynamoDbClient)
-            .build();
-    private static final String tableName = System.getenv("VOCAB_TABLE_NAME");
-
+    private final DynamoDbEnhancedClient enhancedClient;
     private final DynamoDbTable<Word> table;
 
     public WordRepository() {
-        this.table = enhancedClient.table(tableName, TableSchema.fromBean(Word.class));
+        this.enhancedClient = AwsClients.dynamoDbEnhanced();
+        this.table = enhancedClient.table(TABLE_NAME, TableSchema.fromBean(Word.class));
     }
 
     public Word save(Word word) {
