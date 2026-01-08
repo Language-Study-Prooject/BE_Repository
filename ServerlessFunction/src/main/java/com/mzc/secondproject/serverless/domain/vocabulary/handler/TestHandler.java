@@ -11,7 +11,8 @@ import com.mzc.secondproject.serverless.common.router.Route;
 import com.mzc.secondproject.serverless.common.util.ResponseUtil;
 import static com.mzc.secondproject.serverless.common.util.ResponseUtil.createResponse;
 import com.mzc.secondproject.serverless.domain.vocabulary.model.TestResult;
-import com.mzc.secondproject.serverless.domain.vocabulary.service.TestService;
+import com.mzc.secondproject.serverless.domain.vocabulary.service.TestCommandService;
+import com.mzc.secondproject.serverless.domain.vocabulary.service.TestQueryService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -23,11 +24,13 @@ public class TestHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
 
     private static final Logger logger = LoggerFactory.getLogger(TestHandler.class);
 
-    private final TestService testService;
+    private final TestCommandService commandService;
+    private final TestQueryService queryService;
     private final HandlerRouter router;
 
     public TestHandler() {
-        this.testService = new TestService();
+        this.commandService = new TestCommandService();
+        this.queryService = new TestQueryService();
         this.router = initRouter();
     }
 
@@ -57,7 +60,7 @@ public class TestHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
         Map<String, Object> requestBody = ResponseUtil.gson().fromJson(body, Map.class);
         String testType = (String) requestBody.getOrDefault("testType", "DAILY");
 
-        TestService.StartTestResult result = testService.startTest(userId, testType);
+        TestCommandService.StartTestResult result = commandService.startTest(userId, testType);
 
         Map<String, Object> response = new HashMap<>();
         response.put("testId", result.testId());
@@ -90,7 +93,7 @@ public class TestHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
             return createResponse(400, ApiResponse.error("testId and answers are required"));
         }
 
-        TestService.SubmitTestResult result = testService.submitTest(userId, testId, testType, answers, startedAt);
+        TestCommandService.SubmitTestResult result = commandService.submitTest(userId, testId, testType, answers, startedAt);
 
         Map<String, Object> response = new HashMap<>();
         response.put("testId", result.testId());
@@ -120,7 +123,7 @@ public class TestHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
             limit = Math.min(Integer.parseInt(queryParams.get("limit")), 50);
         }
 
-        PaginatedResult<TestResult> resultPage = testService.getTestResults(userId, limit, cursor);
+        PaginatedResult<TestResult> resultPage = queryService.getTestResults(userId, limit, cursor);
 
         Map<String, Object> result = new HashMap<>();
         result.put("testResults", resultPage.getItems());
