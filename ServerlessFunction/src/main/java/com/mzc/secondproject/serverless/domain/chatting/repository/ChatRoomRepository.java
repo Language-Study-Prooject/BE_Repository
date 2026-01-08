@@ -15,6 +15,7 @@ import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 import software.amazon.awssdk.services.dynamodb.model.UpdateItemRequest;
 
+import com.mzc.secondproject.serverless.common.dto.PaginatedResult;
 import com.mzc.secondproject.serverless.common.util.CursorUtil;
 
 import java.util.HashMap;
@@ -61,7 +62,7 @@ public class ChatRoomRepository {
      * @param cursor Base64 인코딩된 커서 (무한스크롤용)
      * @return 채팅방 목록과 다음 페이지 커서
      */
-    public RoomPage findAllWithPagination(int limit, String cursor) {
+    public PaginatedResult<ChatRoom> findAllWithPagination(int limit, String cursor) {
         QueryConditional queryConditional = QueryConditional
                 .keyEqualTo(Key.builder().partitionValue("ROOMS").build());
 
@@ -85,13 +86,13 @@ public class ChatRoomRepository {
         // 다음 페이지 커서 (Base64 인코딩)
         String nextCursor = CursorUtil.encode(page.lastEvaluatedKey());
 
-        return new RoomPage(rooms, nextCursor);
+        return new PaginatedResult<>(rooms, nextCursor);
     }
 
     /**
      * 레벨별 채팅방 조회 - 최신순, 페이지네이션 지원
      */
-    public RoomPage findByLevelWithPagination(String level, int limit, String cursor) {
+    public PaginatedResult<ChatRoom> findByLevelWithPagination(String level, int limit, String cursor) {
         QueryConditional queryConditional = QueryConditional
                 .sortBeginsWith(Key.builder()
                         .partitionValue("ROOMS")
@@ -116,7 +117,7 @@ public class ChatRoomRepository {
 
         String nextCursor = CursorUtil.encode(page.lastEvaluatedKey());
 
-        return new RoomPage(rooms, nextCursor);
+        return new PaginatedResult<>(rooms, nextCursor);
     }
 
     public void delete(String roomId) {
@@ -151,28 +152,4 @@ public class ChatRoomRepository {
         logger.info("Updated lastMessageAt for room: {}", roomId);
     }
 
-    /**
-     * 페이지네이션 결과 클래스
-     */
-    public static class RoomPage {
-        private final List<ChatRoom> rooms;
-        private final String nextCursor;
-
-        public RoomPage(List<ChatRoom> rooms, String nextCursor) {
-            this.rooms = rooms;
-            this.nextCursor = nextCursor;
-        }
-
-        public List<ChatRoom> getRooms() {
-            return rooms;
-        }
-
-        public String getNextCursor() {
-            return nextCursor;
-        }
-
-        public boolean hasMore() {
-            return nextCursor != null;
-        }
-    }
 }
