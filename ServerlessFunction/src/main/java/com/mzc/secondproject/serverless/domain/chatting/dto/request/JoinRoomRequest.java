@@ -1,4 +1,4 @@
-package com.mzc.secondproject.serverless.common.dto.request.vocabulary;
+package com.mzc.secondproject.serverless.domain.chatting.dto.request;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -9,7 +9,7 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class StartTestRequest {
-    @Builder.Default
-    private String testType = "DAILY";
+public class JoinRoomRequest {
+    private String userId;
+    private String password;
 }
