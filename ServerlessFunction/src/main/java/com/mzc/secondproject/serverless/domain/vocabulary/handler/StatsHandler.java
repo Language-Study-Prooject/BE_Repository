@@ -5,6 +5,8 @@ import com.amazonaws.services.lambda.runtime.RequestHandler;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyRequestEvent;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyResponseEvent;
 import com.mzc.secondproject.serverless.common.dto.ApiResponse;
+import com.mzc.secondproject.serverless.common.router.HandlerRouter;
+import com.mzc.secondproject.serverless.common.router.Route;
 import static com.mzc.secondproject.serverless.common.util.ResponseUtil.createResponse;
 import com.mzc.secondproject.serverless.domain.vocabulary.service.StatsService;
 import org.slf4j.Logger;
@@ -18,43 +20,25 @@ public class StatsHandler implements RequestHandler<APIGatewayProxyRequestEvent,
     private static final Logger logger = LoggerFactory.getLogger(StatsHandler.class);
 
     private final StatsService statsService;
+    private final HandlerRouter router;
 
     public StatsHandler() {
         this.statsService = new StatsService();
+        this.router = initRouter();
+    }
+
+    private HandlerRouter initRouter() {
+        return new HandlerRouter().addRoutes(
+                Route.get("/stats/{userId}/weakness", this::getWeaknessAnalysis),
+                Route.get("/stats/{userId}/daily", this::getDailyStats),
+                Route.get("/stats/{userId}", this::getOverallStats)
+        );
     }
 
     @Override
     public APIGatewayProxyResponseEvent handleRequest(APIGatewayProxyRequestEvent request, Context context) {
-        String httpMethod = request.getHttpMethod();
-        String path = request.getPath();
-
-        logger.info("Received request: {} {}", httpMethod, path);
-
-        try {
-            // GET /vocab/stats/{userId}/weakness - 약점 분석
-            if ("GET".equals(httpMethod) && path.endsWith("/weakness")) {
-                return getWeaknessAnalysis(request);
-            }
-
-            // GET /vocab/stats/{userId}/daily - 일별 통계
-            if ("GET".equals(httpMethod) && path.endsWith("/daily")) {
-                return getDailyStats(request);
-            }
-
-            // GET /vocab/stats/{userId} - 전체 통계
-            if ("GET".equals(httpMethod)) {
-                return getOverallStats(request);
-            }
-
-            return createResponse(404, ApiResponse.error("Not found"));
-
-        } catch (IllegalArgumentException e) {
-            logger.warn("Bad request: {}", e.getMessage());
-            return createResponse(400, ApiResponse.error(e.getMessage()));
-        } catch (Exception e) {
-            logger.error("Error handling request", e);
-            return createResponse(500, ApiResponse.error("Internal server error: " + e.getMessage()));
-        }
+        logger.info("Received request: {} {}", request.getHttpMethod(), request.getPath());
+        return router.route(request);
     }
 
     private APIGatewayProxyResponseEvent getOverallStats(APIGatewayProxyRequestEvent request) {
@@ -80,7 +64,7 @@ public class StatsHandler implements RequestHandler<APIGatewayProxyRequestEvent,
             return createResponse(400, ApiResponse.error("userId is required"));
         }
 
-        int limit = 30;  // 최근 30일
+        int limit = 30;
         if (queryParams != null && queryParams.get("limit") != null) {
             limit = Math.min(Integer.parseInt(queryParams.get("limit")), 90);
         }
