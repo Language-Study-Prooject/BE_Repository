@@ -5,6 +5,7 @@ import com.amazonaws.services.lambda.runtime.RequestHandler;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyRequestEvent;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyResponseEvent;
 import com.mzc.secondproject.serverless.common.dto.ApiResponse;
+import com.mzc.secondproject.serverless.common.dto.PaginatedResult;
 import static com.mzc.secondproject.serverless.common.util.ResponseUtil.createResponse;
 import com.mzc.secondproject.serverless.domain.vocabulary.model.DailyStudy;
 import com.mzc.secondproject.serverless.domain.vocabulary.model.TestResult;
@@ -92,8 +93,8 @@ public class StatsHandler implements RequestHandler<APIGatewayProxyRequestEvent,
         // 사용자 단어 통계 조회
         String cursor = null;
         do {
-            UserWordRepository.UserWordPage page = userWordRepository.findByUserIdWithPagination(userId, 100, cursor);
-            for (UserWord userWord : page.getUserWords()) {
+            PaginatedResult<UserWord> page = userWordRepository.findByUserIdWithPagination(userId, 100, cursor);
+            for (UserWord userWord : page.getItems()) {
                 String status = userWord.getStatus();
                 wordStatusCounts.merge(status, 1, Integer::sum);
                 totalCorrect += userWord.getCorrectCount() != null ? userWord.getCorrectCount() : 0;
@@ -105,8 +106,8 @@ public class StatsHandler implements RequestHandler<APIGatewayProxyRequestEvent,
         int totalWords = wordStatusCounts.values().stream().mapToInt(Integer::intValue).sum();
 
         // 시험 통계
-        TestResultRepository.TestResultPage testPage = testResultRepository.findByUserIdWithPagination(userId, 100, null);
-        List<TestResult> testResults = testPage.getTestResults();
+        PaginatedResult<TestResult> testPage = testResultRepository.findByUserIdWithPagination(userId, 100, null);
+        List<TestResult> testResults = testPage.getItems();
 
         double avgSuccessRate = testResults.stream()
                 .mapToDouble(TestResult::getSuccessRate)
@@ -114,9 +115,9 @@ public class StatsHandler implements RequestHandler<APIGatewayProxyRequestEvent,
                 .orElse(0.0);
 
         // 학습 일수
-        DailyStudyRepository.DailyStudyPage dailyPage = dailyStudyRepository.findByUserIdWithPagination(userId, 365, null);
-        int studyDays = dailyPage.getDailyStudies().size();
-        int completedDays = (int) dailyPage.getDailyStudies().stream()
+        PaginatedResult<DailyStudy> dailyPage = dailyStudyRepository.findByUserIdWithPagination(userId, 365, null);
+        int studyDays = dailyPage.getItems().size();
+        int completedDays = (int) dailyPage.getItems().stream()
                 .filter(d -> Boolean.TRUE.equals(d.getIsCompleted()))
                 .count();
 
@@ -152,9 +153,9 @@ public class StatsHandler implements RequestHandler<APIGatewayProxyRequestEvent,
             limit = Math.min(Integer.parseInt(queryParams.get("limit")), 90);
         }
 
-        DailyStudyRepository.DailyStudyPage dailyPage = dailyStudyRepository.findByUserIdWithPagination(userId, limit, cursor);
+        PaginatedResult<DailyStudy> dailyPage = dailyStudyRepository.findByUserIdWithPagination(userId, limit, cursor);
 
-        List<Map<String, Object>> dailyStats = dailyPage.getDailyStudies().stream()
+        List<Map<String, Object>> dailyStats = dailyPage.getItems().stream()
                 .map(daily -> {
                     Map<String, Object> stat = new HashMap<>();
                     stat.put("date", daily.getDate());
@@ -190,8 +191,8 @@ public class StatsHandler implements RequestHandler<APIGatewayProxyRequestEvent,
         List<UserWord> allUserWords = new ArrayList<>();
         String cursor = null;
         do {
-            UserWordRepository.UserWordPage page = userWordRepository.findByUserIdWithPagination(userId, 100, cursor);
-            allUserWords.addAll(page.getUserWords());
+            PaginatedResult<UserWord> page = userWordRepository.findByUserIdWithPagination(userId, 100, cursor);
+            allUserWords.addAll(page.getItems());
             cursor = page.getNextCursor();
         } while (cursor != null);
 

@@ -1,5 +1,6 @@
 package com.mzc.secondproject.serverless.domain.chatting.service;
 
+import com.mzc.secondproject.serverless.common.dto.PaginatedResult;
 import com.mzc.secondproject.serverless.domain.chatting.model.ChatMessage;
 import com.mzc.secondproject.serverless.domain.chatting.repository.ChatMessageRepository;
 import org.slf4j.Logger;
@@ -28,12 +29,12 @@ public class ChatMessageService {
         return repository.findByRoomIdAndMessageId(roomId, messageId);
     }
 
-    public ChatMessageRepository.MessagePage getMessagesByRoomWithPagination(String roomId, int limit, String cursor) {
+    public PaginatedResult<ChatMessage> getMessagesByRoomWithPagination(String roomId, int limit, String cursor) {
         logger.info("Getting messages for room: {} with limit: {}", roomId, limit);
         return repository.findByRoomIdWithPagination(roomId, limit, cursor);
     }
 
-    public ChatMessageRepository.MessagePage getMessagesByUserWithPagination(String userId, int limit, String cursor) {
+    public PaginatedResult<ChatMessage> getMessagesByUserWithPagination(String userId, int limit, String cursor) {
         logger.info("Getting messages for user: {} with limit: {}", userId, limit);
         return repository.findByUserIdWithPagination(userId, limit, cursor);
     }

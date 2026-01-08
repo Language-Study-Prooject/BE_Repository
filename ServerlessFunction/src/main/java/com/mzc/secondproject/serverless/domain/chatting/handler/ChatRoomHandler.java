@@ -5,6 +5,7 @@ import com.amazonaws.services.lambda.runtime.RequestHandler;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyRequestEvent;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyResponseEvent;
 import com.mzc.secondproject.serverless.common.dto.ApiResponse;
+import com.mzc.secondproject.serverless.common.dto.PaginatedResult;
 import com.mzc.secondproject.serverless.common.util.ResponseUtil;
 import static com.mzc.secondproject.serverless.common.util.ResponseUtil.createResponse;
 import com.mzc.secondproject.serverless.domain.chatting.model.ChatRoom;
@@ -137,14 +138,14 @@ public class ChatRoomHandler implements RequestHandler<APIGatewayProxyRequestEve
             limit = Math.min(Integer.parseInt(queryParams.get("limit")), 20);  // 최대 20
         }
 
-        ChatRoomRepository.RoomPage roomPage;
+        PaginatedResult<ChatRoom> roomPage;
         if (level != null && !level.isEmpty()) {
             roomPage = roomRepository.findByLevelWithPagination(level, limit, cursor);
         } else {
             roomPage = roomRepository.findAllWithPagination(limit, cursor);
         }
 
-        List<ChatRoom> rooms = roomPage.getRooms();
+        List<ChatRoom> rooms = roomPage.getItems();
 
         // "참여중" 필터 - userId가 memberIds에 포함된 방만
         if ("true".equals(joined) && userId != null) {

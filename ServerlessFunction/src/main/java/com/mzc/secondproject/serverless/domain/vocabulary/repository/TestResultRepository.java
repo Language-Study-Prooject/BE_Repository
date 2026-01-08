@@ -13,6 +13,7 @@ import software.amazon.awssdk.enhanced.dynamodb.model.QueryEnhancedRequest;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 
+import com.mzc.secondproject.serverless.common.dto.PaginatedResult;
 import com.mzc.secondproject.serverless.common.util.CursorUtil;
 
 import java.util.List;
@@ -55,7 +56,7 @@ public class TestResultRepository {
     /**
      * 사용자의 시험 결과 조회 - 최신순, 페이지네이션
      */
-    public TestResultPage findByUserIdWithPagination(String userId, int limit, String cursor) {
+    public PaginatedResult<TestResult> findByUserIdWithPagination(String userId, int limit, String cursor) {
         QueryConditional queryConditional = QueryConditional
                 .sortBeginsWith(Key.builder()
                         .partitionValue("TEST#" + userId)
@@ -77,28 +78,6 @@ public class TestResultRepository {
         Page<TestResult> page = table.query(requestBuilder.build()).iterator().next();
         String nextCursor = CursorUtil.encode(page.lastEvaluatedKey());
 
-        return new TestResultPage(page.items(), nextCursor);
-    }
-
-    public static class TestResultPage {
-        private final List<TestResult> testResults;
-        private final String nextCursor;
-
-        public TestResultPage(List<TestResult> testResults, String nextCursor) {
-            this.testResults = testResults;
-            this.nextCursor = nextCursor;
-        }
-
-        public List<TestResult> getTestResults() {
-            return testResults;
-        }
-
-        public String getNextCursor() {
-            return nextCursor;
-        }
-
-        public boolean hasMore() {
-            return nextCursor != null;
-        }
+        return new PaginatedResult<>(page.items(), nextCursor);
     }
 }
