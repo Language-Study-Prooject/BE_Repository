@@ -5,6 +5,7 @@ import com.amazonaws.services.lambda.runtime.RequestHandler;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyRequestEvent;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyResponseEvent;
 import com.mzc.secondproject.serverless.common.dto.ApiResponse;
+import com.mzc.secondproject.serverless.common.dto.PaginatedResult;
 import com.mzc.secondproject.serverless.common.util.ResponseUtil;
 import static com.mzc.secondproject.serverless.common.util.ResponseUtil.createResponse;
 import com.mzc.secondproject.serverless.domain.vocabulary.model.Word;
@@ -135,7 +136,7 @@ public class WordHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
             limit = Math.min(Integer.parseInt(queryParams.get("limit")), 50);
         }
 
-        WordRepository.WordPage wordPage;
+        PaginatedResult<Word> wordPage;
         if (level != null && !level.isEmpty()) {
             wordPage = wordRepository.findByLevelWithPagination(level, limit, cursor);
         } else if (category != null && !category.isEmpty()) {
@@ -146,7 +147,7 @@ public class WordHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
         }
 
         Map<String, Object> result = new HashMap<>();
-        result.put("words", wordPage.getWords());
+        result.put("words", wordPage.getItems());
         result.put("nextCursor", wordPage.getNextCursor());
         result.put("hasMore", wordPage.hasMore());
 
@@ -311,10 +312,10 @@ public class WordHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
         }
 
         // 영어/한국어 모두 검색
-        WordRepository.WordPage wordPage = wordRepository.searchByKeyword(query, limit, cursor);
+        PaginatedResult<Word> wordPage = wordRepository.searchByKeyword(query, limit, cursor);
 
         Map<String, Object> result = new HashMap<>();
-        result.put("words", wordPage.getWords());
+        result.put("words", wordPage.getItems());
         result.put("query", query);
         result.put("nextCursor", wordPage.getNextCursor());
         result.put("hasMore", wordPage.hasMore());

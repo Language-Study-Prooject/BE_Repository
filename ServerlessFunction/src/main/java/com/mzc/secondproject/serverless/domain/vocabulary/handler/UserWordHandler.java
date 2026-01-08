@@ -5,6 +5,7 @@ import com.amazonaws.services.lambda.runtime.RequestHandler;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyRequestEvent;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyResponseEvent;
 import com.mzc.secondproject.serverless.common.dto.ApiResponse;
+import com.mzc.secondproject.serverless.common.dto.PaginatedResult;
 import com.mzc.secondproject.serverless.common.util.ResponseUtil;
 import static com.mzc.secondproject.serverless.common.util.ResponseUtil.createResponse;
 import com.mzc.secondproject.serverless.domain.vocabulary.model.UserWord;
@@ -90,7 +91,7 @@ public class UserWordHandler implements RequestHandler<APIGatewayProxyRequestEve
             limit = Math.min(Integer.parseInt(queryParams.get("limit")), 50);
         }
 
-        UserWordRepository.UserWordPage userWordPage;
+        PaginatedResult<UserWord> userWordPage;
 
         // 필터 우선순위: bookmarked > incorrectOnly > status > 전체
         if ("true".equalsIgnoreCase(bookmarked)) {
@@ -104,7 +105,7 @@ public class UserWordHandler implements RequestHandler<APIGatewayProxyRequestEve
         }
 
         // Word 정보 조인 (BatchGetItem)
-        List<UserWord> userWords = userWordPage.getUserWords();
+        List<UserWord> userWords = userWordPage.getItems();
         List<Map<String, Object>> enrichedUserWords = enrichWithWordInfo(userWords);
 
         Map<String, Object> result = new HashMap<>();

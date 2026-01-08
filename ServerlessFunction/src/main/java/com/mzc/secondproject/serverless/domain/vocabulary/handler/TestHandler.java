@@ -5,6 +5,7 @@ import com.amazonaws.services.lambda.runtime.RequestHandler;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyRequestEvent;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyResponseEvent;
 import com.mzc.secondproject.serverless.common.dto.ApiResponse;
+import com.mzc.secondproject.serverless.common.dto.PaginatedResult;
 import com.mzc.secondproject.serverless.common.util.ResponseUtil;
 import static com.mzc.secondproject.serverless.common.util.ResponseUtil.createResponse;
 import com.mzc.secondproject.serverless.domain.vocabulary.model.DailyStudy;
@@ -269,10 +270,10 @@ public class TestHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
             limit = Math.min(Integer.parseInt(queryParams.get("limit")), 50);
         }
 
-        TestResultRepository.TestResultPage resultPage = testResultRepository.findByUserIdWithPagination(userId, limit, cursor);
+        PaginatedResult<TestResult> resultPage = testResultRepository.findByUserIdWithPagination(userId, limit, cursor);
 
         Map<String, Object> result = new HashMap<>();
-        result.put("testResults", resultPage.getTestResults());
+        result.put("testResults", resultPage.getItems());
         result.put("nextCursor", resultPage.getNextCursor());
         result.put("hasMore", resultPage.hasMore());
 
@@ -283,8 +284,8 @@ public class TestHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
      * 해당 레벨에서 오답 후보 단어들의 한국어 뜻 목록을 가져옴
      */
     private List<String> getDistractorsForLevel(String level, List<String> excludeWordIds) {
-        WordRepository.WordPage wordPage = wordRepository.findByLevelWithPagination(level, 50, null);
-        return wordPage.getWords().stream()
+        PaginatedResult<Word> wordPage = wordRepository.findByLevelWithPagination(level, 50, null);
+        return wordPage.getItems().stream()
                 .filter(w -> !excludeWordIds.contains(w.getWordId()))
                 .map(Word::getKorean)
                 .collect(Collectors.toList());

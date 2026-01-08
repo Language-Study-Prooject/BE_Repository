@@ -15,7 +15,9 @@ import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 import software.amazon.awssdk.services.dynamodb.model.UpdateItemRequest;
 
-import java.util.Base64;
+import com.mzc.secondproject.serverless.common.dto.PaginatedResult;
+import com.mzc.secondproject.serverless.common.util.CursorUtil;
+
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -60,7 +62,7 @@ public class ChatRoomRepository {
      * @param cursor Base64 인코딩된 커서 (무한스크롤용)
      * @return 채팅방 목록과 다음 페이지 커서
      */
-    public RoomPage findAllWithPagination(int limit, String cursor) {
+    public PaginatedResult<ChatRoom> findAllWithPagination(int limit, String cursor) {
         QueryConditional queryConditional = QueryConditional
                 .keyEqualTo(Key.builder().partitionValue("ROOMS").build());
 
@@ -71,7 +73,7 @@ public class ChatRoomRepository {
 
         // 커서 기반 페이지네이션 (Base64 디코딩)
         if (cursor != null && !cursor.isEmpty()) {
-            Map<String, AttributeValue> exclusiveStartKey = decodeCursor(cursor);
+            Map<String, AttributeValue> exclusiveStartKey = CursorUtil.decode(cursor);
             if (exclusiveStartKey != null) {
                 requestBuilder.exclusiveStartKey(exclusiveStartKey);
             }
@@ -82,15 +84,15 @@ public class ChatRoomRepository {
         List<ChatRoom> rooms = page.items();
 
         // 다음 페이지 커서 (Base64 인코딩)
-        String nextCursor = encodeCursor(page.lastEvaluatedKey());
+        String nextCursor = CursorUtil.encode(page.lastEvaluatedKey());
 
-        return new RoomPage(rooms, nextCursor);
+        return new PaginatedResult<>(rooms, nextCursor);
     }
 
     /**
      * 레벨별 채팅방 조회 - 최신순, 페이지네이션 지원
      */
-    public RoomPage findByLevelWithPagination(String level, int limit, String cursor) {
+    public PaginatedResult<ChatRoom> findByLevelWithPagination(String level, int limit, String cursor) {
         QueryConditional queryConditional = QueryConditional
                 .sortBeginsWith(Key.builder()
                         .partitionValue("ROOMS")
@@ -103,7 +105,7 @@ public class ChatRoomRepository {
                 .limit(limit);
 
         if (cursor != null && !cursor.isEmpty()) {
-            Map<String, AttributeValue> exclusiveStartKey = decodeCursor(cursor);
+            Map<String, AttributeValue> exclusiveStartKey = CursorUtil.decode(cursor);
             if (exclusiveStartKey != null) {
                 requestBuilder.exclusiveStartKey(exclusiveStartKey);
             }
@@ -113,48 +115,9 @@ public class ChatRoomRepository {
         Page<ChatRoom> page = gsi1.query(requestBuilder.build()).iterator().next();
         List<ChatRoom> rooms = page.items();
 
-        String nextCursor = encodeCursor(page.lastEvaluatedKey());
+        String nextCursor = CursorUtil.encode(page.lastEvaluatedKey());
 
-        return new RoomPage(rooms, nextCursor);
-    }
-
-    /**
-     * 커서 인코딩 (lastEvaluatedKey -> Base64)
-     */
-    private String encodeCursor(Map<String, AttributeValue> lastEvaluatedKey) {
-        if (lastEvaluatedKey == null || lastEvaluatedKey.isEmpty()) {
-            return null;
-        }
-
-        StringBuilder sb = new StringBuilder();
-        for (Map.Entry<String, AttributeValue> entry : lastEvaluatedKey.entrySet()) {
-            if (sb.length() > 0) sb.append("|");
-            sb.append(entry.getKey()).append("=").append(entry.getValue().s());
-        }
-
-        return Base64.getUrlEncoder().encodeToString(sb.toString().getBytes());
-    }
-
-    /**
-     * 커서 디코딩 (Base64 -> exclusiveStartKey)
-     */
-    private Map<String, AttributeValue> decodeCursor(String cursor) {
-        try {
-            String decoded = new String(Base64.getUrlDecoder().decode(cursor));
-            Map<String, AttributeValue> result = new HashMap<>();
-
-            for (String pair : decoded.split("\\|")) {
-                String[] kv = pair.split("=", 2);
-                if (kv.length == 2) {
-                    result.put(kv[0], AttributeValue.builder().s(kv[1]).build());
-                }
-            }
-
-            return result.isEmpty() ? null : result;
-        } catch (Exception e) {
-            logger.error("Failed to decode cursor: {}", cursor, e);
-            return null;
-        }
+        return new PaginatedResult<>(rooms, nextCursor);
     }
 
     public void delete(String roomId) {
@@ -189,28 +152,4 @@ public class ChatRoomRepository {
         logger.info("Updated lastMessageAt for room: {}", roomId);
     }
 
-    /**
-     * 페이지네이션 결과 클래스
-     */
-    public static class RoomPage {
-        private final List<ChatRoom> rooms;
-        private final String nextCursor;
-
-        public RoomPage(List<ChatRoom> rooms, String nextCursor) {
-            this.rooms = rooms;
-            this.nextCursor = nextCursor;
-        }
-
-        public List<ChatRoom> getRooms() {
-            return rooms;
-        }
-
-        public String getNextCursor() {
-            return nextCursor;
-        }
-
-        public boolean hasMore() {
-            return nextCursor != null;
-        }
-    }
 }

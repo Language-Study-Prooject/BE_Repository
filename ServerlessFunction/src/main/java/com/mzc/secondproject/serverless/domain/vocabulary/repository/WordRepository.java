@@ -18,10 +18,10 @@ import software.amazon.awssdk.enhanced.dynamodb.Expression;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 
-import java.util.ArrayList;
+import com.mzc.secondproject.serverless.common.dto.PaginatedResult;
+import com.mzc.secondproject.serverless.common.util.CursorUtil;
 
-import java.util.Base64;
-import java.util.HashMap;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -114,7 +114,7 @@ public class WordRepository {
     /**
      * 난이도별 단어 조회 - 페이지네이션
      */
-    public WordPage findByLevelWithPagination(String level, int limit, String cursor) {
+    public PaginatedResult<Word> findByLevelWithPagination(String level, int limit, String cursor) {
         QueryConditional queryConditional = QueryConditional
                 .keyEqualTo(Key.builder().partitionValue("LEVEL#" + level).build());
 
@@ -123,7 +123,7 @@ public class WordRepository {
                 .limit(limit);
 
         if (cursor != null && !cursor.isEmpty()) {
-            Map<String, AttributeValue> exclusiveStartKey = decodeCursor(cursor);
+            Map<String, AttributeValue> exclusiveStartKey = CursorUtil.decode(cursor);
             if (exclusiveStartKey != null) {
                 requestBuilder.exclusiveStartKey(exclusiveStartKey);
             }
@@ -131,15 +131,15 @@ public class WordRepository {
 
         DynamoDbIndex<Word> gsi1 = table.index("GSI1");
         Page<Word> page = gsi1.query(requestBuilder.build()).iterator().next();
-        String nextCursor = encodeCursor(page.lastEvaluatedKey());
+        String nextCursor = CursorUtil.encode(page.lastEvaluatedKey());
 
-        return new WordPage(page.items(), nextCursor);
+        return new PaginatedResult<>(page.items(), nextCursor);
     }
 
     /**
      * 카테고리별 단어 조회 - 페이지네이션
      */
-    public WordPage findByCategoryWithPagination(String category, int limit, String cursor) {
+    public PaginatedResult<Word> findByCategoryWithPagination(String category, int limit, String cursor) {
         QueryConditional queryConditional = QueryConditional
                 .keyEqualTo(Key.builder().partitionValue("CATEGORY#" + category).build());
 
@@ -148,7 +148,7 @@ public class WordRepository {
                 .limit(limit);
 
         if (cursor != null && !cursor.isEmpty()) {
-            Map<String, AttributeValue> exclusiveStartKey = decodeCursor(cursor);
+            Map<String, AttributeValue> exclusiveStartKey = CursorUtil.decode(cursor);
             if (exclusiveStartKey != null) {
                 requestBuilder.exclusiveStartKey(exclusiveStartKey);
             }
@@ -156,49 +156,16 @@ public class WordRepository {
 
         DynamoDbIndex<Word> gsi2 = table.index("GSI2");
         Page<Word> page = gsi2.query(requestBuilder.build()).iterator().next();
-        String nextCursor = encodeCursor(page.lastEvaluatedKey());
+        String nextCursor = CursorUtil.encode(page.lastEvaluatedKey());
 
-        return new WordPage(page.items(), nextCursor);
-    }
-
-    private String encodeCursor(Map<String, AttributeValue> lastEvaluatedKey) {
-        if (lastEvaluatedKey == null || lastEvaluatedKey.isEmpty()) {
-            return null;
-        }
-
-        StringBuilder sb = new StringBuilder();
-        for (Map.Entry<String, AttributeValue> entry : lastEvaluatedKey.entrySet()) {
-            if (sb.length() > 0) sb.append("|");
-            sb.append(entry.getKey()).append("=").append(entry.getValue().s());
-        }
-
-        return Base64.getUrlEncoder().encodeToString(sb.toString().getBytes());
-    }
-
-    private Map<String, AttributeValue> decodeCursor(String cursor) {
-        try {
-            String decoded = new String(Base64.getUrlDecoder().decode(cursor));
-            Map<String, AttributeValue> result = new HashMap<>();
-
-            for (String pair : decoded.split("\\|")) {
-                String[] kv = pair.split("=", 2);
-                if (kv.length == 2) {
-                    result.put(kv[0], AttributeValue.builder().s(kv[1]).build());
-                }
-            }
-
-            return result.isEmpty() ? null : result;
-        } catch (Exception e) {
-            logger.error("Failed to decode cursor: {}", cursor, e);
-            return null;
-        }
+        return new PaginatedResult<>(page.items(), nextCursor);
     }
 
     /**
      * 키워드로 단어 검색 (영어/한국어 contains)
      * 참고: Scan은 비용이 높으므로 데이터가 많아지면 OpenSearch 도입 권장
      */
-    public WordPage searchByKeyword(String keyword, int limit, String cursor) {
+    public PaginatedResult<Word> searchByKeyword(String keyword, int limit, String cursor) {
         String lowerKeyword = keyword.toLowerCase();
 
         // Filter: PK가 WORD#로 시작하고, english 또는 korean에 keyword 포함
@@ -214,7 +181,7 @@ public class WordRepository {
                 .limit(limit * 3);  // filter 적용되므로 넉넉히
 
         if (cursor != null && !cursor.isEmpty()) {
-            Map<String, AttributeValue> exclusiveStartKey = decodeCursor(cursor);
+            Map<String, AttributeValue> exclusiveStartKey = CursorUtil.decode(cursor);
             if (exclusiveStartKey != null) {
                 requestBuilder.exclusiveStartKey(exclusiveStartKey);
             }
@@ -236,29 +203,7 @@ public class WordRepository {
             if (results.size() >= limit) break;
         }
 
-        String nextCursor = results.size() >= limit ? encodeCursor(lastKey) : null;
-        return new WordPage(results, nextCursor);
-    }
-
-    public static class WordPage {
-        private final List<Word> words;
-        private final String nextCursor;
-
-        public WordPage(List<Word> words, String nextCursor) {
-            this.words = words;
-            this.nextCursor = nextCursor;
-        }
-
-        public List<Word> getWords() {
-            return words;
-        }
-
-        public String getNextCursor() {
-            return nextCursor;
-        }
-
-        public boolean hasMore() {
-            return nextCursor != null;
-        }
+        String nextCursor = results.size() >= limit ? CursorUtil.encode(lastKey) : null;
+        return new PaginatedResult<>(results, nextCursor);
     }
 }
