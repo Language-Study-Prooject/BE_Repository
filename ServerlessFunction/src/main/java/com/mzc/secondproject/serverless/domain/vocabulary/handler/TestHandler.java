@@ -6,6 +6,8 @@ import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyRequestEvent;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyResponseEvent;
 import com.mzc.secondproject.serverless.common.dto.ApiResponse;
 import com.mzc.secondproject.serverless.common.dto.PaginatedResult;
+import com.mzc.secondproject.serverless.common.dto.request.vocabulary.StartTestRequest;
+import com.mzc.secondproject.serverless.common.dto.request.vocabulary.SubmitTestRequest;
 import com.mzc.secondproject.serverless.common.router.HandlerRouter;
 import com.mzc.secondproject.serverless.common.router.Route;
 import com.mzc.secondproject.serverless.common.util.ResponseUtil;
@@ -57,8 +59,8 @@ public class TestHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
         }
 
         String body = request.getBody();
-        Map<String, Object> requestBody = ResponseUtil.gson().fromJson(body, Map.class);
-        String testType = (String) requestBody.getOrDefault("testType", "DAILY");
+        StartTestRequest req = ResponseUtil.gson().fromJson(body, StartTestRequest.class);
+        String testType = req != null && req.getTestType() != null ? req.getTestType() : "DAILY";
 
         TestCommandService.StartTestResult result = commandService.startTest(userId, testType);
 
@@ -72,7 +74,6 @@ public class TestHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
         return createResponse(200, ApiResponse.success("Test started", response));
     }
 
-    @SuppressWarnings("unchecked")
     private APIGatewayProxyResponseEvent submitAnswer(APIGatewayProxyRequestEvent request) {
         Map<String, String> pathParams = request.getPathParameters();
         String userId = pathParams != null ? pathParams.get("userId") : null;
@@ -82,18 +83,15 @@ public class TestHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
         }
 
         String body = request.getBody();
-        Map<String, Object> requestBody = ResponseUtil.gson().fromJson(body, Map.class);
+        SubmitTestRequest req = ResponseUtil.gson().fromJson(body, SubmitTestRequest.class);
 
-        String testId = (String) requestBody.get("testId");
-        String testType = (String) requestBody.getOrDefault("testType", "DAILY");
-        List<Map<String, Object>> answers = (List<Map<String, Object>>) requestBody.get("answers");
-        String startedAt = (String) requestBody.get("startedAt");
-
-        if (testId == null || answers == null) {
+        if (req.getTestId() == null || req.getAnswers() == null) {
             return createResponse(400, ApiResponse.error("testId and answers are required"));
         }
 
-        TestCommandService.SubmitTestResult result = commandService.submitTest(userId, testId, testType, answers, startedAt);
+        String testType = req.getTestType() != null ? req.getTestType() : "DAILY";
+
+        TestCommandService.SubmitTestResult result = commandService.submitTest(userId, req.getTestId(), testType, req.getAnswers(), req.getStartedAt());
 
         Map<String, Object> response = new HashMap<>();
         response.put("testId", result.testId());
