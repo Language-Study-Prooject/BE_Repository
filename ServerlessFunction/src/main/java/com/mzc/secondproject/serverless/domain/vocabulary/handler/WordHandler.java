@@ -6,6 +6,8 @@ import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyRequestEvent;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyResponseEvent;
 import com.mzc.secondproject.serverless.common.dto.ApiResponse;
 import com.mzc.secondproject.serverless.common.dto.PaginatedResult;
+import com.mzc.secondproject.serverless.common.router.HandlerRouter;
+import com.mzc.secondproject.serverless.common.router.Route;
 import com.mzc.secondproject.serverless.common.util.ResponseUtil;
 import static com.mzc.secondproject.serverless.common.util.ResponseUtil.createResponse;
 import com.mzc.secondproject.serverless.domain.vocabulary.model.Word;
@@ -23,53 +25,29 @@ public class WordHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
     private static final Logger logger = LoggerFactory.getLogger(WordHandler.class);
 
     private final WordService wordService;
+    private final HandlerRouter router;
 
     public WordHandler() {
         this.wordService = new WordService();
+        this.router = initRouter();
+    }
+
+    private HandlerRouter initRouter() {
+        return new HandlerRouter().addRoutes(
+                Route.post("/words/batch", this::createWordsBatch),
+                Route.get("/words/search", this::searchWords),
+                Route.post("/words", this::createWord),
+                Route.get("/words", this::getWords),
+                Route.get("/words/{wordId}", this::getWord),
+                Route.put("/words/{wordId}", this::updateWord),
+                Route.delete("/words/{wordId}", this::deleteWord)
+        );
     }
 
     @Override
     public APIGatewayProxyResponseEvent handleRequest(APIGatewayProxyRequestEvent request, Context context) {
-        String httpMethod = request.getHttpMethod();
-        String path = request.getPath();
-
-        logger.info("Received request: {} {}", httpMethod, path);
-
-        try {
-            if ("POST".equals(httpMethod) && path.endsWith("/batch")) {
-                return createWordsBatch(request);
-            }
-
-            if ("GET".equals(httpMethod) && path.endsWith("/search")) {
-                return searchWords(request);
-            }
-
-            if ("POST".equals(httpMethod) && path.endsWith("/words")) {
-                return createWord(request);
-            }
-
-            if ("GET".equals(httpMethod) && path.endsWith("/words")) {
-                return getWords(request);
-            }
-
-            if ("GET".equals(httpMethod) && path.contains("/words/") && !path.contains("/search") && !path.contains("/batch")) {
-                return getWord(request);
-            }
-
-            if ("PUT".equals(httpMethod) && path.contains("/words/")) {
-                return updateWord(request);
-            }
-
-            if ("DELETE".equals(httpMethod) && path.contains("/words/")) {
-                return deleteWord(request);
-            }
-
-            return createResponse(404, ApiResponse.error("Not found"));
-
-        } catch (Exception e) {
-            logger.error("Error handling request", e);
-            return createResponse(500, ApiResponse.error("Internal server error: " + e.getMessage()));
-        }
+        logger.info("Received request: {} {}", request.getHttpMethod(), request.getPath());
+        return router.route(request);
     }
 
     private APIGatewayProxyResponseEvent createWord(APIGatewayProxyRequestEvent request) {
@@ -142,12 +120,8 @@ public class WordHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
         String body = request.getBody();
         Map<String, Object> requestBody = ResponseUtil.gson().fromJson(body, Map.class);
 
-        try {
-            Word word = wordService.updateWord(wordId, requestBody);
-            return createResponse(200, ApiResponse.success("Word updated", word));
-        } catch (IllegalArgumentException e) {
-            return createResponse(404, ApiResponse.error(e.getMessage()));
-        }
+        Word word = wordService.updateWord(wordId, requestBody);
+        return createResponse(200, ApiResponse.success("Word updated", word));
     }
 
     private APIGatewayProxyResponseEvent deleteWord(APIGatewayProxyRequestEvent request) {
@@ -158,12 +132,8 @@ public class WordHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
             return createResponse(400, ApiResponse.error("wordId is required"));
         }
 
-        try {
-            wordService.deleteWord(wordId);
-            return createResponse(200, ApiResponse.success("Word deleted", null));
-        } catch (IllegalArgumentException e) {
-            return createResponse(404, ApiResponse.error(e.getMessage()));
-        }
+        wordService.deleteWord(wordId);
+        return createResponse(200, ApiResponse.success("Word deleted", null));
     }
 
     @SuppressWarnings("unchecked")
