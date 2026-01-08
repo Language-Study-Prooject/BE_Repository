@@ -11,7 +11,8 @@ import com.mzc.secondproject.serverless.common.router.Route;
 import com.mzc.secondproject.serverless.common.util.ResponseUtil;
 import static com.mzc.secondproject.serverless.common.util.ResponseUtil.createResponse;
 import com.mzc.secondproject.serverless.domain.vocabulary.model.Word;
-import com.mzc.secondproject.serverless.domain.vocabulary.service.WordService;
+import com.mzc.secondproject.serverless.domain.vocabulary.service.WordCommandService;
+import com.mzc.secondproject.serverless.domain.vocabulary.service.WordQueryService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -24,11 +25,13 @@ public class WordHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
 
     private static final Logger logger = LoggerFactory.getLogger(WordHandler.class);
 
-    private final WordService wordService;
+    private final WordCommandService commandService;
+    private final WordQueryService queryService;
     private final HandlerRouter router;
 
     public WordHandler() {
-        this.wordService = new WordService();
+        this.commandService = new WordCommandService();
+        this.queryService = new WordQueryService();
         this.router = initRouter();
     }
 
@@ -67,7 +70,7 @@ public class WordHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
             return createResponse(400, ApiResponse.error("korean is required"));
         }
 
-        Word word = wordService.createWord(english, korean, example, level, category);
+        Word word = commandService.createWord(english, korean, example, level, category);
         return createResponse(201, ApiResponse.success("Word created", word));
     }
 
@@ -83,7 +86,7 @@ public class WordHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
             limit = Math.min(Integer.parseInt(queryParams.get("limit")), 50);
         }
 
-        PaginatedResult<Word> wordPage = wordService.getWords(level, category, limit, cursor);
+        PaginatedResult<Word> wordPage = queryService.getWords(level, category, limit, cursor);
 
         Map<String, Object> result = new HashMap<>();
         result.put("words", wordPage.getItems());
@@ -101,7 +104,7 @@ public class WordHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
             return createResponse(400, ApiResponse.error("wordId is required"));
         }
 
-        Optional<Word> optWord = wordService.getWord(wordId);
+        Optional<Word> optWord = queryService.getWord(wordId);
         if (optWord.isEmpty()) {
             return createResponse(404, ApiResponse.error("Word not found"));
         }
@@ -120,7 +123,7 @@ public class WordHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
         String body = request.getBody();
         Map<String, Object> requestBody = ResponseUtil.gson().fromJson(body, Map.class);
 
-        Word word = wordService.updateWord(wordId, requestBody);
+        Word word = commandService.updateWord(wordId, requestBody);
         return createResponse(200, ApiResponse.success("Word updated", word));
     }
 
@@ -132,7 +135,7 @@ public class WordHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
             return createResponse(400, ApiResponse.error("wordId is required"));
         }
 
-        wordService.deleteWord(wordId);
+        commandService.deleteWord(wordId);
         return createResponse(200, ApiResponse.success("Word deleted", null));
     }
 
@@ -146,7 +149,7 @@ public class WordHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
             return createResponse(400, ApiResponse.error("words array is required"));
         }
 
-        WordService.BatchResult result = wordService.createWordsBatch(wordsList);
+        WordCommandService.BatchResult result = commandService.createWordsBatch(wordsList);
 
         Map<String, Object> response = new HashMap<>();
         response.put("successCount", result.successCount());
@@ -171,7 +174,7 @@ public class WordHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
             limit = Math.min(Integer.parseInt(queryParams.get("limit")), 50);
         }
 
-        PaginatedResult<Word> wordPage = wordService.searchWords(query, limit, cursor);
+        PaginatedResult<Word> wordPage = queryService.searchWords(query, limit, cursor);
 
         Map<String, Object> result = new HashMap<>();
         result.put("words", wordPage.getItems());
