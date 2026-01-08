@@ -40,6 +40,7 @@ public class TestHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
         return new HandlerRouter().addRoutes(
                 Route.post("/test/{userId}/start", this::startTest),
                 Route.post("/test/{userId}/submit", this::submitAnswer),
+                Route.get("/test/{userId}/results/{testId}", this::getTestResultDetail),
                 Route.get("/test/{userId}/results", this::getTestResults)
         );
     }
@@ -129,5 +130,36 @@ public class TestHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
         result.put("hasMore", resultPage.hasMore());
 
         return createResponse(200, ApiResponse.success("Test results retrieved", result));
+    }
+
+    private APIGatewayProxyResponseEvent getTestResultDetail(APIGatewayProxyRequestEvent request) {
+        Map<String, String> pathParams = request.getPathParameters();
+
+        String userId = pathParams != null ? pathParams.get("userId") : null;
+        String testId = pathParams != null ? pathParams.get("testId") : null;
+
+        if (userId == null || testId == null) {
+            return createResponse(400, ApiResponse.error("userId and testId are required"));
+        }
+
+        var optDetail = queryService.getTestResultDetail(userId, testId);
+        if (optDetail.isEmpty()) {
+            return createResponse(404, ApiResponse.error("Test result not found"));
+        }
+
+        var detail = optDetail.get();
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("testId", detail.testResult().getTestId());
+        result.put("testType", detail.testResult().getTestType());
+        result.put("totalQuestions", detail.testResult().getTotalQuestions());
+        result.put("correctAnswers", detail.testResult().getCorrectAnswers());
+        result.put("incorrectAnswers", detail.testResult().getIncorrectAnswers());
+        result.put("successRate", detail.testResult().getSuccessRate());
+        result.put("incorrectWords", detail.incorrectWords());
+        result.put("startedAt", detail.testResult().getStartedAt());
+        result.put("completedAt", detail.testResult().getCompletedAt());
+
+        return createResponse(200, ApiResponse.success("Test result detail retrieved", result));
     }
 }

@@ -6,6 +6,7 @@ import org.slf4j.LoggerFactory;
 import software.amazon.awssdk.enhanced.dynamodb.DynamoDbTable;
 import software.amazon.awssdk.enhanced.dynamodb.Key;
 import software.amazon.awssdk.enhanced.dynamodb.TableSchema;
+import software.amazon.awssdk.enhanced.dynamodb.Expression;
 import software.amazon.awssdk.enhanced.dynamodb.model.Page;
 import software.amazon.awssdk.enhanced.dynamodb.model.QueryConditional;
 import software.amazon.awssdk.enhanced.dynamodb.model.QueryEnhancedRequest;
@@ -35,7 +36,7 @@ public class TestResultRepository {
         return testResult;
     }
 
-    public Optional<TestResult> findByUserIdAndTestId(String userId, String timestamp) {
+    public Optional<TestResult> findByUserIdAndTimestamp(String userId, String timestamp) {
         Key key = Key.builder()
                 .partitionValue("TEST#" + userId)
                 .sortValue("RESULT#" + timestamp)
@@ -43,6 +44,33 @@ public class TestResultRepository {
 
         TestResult testResult = table.getItem(key);
         return Optional.ofNullable(testResult);
+    }
+
+    public Optional<TestResult> findByUserIdAndTestId(String userId, String testId) {
+        QueryConditional queryConditional = QueryConditional
+                .sortBeginsWith(Key.builder()
+                        .partitionValue("TEST#" + userId)
+                        .sortValue("RESULT#")
+                        .build());
+
+        Expression filterExpression = Expression.builder()
+                .expression("testId = :testId")
+                .putExpressionValue(":testId", AttributeValue.builder().s(testId).build())
+                .build();
+
+        QueryEnhancedRequest request = QueryEnhancedRequest.builder()
+                .queryConditional(queryConditional)
+                .filterExpression(filterExpression)
+                .limit(1)
+                .build();
+
+        for (Page<TestResult> page : table.query(request)) {
+            if (!page.items().isEmpty()) {
+                return Optional.of(page.items().get(0));
+            }
+        }
+
+        return Optional.empty();
     }
 
     /**
