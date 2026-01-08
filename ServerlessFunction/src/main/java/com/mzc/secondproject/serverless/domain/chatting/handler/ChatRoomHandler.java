@@ -6,6 +6,8 @@ import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyRequestEvent;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyResponseEvent;
 import com.mzc.secondproject.serverless.common.dto.ApiResponse;
 import com.mzc.secondproject.serverless.common.dto.PaginatedResult;
+import com.mzc.secondproject.serverless.common.router.HandlerRouter;
+import com.mzc.secondproject.serverless.common.router.Route;
 import com.mzc.secondproject.serverless.common.util.ResponseUtil;
 import static com.mzc.secondproject.serverless.common.util.ResponseUtil.createResponse;
 import com.mzc.secondproject.serverless.domain.chatting.model.ChatRoom;
@@ -23,49 +25,28 @@ public class ChatRoomHandler implements RequestHandler<APIGatewayProxyRequestEve
     private static final Logger logger = LoggerFactory.getLogger(ChatRoomHandler.class);
 
     private final ChatRoomService roomService;
+    private final HandlerRouter router;
 
     public ChatRoomHandler() {
         this.roomService = new ChatRoomService();
+        this.router = initRouter();
+    }
+
+    private HandlerRouter initRouter() {
+        return new HandlerRouter().addRoutes(
+                Route.post("/rooms", this::createRoom),
+                Route.get("/rooms", this::getRooms),
+                Route.get("/rooms/{roomId}", this::getRoom),
+                Route.post("/rooms/{roomId}/join", this::joinRoom),
+                Route.post("/rooms/{roomId}/leave", this::leaveRoom),
+                Route.delete("/rooms/{roomId}", this::deleteRoom)
+        );
     }
 
     @Override
     public APIGatewayProxyResponseEvent handleRequest(APIGatewayProxyRequestEvent request, Context context) {
-        String httpMethod = request.getHttpMethod();
-        String path = request.getPath();
-
-        logger.info("Received request: {} {}", httpMethod, path);
-
-        try {
-            if ("POST".equals(httpMethod) && path.endsWith("/rooms")) {
-                return createRoom(request);
-            }
-
-            if ("GET".equals(httpMethod) && path.endsWith("/rooms")) {
-                return getRooms(request);
-            }
-
-            if ("GET".equals(httpMethod) && path.contains("/rooms/") && !path.contains("/join")) {
-                return getRoom(request);
-            }
-
-            if ("POST".equals(httpMethod) && path.endsWith("/join")) {
-                return joinRoom(request);
-            }
-
-            if ("POST".equals(httpMethod) && path.endsWith("/leave")) {
-                return leaveRoom(request);
-            }
-
-            if ("DELETE".equals(httpMethod) && path.contains("/rooms/")) {
-                return deleteRoom(request);
-            }
-
-            return createResponse(404, ApiResponse.error("Not found"));
-
-        } catch (Exception e) {
-            logger.error("Error handling request", e);
-            return createResponse(500, ApiResponse.error("Internal server error: " + e.getMessage()));
-        }
+        logger.info("Received request: {} {}", request.getHttpMethod(), request.getPath());
+        return router.route(request);
     }
 
     private APIGatewayProxyResponseEvent createRoom(APIGatewayProxyRequestEvent request) {
@@ -152,17 +133,9 @@ public class ChatRoomHandler implements RequestHandler<APIGatewayProxyRequestEve
             return createResponse(400, ApiResponse.error("roomId and userId are required"));
         }
 
-        try {
-            ChatRoom room = roomService.joinRoom(roomId, userId, password);
-            room.setPassword(null);
-            return createResponse(200, ApiResponse.success("Joined room", room));
-        } catch (IllegalArgumentException e) {
-            return createResponse(404, ApiResponse.error(e.getMessage()));
-        } catch (SecurityException e) {
-            return createResponse(403, ApiResponse.error(e.getMessage()));
-        } catch (IllegalStateException e) {
-            return createResponse(400, ApiResponse.error(e.getMessage()));
-        }
+        ChatRoom room = roomService.joinRoom(roomId, userId, password);
+        room.setPassword(null);
+        return createResponse(200, ApiResponse.success("Joined room", room));
     }
 
     private APIGatewayProxyResponseEvent leaveRoom(APIGatewayProxyRequestEvent request) {
@@ -177,16 +150,12 @@ public class ChatRoomHandler implements RequestHandler<APIGatewayProxyRequestEve
             return createResponse(400, ApiResponse.error("roomId and userId are required"));
         }
 
-        try {
-            ChatRoomService.LeaveResult result = roomService.leaveRoom(roomId, userId);
-            if (result.deleted()) {
-                return createResponse(200, ApiResponse.success("Room deleted", null));
-            }
-            result.room().setPassword(null);
-            return createResponse(200, ApiResponse.success("Left room", result.room()));
-        } catch (IllegalArgumentException e) {
-            return createResponse(404, ApiResponse.error(e.getMessage()));
+        ChatRoomService.LeaveResult result = roomService.leaveRoom(roomId, userId);
+        if (result.deleted()) {
+            return createResponse(200, ApiResponse.success("Room deleted", null));
         }
+        result.room().setPassword(null);
+        return createResponse(200, ApiResponse.success("Left room", result.room()));
     }
 
     private APIGatewayProxyResponseEvent deleteRoom(APIGatewayProxyRequestEvent request) {
@@ -204,13 +173,7 @@ public class ChatRoomHandler implements RequestHandler<APIGatewayProxyRequestEve
             return createResponse(400, ApiResponse.error("userId is required"));
         }
 
-        try {
-            roomService.deleteRoom(roomId, userId);
-            return createResponse(200, ApiResponse.success("Room deleted", null));
-        } catch (IllegalArgumentException e) {
-            return createResponse(404, ApiResponse.error(e.getMessage()));
-        } catch (SecurityException e) {
-            return createResponse(403, ApiResponse.error(e.getMessage()));
-        }
+        roomService.deleteRoom(roomId, userId);
+        return createResponse(200, ApiResponse.success("Room deleted", null));
     }
 }
