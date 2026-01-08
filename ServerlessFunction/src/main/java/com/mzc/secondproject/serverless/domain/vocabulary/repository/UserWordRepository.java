@@ -139,6 +139,13 @@ public class UserWordRepository {
      * 틀린 적 있는 단어만 조회 - FilterExpression 사용 (GSI 추가 없이 비용 최적화)
      */
     public PaginatedResult<UserWord> findIncorrectWords(String userId, int limit, String cursor) {
+        return findIncorrectWords(userId, 1, limit, cursor);
+    }
+
+    /**
+     * 최소 N회 이상 틀린 단어 조회
+     */
+    public PaginatedResult<UserWord> findIncorrectWords(String userId, int minCount, int limit, String cursor) {
         QueryConditional queryConditional = QueryConditional
                 .sortBeginsWith(Key.builder()
                         .partitionValue("USER#" + userId)
@@ -146,14 +153,14 @@ public class UserWordRepository {
                         .build());
 
         Expression filterExpression = Expression.builder()
-                .expression("incorrectCount > :zero")
-                .putExpressionValue(":zero", AttributeValue.builder().n("0").build())
+                .expression("incorrectCount >= :minCount")
+                .putExpressionValue(":minCount", AttributeValue.builder().n(String.valueOf(minCount)).build())
                 .build();
 
         QueryEnhancedRequest.Builder requestBuilder = QueryEnhancedRequest.builder()
                 .queryConditional(queryConditional)
                 .filterExpression(filterExpression)
-                .limit(limit);
+                .limit(limit * 3);  // FilterExpression 적용되므로 넉넉히
 
         if (cursor != null && !cursor.isEmpty()) {
             Map<String, AttributeValue> exclusiveStartKey = CursorUtil.decode(cursor);

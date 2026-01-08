@@ -49,6 +49,27 @@ public class UserWordQueryService {
         return new UserWordsResult(enrichedUserWords, userWordPage.getNextCursor(), userWordPage.hasMore());
     }
 
+    /**
+     * 오답 노트 조회 - 오답 횟수 기준 내림차순 정렬
+     */
+    public UserWordsResult getWrongAnswers(String userId, int minCount, int limit, String cursor) {
+        PaginatedResult<UserWord> userWordPage = userWordRepository.findIncorrectWords(userId, minCount, limit * 2, cursor);
+
+        // 오답 횟수 기준 내림차순 정렬
+        List<UserWord> sorted = userWordPage.getItems().stream()
+                .sorted((a, b) -> {
+                    int countA = a.getIncorrectCount() != null ? a.getIncorrectCount() : 0;
+                    int countB = b.getIncorrectCount() != null ? b.getIncorrectCount() : 0;
+                    return Integer.compare(countB, countA);
+                })
+                .limit(limit)
+                .collect(Collectors.toList());
+
+        List<Map<String, Object>> enrichedUserWords = enrichWithWordInfo(sorted);
+
+        return new UserWordsResult(enrichedUserWords, userWordPage.getNextCursor(), userWordPage.hasMore());
+    }
+
     public Optional<UserWord> getUserWord(String userId, String wordId) {
         return userWordRepository.findByUserIdAndWordId(userId, wordId);
     }
