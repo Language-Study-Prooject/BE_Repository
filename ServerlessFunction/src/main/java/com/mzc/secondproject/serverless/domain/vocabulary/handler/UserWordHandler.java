@@ -5,6 +5,8 @@ import com.amazonaws.services.lambda.runtime.RequestHandler;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyRequestEvent;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyResponseEvent;
 import com.mzc.secondproject.serverless.common.dto.ApiResponse;
+import com.mzc.secondproject.serverless.common.validation.RequestValidator;
+import com.mzc.secondproject.serverless.common.validation.ValidationResult;
 import com.mzc.secondproject.serverless.domain.vocabulary.dto.request.UpdateUserWordRequest;
 import com.mzc.secondproject.serverless.domain.vocabulary.dto.request.UpdateUserWordTagRequest;
 import com.mzc.secondproject.serverless.common.router.HandlerRouter;
@@ -37,6 +39,7 @@ public class UserWordHandler implements RequestHandler<APIGatewayProxyRequestEve
 
     private HandlerRouter initRouter() {
         return new HandlerRouter().addRoutes(
+                Route.get("/users/{userId}/wrong-answers", this::getWrongAnswers),
                 Route.get("/users/{userId}/words", this::getUserWords),
                 Route.get("/users/{userId}/words/{wordId}", this::getUserWord),
                 Route.put("/users/{userId}/words/{wordId}/tag", this::updateUserWordTag),
@@ -130,5 +133,45 @@ public class UserWordHandler implements RequestHandler<APIGatewayProxyRequestEve
 
         UserWord userWord = commandService.updateUserWordTag(userId, wordId, req.getBookmarked(), req.getFavorite(), req.getDifficulty());
         return createResponse(200, ApiResponse.success("Tag updated", userWord));
+    }
+
+    private APIGatewayProxyResponseEvent getWrongAnswers(APIGatewayProxyRequestEvent request) {
+        Map<String, String> pathParams = request.getPathParameters();
+        Map<String, String> queryParams = request.getQueryStringParameters();
+
+        String userId = pathParams != null ? pathParams.get("userId") : null;
+        String cursor = queryParams != null ? queryParams.get("cursor") : null;
+
+        ValidationResult validation = RequestValidator.create()
+                .requireNotEmpty(userId, "userId")
+                .build();
+
+        if (validation.isInvalid()) {
+            return createResponse(400, ApiResponse.error(validation.getErrorMessage().orElse("Validation failed")));
+        }
+
+        int limit = parseIntParam(queryParams, "limit", 20, 1, 50);
+        int minCount = parseIntParam(queryParams, "minCount", 1, 1, 100);
+
+        UserWordQueryService.UserWordsResult result = queryService.getWrongAnswers(userId, minCount, limit, cursor);
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("wrongAnswers", result.userWords());
+        response.put("nextCursor", result.nextCursor());
+        response.put("hasMore", result.hasMore());
+
+        return createResponse(200, ApiResponse.success("Wrong answers retrieved", response));
+    }
+
+    private int parseIntParam(Map<String, String> params, String key, int defaultValue, int min, int max) {
+        if (params == null || params.get(key) == null) {
+            return defaultValue;
+        }
+        try {
+            int value = Integer.parseInt(params.get(key));
+            return Math.max(min, Math.min(value, max));
+        } catch (NumberFormatException e) {
+            return defaultValue;
+        }
     }
 }
