@@ -9,7 +9,7 @@ import com.mzc.secondproject.serverless.common.util.ResponseUtil;
 import static com.mzc.secondproject.serverless.common.util.ResponseUtil.createResponse;
 import com.mzc.secondproject.serverless.domain.vocabulary.model.Word;
 import com.mzc.secondproject.serverless.domain.vocabulary.repository.WordRepository;
-import com.mzc.secondproject.serverless.domain.vocabulary.service.PollyService;
+import com.mzc.secondproject.serverless.common.service.PollyService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -20,13 +20,14 @@ import java.util.Optional;
 public class VoiceHandler implements RequestHandler<APIGatewayProxyRequestEvent, APIGatewayProxyResponseEvent> {
 
     private static final Logger logger = LoggerFactory.getLogger(VoiceHandler.class);
+    private static final String BUCKET_NAME = System.getenv("VOCAB_BUCKET_NAME");
 
     private final WordRepository wordRepository;
     private final PollyService pollyService;
 
     public VoiceHandler() {
         this.wordRepository = new WordRepository();
-        this.pollyService = new PollyService();
+        this.pollyService = new PollyService(BUCKET_NAME, "vocab/voice/");
     }
 
     @Override
@@ -82,7 +83,7 @@ public class VoiceHandler implements RequestHandler<APIGatewayProxyRequestEvent,
             logger.info("Cache hit from DB: wordId={}, voice={}", wordId, voice);
         } else {
             // 캐시 미스: Polly 변환 후 S3 저장
-            PollyService.VoiceSynthesisResult result = pollyService.synthesizeSpeechForWord(
+            PollyService.VoiceSynthesisResult result = pollyService.synthesizeSpeech(
                     wordId, word.getEnglish(), voice);
 
             audioUrl = result.getAudioUrl();

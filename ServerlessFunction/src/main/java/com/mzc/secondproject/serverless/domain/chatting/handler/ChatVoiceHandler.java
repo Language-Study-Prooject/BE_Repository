@@ -9,8 +9,8 @@ import com.mzc.secondproject.serverless.common.util.ResponseUtil;
 import static com.mzc.secondproject.serverless.common.util.ResponseUtil.createResponse;
 import com.mzc.secondproject.serverless.domain.chatting.model.ChatMessage;
 import com.mzc.secondproject.serverless.domain.chatting.repository.ChatMessageRepository;
-import com.mzc.secondproject.serverless.domain.chatting.service.PollyService;
-import com.mzc.secondproject.serverless.domain.chatting.service.PollyService.VoiceSynthesisResult;
+import com.mzc.secondproject.serverless.common.service.PollyService;
+import com.mzc.secondproject.serverless.common.service.PollyService.VoiceSynthesisResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -20,12 +20,13 @@ import java.util.Optional;
 public class ChatVoiceHandler implements RequestHandler<APIGatewayProxyRequestEvent, APIGatewayProxyResponseEvent> {
 
     private static final Logger logger = LoggerFactory.getLogger(ChatVoiceHandler.class);
+    private static final String BUCKET_NAME = System.getenv("CHAT_BUCKET_NAME");
 
     private final PollyService pollyService;
     private final ChatMessageRepository messageRepository;
 
     public ChatVoiceHandler() {
-        this.pollyService = new PollyService();
+        this.pollyService = new PollyService(BUCKET_NAME, "voice/");
         this.messageRepository = new ChatMessageRepository();
     }
 
@@ -73,7 +74,7 @@ public class ChatVoiceHandler implements RequestHandler<APIGatewayProxyRequestEv
                 cached = true;
             } else {
                 // 캐시 미스: Polly 변환 → S3 저장 → DynamoDB 업데이트
-                VoiceSynthesisResult result = pollyService.synthesizeSpeechForMessage(
+                VoiceSynthesisResult result = pollyService.synthesizeSpeech(
                         messageId, message.getContent(), voice);
 
                 // DynamoDB에 S3 키 저장
