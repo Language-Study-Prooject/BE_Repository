@@ -217,6 +217,12 @@ Resources:
             RestApiId: !Ref MainApi
             Path: /vocab/words/batch
             Method: POST
+        BatchGetWords:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /vocab/words/batch/get
+            Method: POST
         SearchWords:
           Type: Api
           Properties:
@@ -342,11 +348,17 @@ Resources:
             RestApiId: !Ref MainApi
             Path: /vocab/test/{userId}/submit
             Method: POST
-        GetTestResult:
+        GetTestResults:
           Type: Api
           Properties:
             RestApiId: !Ref MainApi
             Path: /vocab/test/{userId}/results
+            Method: GET
+        GetTestResultDetail:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /vocab/test/{userId}/results/{testId}
             Method: GET
 
   StatsFunction:

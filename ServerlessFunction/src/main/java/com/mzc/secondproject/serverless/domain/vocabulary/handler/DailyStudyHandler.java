@@ -52,8 +52,15 @@ public class DailyStudyHandler implements RequestHandler<APIGatewayProxyRequestE
             return createResponse(400, ApiResponse.error("userId is required"));
         }
 
+        String date = queryParams != null ? queryParams.get("date") : null;
         String level = queryParams != null ? queryParams.get("level") : null;
 
+        // 특정 날짜 조회 (읽기 전용)
+        if (date != null && !date.isEmpty()) {
+            return getDailyStudyByDate(userId, date);
+        }
+
+        // 오늘 날짜 (없으면 생성)
         DailyStudyCommandService.DailyStudyResult result = commandService.getDailyWords(userId, level);
 
         Map<String, Object> response = new HashMap<>();
@@ -63,6 +70,27 @@ public class DailyStudyHandler implements RequestHandler<APIGatewayProxyRequestE
         response.put("progress", result.progress());
 
         return createResponse(200, ApiResponse.success("Daily words retrieved", response));
+    }
+
+    private APIGatewayProxyResponseEvent getDailyStudyByDate(String userId, String date) {
+        var optDailyStudy = queryService.getDailyStudy(userId, date);
+
+        if (optDailyStudy.isEmpty()) {
+            return createResponse(404, ApiResponse.error("No daily study found for date: " + date));
+        }
+
+        var dailyStudy = optDailyStudy.get();
+        var newWords = queryService.getWordDetails(dailyStudy.getNewWordIds());
+        var reviewWords = queryService.getWordDetails(dailyStudy.getReviewWordIds());
+        var progress = queryService.calculateProgress(dailyStudy);
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("dailyStudy", dailyStudy);
+        response.put("newWords", newWords);
+        response.put("reviewWords", reviewWords);
+        response.put("progress", progress);
+
+        return createResponse(200, ApiResponse.success("Daily study retrieved for " + date, response));
     }
 
     private APIGatewayProxyResponseEvent markWordLearned(APIGatewayProxyRequestEvent request) {
