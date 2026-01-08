@@ -3,7 +3,6 @@ package com.mzc.secondproject.serverless.domain.chatting.repository;
 import com.mzc.secondproject.serverless.domain.chatting.model.ChatRoom;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import software.amazon.awssdk.enhanced.dynamodb.DynamoDbEnhancedClient;
 import software.amazon.awssdk.enhanced.dynamodb.DynamoDbIndex;
 import software.amazon.awssdk.enhanced.dynamodb.DynamoDbTable;
 import software.amazon.awssdk.enhanced.dynamodb.Key;
@@ -11,12 +10,11 @@ import software.amazon.awssdk.enhanced.dynamodb.TableSchema;
 import software.amazon.awssdk.enhanced.dynamodb.model.Page;
 import software.amazon.awssdk.enhanced.dynamodb.model.QueryConditional;
 import software.amazon.awssdk.enhanced.dynamodb.model.QueryEnhancedRequest;
-import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 import software.amazon.awssdk.services.dynamodb.model.UpdateItemRequest;
 
 import com.mzc.secondproject.serverless.common.dto.PaginatedResult;
-import com.mzc.secondproject.serverless.common.util.AwsClients;
+import com.mzc.secondproject.serverless.common.config.AwsClients;
 import com.mzc.secondproject.serverless.common.util.CursorUtil;
 
 import java.util.HashMap;

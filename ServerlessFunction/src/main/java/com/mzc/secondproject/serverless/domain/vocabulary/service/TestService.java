@@ -1,7 +1,7 @@
 package com.mzc.secondproject.serverless.domain.vocabulary.service;
 
 import com.mzc.secondproject.serverless.common.dto.PaginatedResult;
-import com.mzc.secondproject.serverless.common.util.AwsClients;
+import com.mzc.secondproject.serverless.common.config.AwsClients;
 import com.mzc.secondproject.serverless.common.util.ResponseUtil;
 import com.mzc.secondproject.serverless.domain.vocabulary.model.DailyStudy;
 import com.mzc.secondproject.serverless.domain.vocabulary.model.TestResult;

@@ -1,6 +1,6 @@
 package com.mzc.secondproject.serverless.common.service;
 
-import com.mzc.secondproject.serverless.common.util.AwsClients;
+import com.mzc.secondproject.serverless.common.config.AwsClients;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import software.amazon.awssdk.core.sync.RequestBody;
