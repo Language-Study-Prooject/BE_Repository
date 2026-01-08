@@ -6,6 +6,8 @@ import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyRequestEvent;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyResponseEvent;
 import com.mzc.secondproject.serverless.common.dto.ApiResponse;
 import com.mzc.secondproject.serverless.common.dto.PaginatedResult;
+import com.mzc.secondproject.serverless.common.dto.request.vocabulary.CreateWordRequest;
+import com.mzc.secondproject.serverless.common.dto.request.vocabulary.CreateWordsBatchRequest;
 import com.mzc.secondproject.serverless.common.router.HandlerRouter;
 import com.mzc.secondproject.serverless.common.router.Route;
 import com.mzc.secondproject.serverless.common.util.ResponseUtil;
@@ -55,22 +57,19 @@ public class WordHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
 
     private APIGatewayProxyResponseEvent createWord(APIGatewayProxyRequestEvent request) {
         String body = request.getBody();
-        Map<String, Object> requestBody = ResponseUtil.gson().fromJson(body, Map.class);
+        CreateWordRequest req = ResponseUtil.gson().fromJson(body, CreateWordRequest.class);
 
-        String english = (String) requestBody.get("english");
-        String korean = (String) requestBody.get("korean");
-        String example = (String) requestBody.get("example");
-        String level = (String) requestBody.getOrDefault("level", "BEGINNER");
-        String category = (String) requestBody.getOrDefault("category", "DAILY");
-
-        if (english == null || english.isEmpty()) {
+        if (req.getEnglish() == null || req.getEnglish().isEmpty()) {
             return createResponse(400, ApiResponse.error("english is required"));
         }
-        if (korean == null || korean.isEmpty()) {
+        if (req.getKorean() == null || req.getKorean().isEmpty()) {
             return createResponse(400, ApiResponse.error("korean is required"));
         }
 
-        Word word = commandService.createWord(english, korean, example, level, category);
+        String level = req.getLevel() != null ? req.getLevel() : "BEGINNER";
+        String category = req.getCategory() != null ? req.getCategory() : "DAILY";
+
+        Word word = commandService.createWord(req.getEnglish(), req.getKorean(), req.getExample(), level, category);
         return createResponse(201, ApiResponse.success("Word created", word));
     }
 
@@ -139,17 +138,15 @@ public class WordHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
         return createResponse(200, ApiResponse.success("Word deleted", null));
     }
 
-    @SuppressWarnings("unchecked")
     private APIGatewayProxyResponseEvent createWordsBatch(APIGatewayProxyRequestEvent request) {
         String body = request.getBody();
-        Map<String, Object> requestBody = ResponseUtil.gson().fromJson(body, Map.class);
+        CreateWordsBatchRequest req = ResponseUtil.gson().fromJson(body, CreateWordsBatchRequest.class);
 
-        List<Map<String, Object>> wordsList = (List<Map<String, Object>>) requestBody.get("words");
-        if (wordsList == null || wordsList.isEmpty()) {
+        if (req.getWords() == null || req.getWords().isEmpty()) {
             return createResponse(400, ApiResponse.error("words array is required"));
         }
 
-        WordCommandService.BatchResult result = commandService.createWordsBatch(wordsList);
+        WordCommandService.BatchResult result = commandService.createWordsBatch(req.getWords());
 
         Map<String, Object> response = new HashMap<>();
         response.put("successCount", result.successCount());

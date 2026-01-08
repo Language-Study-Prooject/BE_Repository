@@ -1,5 +1,6 @@
 package com.mzc.secondproject.serverless.domain.vocabulary.service;
 
+import com.mzc.secondproject.serverless.common.dto.request.vocabulary.CreateWordRequest;
 import com.mzc.secondproject.serverless.domain.vocabulary.model.Word;
 import com.mzc.secondproject.serverless.domain.vocabulary.repository.WordRepository;
 import org.slf4j.Logger;
@@ -95,19 +96,19 @@ public class WordCommandService {
         logger.info("Deleted word: {}", wordId);
     }
 
-    public BatchResult createWordsBatch(List<Map<String, Object>> wordsList) {
+    public BatchResult createWordsBatch(List<CreateWordRequest> wordsList) {
         String now = Instant.now().toString();
         List<Word> createdWords = new ArrayList<>();
         int successCount = 0;
         int failCount = 0;
 
-        for (Map<String, Object> wordData : wordsList) {
+        for (CreateWordRequest wordData : wordsList) {
             try {
-                String english = (String) wordData.get("english");
-                String korean = (String) wordData.get("korean");
-                String example = (String) wordData.get("example");
-                String level = (String) wordData.getOrDefault("level", "BEGINNER");
-                String category = (String) wordData.getOrDefault("category", "DAILY");
+                String english = wordData.getEnglish();
+                String korean = wordData.getKorean();
+                String example = wordData.getExample();
+                String level = wordData.getLevel() != null ? wordData.getLevel() : "BEGINNER";
+                String category = wordData.getCategory() != null ? wordData.getCategory() : "DAILY";
 
                 if (english == null || korean == null) {
                     failCount++;

@@ -1,6 +1,7 @@
 package com.mzc.secondproject.serverless.domain.vocabulary.service;
 
 import com.mzc.secondproject.serverless.common.dto.PaginatedResult;
+import com.mzc.secondproject.serverless.common.dto.request.vocabulary.SubmitTestRequest;
 import com.mzc.secondproject.serverless.common.util.AwsClients;
 import com.mzc.secondproject.serverless.common.util.ResponseUtil;
 import com.mzc.secondproject.serverless.domain.vocabulary.model.DailyStudy;
@@ -94,7 +95,7 @@ public class TestCommandService {
     }
 
     public SubmitTestResult submitTest(String userId, String testId, String testType,
-                                        List<Map<String, Object>> answers, String startedAt) {
+                                        List<SubmitTestRequest.TestAnswer> answers, String startedAt) {
         String now = Instant.now().toString();
         String today = LocalDate.now().toString();
 
@@ -104,16 +105,16 @@ public class TestCommandService {
         List<Map<String, Object>> results = new ArrayList<>();
 
         List<String> wordIds = answers.stream()
-                .map(a -> (String) a.get("wordId"))
+                .map(SubmitTestRequest.TestAnswer::getWordId)
                 .collect(Collectors.toList());
         List<Word> words = wordRepository.findByIds(wordIds);
 
         Map<String, Word> wordMap = words.stream()
                 .collect(Collectors.toMap(Word::getWordId, w -> w));
 
-        for (Map<String, Object> answer : answers) {
-            String wordId = (String) answer.get("wordId");
-            String userAnswer = (String) answer.get("answer");
+        for (SubmitTestRequest.TestAnswer answer : answers) {
+            String wordId = answer.getWordId();
+            String userAnswer = answer.getAnswer();
 
             Word word = wordMap.get(wordId);
             if (word != null) {
