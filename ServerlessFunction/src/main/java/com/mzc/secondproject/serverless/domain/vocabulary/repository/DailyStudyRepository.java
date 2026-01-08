@@ -14,6 +14,7 @@ import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 import software.amazon.awssdk.services.dynamodb.model.UpdateItemRequest;
 
+import com.mzc.secondproject.serverless.common.dto.PaginatedResult;
 import com.mzc.secondproject.serverless.common.util.CursorUtil;
 
 import java.util.HashMap;
@@ -57,7 +58,7 @@ public class DailyStudyRepository {
     /**
      * 사용자의 일일 학습 기록 조회 - 최신순, 페이지네이션
      */
-    public DailyStudyPage findByUserIdWithPagination(String userId, int limit, String cursor) {
+    public PaginatedResult<DailyStudy> findByUserIdWithPagination(String userId, int limit, String cursor) {
         QueryConditional queryConditional = QueryConditional
                 .sortBeginsWith(Key.builder()
                         .partitionValue("DAILY#" + userId)
@@ -79,7 +80,7 @@ public class DailyStudyRepository {
         Page<DailyStudy> page = table.query(requestBuilder.build()).iterator().next();
         String nextCursor = CursorUtil.encode(page.lastEvaluatedKey());
 
-        return new DailyStudyPage(page.items(), nextCursor);
+        return new PaginatedResult<>(page.items(), nextCursor);
     }
 
     /**
@@ -103,27 +104,5 @@ public class DailyStudyRepository {
 
         dynamoDbClient.updateItem(updateRequest);
         logger.info("Added learned word: userId={}, date={}, wordId={}", userId, date, wordId);
-    }
-
-    public static class DailyStudyPage {
-        private final List<DailyStudy> dailyStudies;
-        private final String nextCursor;
-
-        public DailyStudyPage(List<DailyStudy> dailyStudies, String nextCursor) {
-            this.dailyStudies = dailyStudies;
-            this.nextCursor = nextCursor;
-        }
-
-        public List<DailyStudy> getDailyStudies() {
-            return dailyStudies;
-        }
-
-        public String getNextCursor() {
-            return nextCursor;
-        }
-
-        public boolean hasMore() {
-            return nextCursor != null;
-        }
     }
 }
