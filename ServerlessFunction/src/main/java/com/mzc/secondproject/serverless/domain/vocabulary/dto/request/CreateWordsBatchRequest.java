@@ -1,4 +1,4 @@
-package com.mzc.secondproject.serverless.common.dto.request.vocabulary;
+package com.mzc.secondproject.serverless.domain.vocabulary.dto.request;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
