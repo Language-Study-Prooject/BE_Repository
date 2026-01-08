@@ -6,6 +6,7 @@ import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyRequestEvent;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyResponseEvent;
 import com.mzc.secondproject.serverless.common.dto.ApiResponse;
 import com.mzc.secondproject.serverless.common.dto.PaginatedResult;
+import com.mzc.secondproject.serverless.common.dto.request.chatting.SendMessageRequest;
 import com.mzc.secondproject.serverless.common.router.HandlerRouter;
 import com.mzc.secondproject.serverless.common.router.Route;
 import com.mzc.secondproject.serverless.common.util.ResponseUtil;
@@ -58,31 +59,27 @@ public class ChatMessageHandler implements RequestHandler<APIGatewayProxyRequest
             return createResponse(400, ApiResponse.error("roomId is required"));
         }
 
-        String body = request.getBody();
-        Map<String, Object> requestBody = ResponseUtil.gson().fromJson(body, Map.class);
+        SendMessageRequest req = ResponseUtil.gson().fromJson(request.getBody(), SendMessageRequest.class);
 
-        String userId = (String) requestBody.get("userId");
-        String content = (String) requestBody.get("content");
-        String messageType = (String) requestBody.getOrDefault("messageType", "TEXT");
-
-        if (userId == null || content == null) {
+        if (req.getUserId() == null || req.getContent() == null) {
             return createResponse(400, ApiResponse.error("userId and content are required"));
         }
 
+        String messageType = req.getMessageType() != null ? req.getMessageType() : "TEXT";
         String messageId = UUID.randomUUID().toString();
         String now = Instant.now().toString();
 
         ChatMessage message = ChatMessage.builder()
                 .pk("ROOM#" + roomId)
                 .sk("MSG#" + now + "#" + messageId)
-                .gsi1pk("USER#" + userId)
+                .gsi1pk("USER#" + req.getUserId())
                 .gsi1sk("MSG#" + now)
                 .gsi2pk("MSG#" + messageId)
                 .gsi2sk("ROOM#" + roomId)
                 .messageId(messageId)
                 .roomId(roomId)
-                .userId(userId)
-                .content(content)
+                .userId(req.getUserId())
+                .content(req.getContent())
                 .messageType(messageType)
                 .createdAt(now)
                 .build();
