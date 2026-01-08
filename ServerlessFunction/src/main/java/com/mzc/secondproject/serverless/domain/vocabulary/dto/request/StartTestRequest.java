@@ -1,4 +1,4 @@
-package com.mzc.secondproject.serverless.common.dto.request.vocabulary;
+package com.mzc.secondproject.serverless.domain.vocabulary.dto.request;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -9,6 +9,7 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class UpdateUserWordRequest {
-    private Boolean isCorrect;
+public class StartTestRequest {
+    @Builder.Default
+    private String testType = "DAILY";
 }

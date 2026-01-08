@@ -1,4 +1,4 @@
-package com.mzc.secondproject.serverless.common.dto.request.chatting;
+package com.mzc.secondproject.serverless.domain.vocabulary.dto.request;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -9,7 +9,6 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class JoinRoomRequest {
-    private String userId;
-    private String password;
+public class UpdateUserWordRequest {
+    private Boolean isCorrect;
 }
