@@ -41,9 +41,13 @@ public class Word {
     private String createdAt;
     private Long ttl;
 
-    // 음성 캐시용 S3 키 (vocab/voice/{wordId}_{voice}.mp3)
+    // 단어 음성 캐시용 S3 키 (vocab/voice/{wordId}_{voice}.mp3)
     private String maleVoiceKey;
     private String femaleVoiceKey;
+
+    // 예문 음성 캐시용 S3 키 (vocab/voice/{wordId}_{voice}_example.mp3)
+    private String maleExampleVoiceKey;
+    private String femaleExampleVoiceKey;
 
     @DynamoDbPartitionKey
     @DynamoDbAttribute("PK")

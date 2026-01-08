@@ -62,6 +62,7 @@ public class VoiceHandler implements RequestHandler<APIGatewayProxyRequestEvent,
 
         String wordId = req.getWordId();
         String voice = req.getVoice() != null ? req.getVoice() : "FEMALE";
+        String type = req.getType() != null ? req.getType() : "WORD";
 
         // 단어 조회
         Optional<Word> optWord = wordRepository.findById(wordId);
@@ -71,9 +72,18 @@ public class VoiceHandler implements RequestHandler<APIGatewayProxyRequestEvent,
 
         Word word = optWord.get();
         boolean isMale = "MALE".equalsIgnoreCase(voice);
+        boolean isExample = "EXAMPLE".equalsIgnoreCase(type);
 
-        // 캐시 확인: DynamoDB에 저장된 S3 키 확인
-        String cachedKey = isMale ? word.getMaleVoiceKey() : word.getFemaleVoiceKey();
+        // 예문 요청인데 예문이 없는 경우
+        if (isExample && (word.getExample() == null || word.getExample().isEmpty())) {
+            return createResponse(400, ApiResponse.error("This word has no example sentence"));
+        }
+
+        // 음성 합성할 텍스트 결정
+        String textToSynthesize = isExample ? word.getExample() : word.getEnglish();
+
+        // 캐시 키 결정
+        String cachedKey = getCachedKey(word, isMale, isExample);
         String audioUrl;
         boolean cached = false;
 
@@ -81,32 +91,54 @@ public class VoiceHandler implements RequestHandler<APIGatewayProxyRequestEvent,
             // DB에 캐시 키가 있으면 Pre-signed URL 생성
             audioUrl = pollyService.getPresignedUrl(cachedKey);
             cached = true;
-            logger.info("Cache hit from DB: wordId={}, voice={}", wordId, voice);
+            logger.info("Cache hit from DB: wordId={}, voice={}, type={}", wordId, voice, type);
         } else {
             // 캐시 미스: Polly 변환 후 S3 저장
+            String s3KeySuffix = isExample ? "_example" : "";
             PollyService.VoiceSynthesisResult result = pollyService.synthesizeSpeech(
-                    wordId, word.getEnglish(), voice);
+                    wordId + s3KeySuffix, textToSynthesize, voice);
 
             audioUrl = result.getAudioUrl();
             cached = result.isCached();
 
             // DynamoDB에 S3 키 저장
-            if (isMale) {
-                word.setMaleVoiceKey(result.getS3Key());
-            } else {
-                word.setFemaleVoiceKey(result.getS3Key());
-            }
+            setCachedKey(word, isMale, isExample, result.getS3Key());
             wordRepository.save(word);
-            logger.info("Saved voice cache to DB: wordId={}, voice={}", wordId, voice);
+            logger.info("Saved voice cache to DB: wordId={}, voice={}, type={}", wordId, voice, type);
         }
 
         Map<String, Object> responseData = new HashMap<>();
         responseData.put("wordId", wordId);
-        responseData.put("english", word.getEnglish());
+        responseData.put("text", textToSynthesize);
+        responseData.put("type", type);
         responseData.put("voice", voice);
         responseData.put("audioUrl", audioUrl);
         responseData.put("cached", cached);
 
         return createResponse(200, ApiResponse.success("Speech synthesized", responseData));
+    }
+
+    private String getCachedKey(Word word, boolean isMale, boolean isExample) {
+        if (isExample) {
+            return isMale ? word.getMaleExampleVoiceKey() : word.getFemaleExampleVoiceKey();
+        } else {
+            return isMale ? word.getMaleVoiceKey() : word.getFemaleVoiceKey();
+        }
+    }
+
+    private void setCachedKey(Word word, boolean isMale, boolean isExample, String s3Key) {
+        if (isExample) {
+            if (isMale) {
+                word.setMaleExampleVoiceKey(s3Key);
+            } else {
+                word.setFemaleExampleVoiceKey(s3Key);
+            }
+        } else {
+            if (isMale) {
+                word.setMaleVoiceKey(s3Key);
+            } else {
+                word.setFemaleVoiceKey(s3Key);
+            }
+        }
     }
 }
