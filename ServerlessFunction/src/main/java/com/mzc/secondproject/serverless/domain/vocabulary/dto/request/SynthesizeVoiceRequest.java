@@ -12,5 +12,7 @@ import lombok.NoArgsConstructor;
 public class SynthesizeVoiceRequest {
     private String wordId;
     @Builder.Default
-    private String voice = "FEMALE";
+    private String voice = "FEMALE";  // MALE 또는 FEMALE
+    @Builder.Default
+    private String type = "WORD";     // WORD 또는 EXAMPLE
 }
