@@ -1,9 +1,9 @@
 package com.mzc.secondproject.serverless.domain.chatting.service;
 
+import com.mzc.secondproject.serverless.common.util.AwsClients;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import software.amazon.awssdk.core.SdkBytes;
-import software.amazon.awssdk.services.bedrockruntime.BedrockRuntimeClient;
 import software.amazon.awssdk.services.bedrockruntime.model.InvokeModelRequest;
 import software.amazon.awssdk.services.bedrockruntime.model.InvokeModelResponse;
 
@@ -19,10 +19,7 @@ public class BedrockService {
     // Claude 3 Sonnet 모델 ID
     private static final String MODEL_ID = "anthropic.claude-3-sonnet-20240229-v1:0";
 
-    private final BedrockRuntimeClient bedrockClient;
-
     public BedrockService() {
-        this.bedrockClient = BedrockRuntimeClient.builder().build();
     }
 
     public String generateResponse(String prompt) {
@@ -49,7 +46,7 @@ public class BedrockService {
                     .body(SdkBytes.fromUtf8String(gson.toJson(requestBody)))
                     .build();
 
-            InvokeModelResponse response = bedrockClient.invokeModel(request);
+            InvokeModelResponse response = AwsClients.bedrock().invokeModel(request);
 
             String responseBody = response.body().asUtf8String();
             JsonObject jsonResponse = gson.fromJson(responseBody, JsonObject.class);
