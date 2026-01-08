@@ -5,6 +5,8 @@ import com.amazonaws.services.lambda.runtime.RequestHandler;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyRequestEvent;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyResponseEvent;
 import com.mzc.secondproject.serverless.common.dto.ApiResponse;
+import com.mzc.secondproject.serverless.common.router.HandlerRouter;
+import com.mzc.secondproject.serverless.common.router.Route;
 import com.mzc.secondproject.serverless.common.util.ResponseUtil;
 import static com.mzc.secondproject.serverless.common.util.ResponseUtil.createResponse;
 import com.mzc.secondproject.serverless.domain.vocabulary.model.UserWord;
@@ -21,41 +23,26 @@ public class UserWordHandler implements RequestHandler<APIGatewayProxyRequestEve
     private static final Logger logger = LoggerFactory.getLogger(UserWordHandler.class);
 
     private final UserWordService userWordService;
+    private final HandlerRouter router;
 
     public UserWordHandler() {
         this.userWordService = new UserWordService();
+        this.router = initRouter();
+    }
+
+    private HandlerRouter initRouter() {
+        return new HandlerRouter().addRoutes(
+                Route.get("/users/{userId}/words", this::getUserWords),
+                Route.get("/users/{userId}/words/{wordId}", this::getUserWord),
+                Route.put("/users/{userId}/words/{wordId}/tag", this::updateUserWordTag),
+                Route.put("/users/{userId}/words/{wordId}", this::updateUserWord)
+        );
     }
 
     @Override
     public APIGatewayProxyResponseEvent handleRequest(APIGatewayProxyRequestEvent request, Context context) {
-        String httpMethod = request.getHttpMethod();
-        String path = request.getPath();
-
-        logger.info("Received request: {} {}", httpMethod, path);
-
-        try {
-            if ("GET".equals(httpMethod) && path.endsWith("/words")) {
-                return getUserWords(request);
-            }
-
-            if ("GET".equals(httpMethod) && path.contains("/words/")) {
-                return getUserWord(request);
-            }
-
-            if ("PUT".equals(httpMethod) && path.endsWith("/tag")) {
-                return updateUserWordTag(request);
-            }
-
-            if ("PUT".equals(httpMethod) && path.contains("/words/")) {
-                return updateUserWord(request);
-            }
-
-            return createResponse(404, ApiResponse.error("Not found"));
-
-        } catch (Exception e) {
-            logger.error("Error handling request", e);
-            return createResponse(500, ApiResponse.error("Internal server error: " + e.getMessage()));
-        }
+        logger.info("Received request: {} {}", request.getHttpMethod(), request.getPath());
+        return router.route(request);
     }
 
     private APIGatewayProxyResponseEvent getUserWords(APIGatewayProxyRequestEvent request) {
@@ -141,11 +128,7 @@ public class UserWordHandler implements RequestHandler<APIGatewayProxyRequestEve
         Boolean favorite = (Boolean) requestBody.get("favorite");
         String difficulty = (String) requestBody.get("difficulty");
 
-        try {
-            UserWord userWord = userWordService.updateUserWordTag(userId, wordId, bookmarked, favorite, difficulty);
-            return createResponse(200, ApiResponse.success("Tag updated", userWord));
-        } catch (IllegalArgumentException e) {
-            return createResponse(400, ApiResponse.error(e.getMessage()));
-        }
+        UserWord userWord = userWordService.updateUserWordTag(userId, wordId, bookmarked, favorite, difficulty);
+        return createResponse(200, ApiResponse.success("Tag updated", userWord));
     }
 }
