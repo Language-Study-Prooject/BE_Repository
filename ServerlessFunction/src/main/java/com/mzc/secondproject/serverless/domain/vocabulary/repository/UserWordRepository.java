@@ -15,8 +15,8 @@ import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.enhanced.dynamodb.Expression;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 
-import java.util.Base64;
-import java.util.HashMap;
+import com.mzc.secondproject.serverless.common.util.CursorUtil;
+
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -69,14 +69,14 @@ public class UserWordRepository {
                 .limit(limit);
 
         if (cursor != null && !cursor.isEmpty()) {
-            Map<String, AttributeValue> exclusiveStartKey = decodeCursor(cursor);
+            Map<String, AttributeValue> exclusiveStartKey = CursorUtil.decode(cursor);
             if (exclusiveStartKey != null) {
                 requestBuilder.exclusiveStartKey(exclusiveStartKey);
             }
         }
 
         Page<UserWord> page = table.query(requestBuilder.build()).iterator().next();
-        String nextCursor = encodeCursor(page.lastEvaluatedKey());
+        String nextCursor = CursorUtil.encode(page.lastEvaluatedKey());
 
         return new UserWordPage(page.items(), nextCursor);
     }
@@ -96,7 +96,7 @@ public class UserWordRepository {
                 .limit(limit);
 
         if (cursor != null && !cursor.isEmpty()) {
-            Map<String, AttributeValue> exclusiveStartKey = decodeCursor(cursor);
+            Map<String, AttributeValue> exclusiveStartKey = CursorUtil.decode(cursor);
             if (exclusiveStartKey != null) {
                 requestBuilder.exclusiveStartKey(exclusiveStartKey);
             }
@@ -104,7 +104,7 @@ public class UserWordRepository {
 
         DynamoDbIndex<UserWord> gsi1 = table.index("GSI1");
         Page<UserWord> page = gsi1.query(requestBuilder.build()).iterator().next();
-        String nextCursor = encodeCursor(page.lastEvaluatedKey());
+        String nextCursor = CursorUtil.encode(page.lastEvaluatedKey());
 
         return new UserWordPage(page.items(), nextCursor);
     }
@@ -130,14 +130,14 @@ public class UserWordRepository {
                 .limit(limit);
 
         if (cursor != null && !cursor.isEmpty()) {
-            Map<String, AttributeValue> exclusiveStartKey = decodeCursor(cursor);
+            Map<String, AttributeValue> exclusiveStartKey = CursorUtil.decode(cursor);
             if (exclusiveStartKey != null) {
                 requestBuilder.exclusiveStartKey(exclusiveStartKey);
             }
         }
 
         Page<UserWord> page = table.query(requestBuilder.build()).iterator().next();
-        String nextCursor = encodeCursor(page.lastEvaluatedKey());
+        String nextCursor = CursorUtil.encode(page.lastEvaluatedKey());
 
         return new UserWordPage(page.items(), nextCursor);
     }
@@ -163,14 +163,14 @@ public class UserWordRepository {
                 .limit(limit);
 
         if (cursor != null && !cursor.isEmpty()) {
-            Map<String, AttributeValue> exclusiveStartKey = decodeCursor(cursor);
+            Map<String, AttributeValue> exclusiveStartKey = CursorUtil.decode(cursor);
             if (exclusiveStartKey != null) {
                 requestBuilder.exclusiveStartKey(exclusiveStartKey);
             }
         }
 
         Page<UserWord> page = table.query(requestBuilder.build()).iterator().next();
-        String nextCursor = encodeCursor(page.lastEvaluatedKey());
+        String nextCursor = CursorUtil.encode(page.lastEvaluatedKey());
 
         return new UserWordPage(page.items(), nextCursor);
     }
@@ -190,7 +190,7 @@ public class UserWordRepository {
                 .limit(limit);
 
         if (cursor != null && !cursor.isEmpty()) {
-            Map<String, AttributeValue> exclusiveStartKey = decodeCursor(cursor);
+            Map<String, AttributeValue> exclusiveStartKey = CursorUtil.decode(cursor);
             if (exclusiveStartKey != null) {
                 requestBuilder.exclusiveStartKey(exclusiveStartKey);
             }
@@ -198,42 +198,9 @@ public class UserWordRepository {
 
         DynamoDbIndex<UserWord> gsi2 = table.index("GSI2");
         Page<UserWord> page = gsi2.query(requestBuilder.build()).iterator().next();
-        String nextCursor = encodeCursor(page.lastEvaluatedKey());
+        String nextCursor = CursorUtil.encode(page.lastEvaluatedKey());
 
         return new UserWordPage(page.items(), nextCursor);
-    }
-
-    private String encodeCursor(Map<String, AttributeValue> lastEvaluatedKey) {
-        if (lastEvaluatedKey == null || lastEvaluatedKey.isEmpty()) {
-            return null;
-        }
-
-        StringBuilder sb = new StringBuilder();
-        for (Map.Entry<String, AttributeValue> entry : lastEvaluatedKey.entrySet()) {
-            if (sb.length() > 0) sb.append("|");
-            sb.append(entry.getKey()).append("=").append(entry.getValue().s());
-        }
-
-        return Base64.getUrlEncoder().encodeToString(sb.toString().getBytes());
-    }
-
-    private Map<String, AttributeValue> decodeCursor(String cursor) {
-        try {
-            String decoded = new String(Base64.getUrlDecoder().decode(cursor));
-            Map<String, AttributeValue> result = new HashMap<>();
-
-            for (String pair : decoded.split("\\|")) {
-                String[] kv = pair.split("=", 2);
-                if (kv.length == 2) {
-                    result.put(kv[0], AttributeValue.builder().s(kv[1]).build());
-                }
-            }
-
-            return result.isEmpty() ? null : result;
-        } catch (Exception e) {
-            logger.error("Failed to decode cursor: {}", cursor, e);
-            return null;
-        }
     }
 
     public static class UserWordPage {

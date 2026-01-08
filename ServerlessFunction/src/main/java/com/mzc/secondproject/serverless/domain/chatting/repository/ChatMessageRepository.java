@@ -13,8 +13,8 @@ import software.amazon.awssdk.enhanced.dynamodb.model.QueryEnhancedRequest;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 
-import java.util.Base64;
-import java.util.HashMap;
+import com.mzc.secondproject.serverless.common.util.CursorUtil;
+
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -78,7 +78,7 @@ public class ChatMessageRepository {
 
         // 커서 기반 페이지네이션 (Base64 디코딩)
         if (cursor != null && !cursor.isEmpty()) {
-            Map<String, AttributeValue> exclusiveStartKey = decodeCursor(cursor);
+            Map<String, AttributeValue> exclusiveStartKey = CursorUtil.decode(cursor);
             if (exclusiveStartKey != null) {
                 requestBuilder.exclusiveStartKey(exclusiveStartKey);
             }
@@ -88,48 +88,9 @@ public class ChatMessageRepository {
         List<ChatMessage> messages = page.items();
 
         // 다음 페이지 커서 (Base64 인코딩)
-        String nextCursor = encodeCursor(page.lastEvaluatedKey());
+        String nextCursor = CursorUtil.encode(page.lastEvaluatedKey());
 
         return new MessagePage(messages, nextCursor);
-    }
-
-    /**
-     * 커서 인코딩 (lastEvaluatedKey -> Base64)
-     */
-    private String encodeCursor(Map<String, AttributeValue> lastEvaluatedKey) {
-        if (lastEvaluatedKey == null || lastEvaluatedKey.isEmpty()) {
-            return null;
-        }
-
-        StringBuilder sb = new StringBuilder();
-        for (Map.Entry<String, AttributeValue> entry : lastEvaluatedKey.entrySet()) {
-            if (sb.length() > 0) sb.append("|");
-            sb.append(entry.getKey()).append("=").append(entry.getValue().s());
-        }
-
-        return Base64.getUrlEncoder().encodeToString(sb.toString().getBytes());
-    }
-
-    /**
-     * 커서 디코딩 (Base64 -> exclusiveStartKey)
-     */
-    private Map<String, AttributeValue> decodeCursor(String cursor) {
-        try {
-            String decoded = new String(Base64.getUrlDecoder().decode(cursor));
-            Map<String, AttributeValue> result = new HashMap<>();
-
-            for (String pair : decoded.split("\\|")) {
-                String[] kv = pair.split("=", 2);
-                if (kv.length == 2) {
-                    result.put(kv[0], AttributeValue.builder().s(kv[1]).build());
-                }
-            }
-
-            return result.isEmpty() ? null : result;
-        } catch (Exception e) {
-            logger.error("Failed to decode cursor: {}", cursor, e);
-            return null;
-        }
     }
 
     /**
@@ -145,7 +106,7 @@ public class ChatMessageRepository {
                 .limit(limit);
 
         if (cursor != null && !cursor.isEmpty()) {
-            Map<String, AttributeValue> exclusiveStartKey = decodeCursor(cursor);
+            Map<String, AttributeValue> exclusiveStartKey = CursorUtil.decode(cursor);
             if (exclusiveStartKey != null) {
                 requestBuilder.exclusiveStartKey(exclusiveStartKey);
             }
@@ -156,7 +117,7 @@ public class ChatMessageRepository {
                 .iterator()
                 .next();
 
-        String nextCursor = encodeCursor(page.lastEvaluatedKey());
+        String nextCursor = CursorUtil.encode(page.lastEvaluatedKey());
         return new MessagePage(page.items(), nextCursor);
     }
 
