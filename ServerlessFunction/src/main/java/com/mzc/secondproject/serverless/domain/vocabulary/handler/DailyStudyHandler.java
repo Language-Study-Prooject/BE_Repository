@@ -5,6 +5,7 @@ import com.amazonaws.services.lambda.runtime.RequestHandler;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyRequestEvent;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyResponseEvent;
 import com.mzc.secondproject.serverless.common.dto.ApiResponse;
+import com.mzc.secondproject.serverless.common.dto.PaginatedResult;
 import static com.mzc.secondproject.serverless.common.util.ResponseUtil.createResponse;
 import com.mzc.secondproject.serverless.domain.vocabulary.model.DailyStudy;
 import com.mzc.secondproject.serverless.domain.vocabulary.model.UserWord;
@@ -117,8 +118,8 @@ public class DailyStudyHandler implements RequestHandler<APIGatewayProxyRequestE
         String now = Instant.now().toString();
 
         // 복습 대상 단어 조회 (5개)
-        UserWordRepository.UserWordPage reviewPage = userWordRepository.findReviewDueWords(userId, date, REVIEW_WORDS_COUNT, null);
-        List<String> reviewWordIds = reviewPage.getUserWords().stream()
+        PaginatedResult<UserWord> reviewPage = userWordRepository.findReviewDueWords(userId, date, REVIEW_WORDS_COUNT, null);
+        List<String> reviewWordIds = reviewPage.getItems().stream()
                 .map(UserWord::getWordId)
                 .collect(Collectors.toList());
 
@@ -150,8 +151,8 @@ public class DailyStudyHandler implements RequestHandler<APIGatewayProxyRequestE
 
     private List<String> getNewWordsForUser(String userId, String level, int count) {
         // 사용자가 학습한 단어 목록
-        UserWordRepository.UserWordPage userWordPage = userWordRepository.findByUserIdWithPagination(userId, 1000, null);
-        List<String> learnedWordIds = userWordPage.getUserWords().stream()
+        PaginatedResult<UserWord> userWordPage = userWordRepository.findByUserIdWithPagination(userId, 1000, null);
+        List<String> learnedWordIds = userWordPage.getItems().stream()
                 .map(UserWord::getWordId)
                 .collect(Collectors.toList());
 
@@ -161,8 +162,8 @@ public class DailyStudyHandler implements RequestHandler<APIGatewayProxyRequestE
 
         // 페이지네이션으로 해당 레벨의 모든 단어 조회
         do {
-            WordRepository.WordPage wordPage = wordRepository.findByLevelWithPagination(level, count * 2, lastEvaluatedKey);
-            for (Word word : wordPage.getWords()) {
+            PaginatedResult<Word> wordPage = wordRepository.findByLevelWithPagination(level, count * 2, lastEvaluatedKey);
+            for (Word word : wordPage.getItems()) {
                 if (!learnedWordIds.contains(word.getWordId()) && !newWordIds.contains(word.getWordId())) {
                     newWordIds.add(word.getWordId());
                     if (newWordIds.size() >= count) break;
