@@ -6,6 +6,8 @@ import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyRequestEvent;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyResponseEvent;
 import com.mzc.secondproject.serverless.common.dto.ApiResponse;
 import com.mzc.secondproject.serverless.common.dto.PaginatedResult;
+import com.mzc.secondproject.serverless.common.router.HandlerRouter;
+import com.mzc.secondproject.serverless.common.router.Route;
 import com.mzc.secondproject.serverless.common.util.ResponseUtil;
 import static com.mzc.secondproject.serverless.common.util.ResponseUtil.createResponse;
 import com.mzc.secondproject.serverless.domain.vocabulary.model.TestResult;
@@ -22,37 +24,25 @@ public class TestHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
     private static final Logger logger = LoggerFactory.getLogger(TestHandler.class);
 
     private final TestService testService;
+    private final HandlerRouter router;
 
     public TestHandler() {
         this.testService = new TestService();
+        this.router = initRouter();
+    }
+
+    private HandlerRouter initRouter() {
+        return new HandlerRouter().addRoutes(
+                Route.post("/tests/{userId}/start", this::startTest),
+                Route.post("/tests/{userId}/submit", this::submitAnswer),
+                Route.get("/tests/{userId}/results", this::getTestResults)
+        );
     }
 
     @Override
     public APIGatewayProxyResponseEvent handleRequest(APIGatewayProxyRequestEvent request, Context context) {
-        String httpMethod = request.getHttpMethod();
-        String path = request.getPath();
-
-        logger.info("Received request: {} {}", httpMethod, path);
-
-        try {
-            if ("POST".equals(httpMethod) && path.endsWith("/start")) {
-                return startTest(request);
-            }
-
-            if ("POST".equals(httpMethod) && path.endsWith("/submit")) {
-                return submitAnswer(request);
-            }
-
-            if ("GET".equals(httpMethod) && path.endsWith("/results")) {
-                return getTestResults(request);
-            }
-
-            return createResponse(404, ApiResponse.error("Not found"));
-
-        } catch (Exception e) {
-            logger.error("Error handling request", e);
-            return createResponse(500, ApiResponse.error("Internal server error: " + e.getMessage()));
-        }
+        logger.info("Received request: {} {}", request.getHttpMethod(), request.getPath());
+        return router.route(request);
     }
 
     private APIGatewayProxyResponseEvent startTest(APIGatewayProxyRequestEvent request) {
@@ -67,20 +57,16 @@ public class TestHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
         Map<String, Object> requestBody = ResponseUtil.gson().fromJson(body, Map.class);
         String testType = (String) requestBody.getOrDefault("testType", "DAILY");
 
-        try {
-            TestService.StartTestResult result = testService.startTest(userId, testType);
+        TestService.StartTestResult result = testService.startTest(userId, testType);
 
-            Map<String, Object> response = new HashMap<>();
-            response.put("testId", result.testId());
-            response.put("testType", result.testType());
-            response.put("questions", result.questions());
-            response.put("totalQuestions", result.totalQuestions());
-            response.put("startedAt", result.startedAt());
+        Map<String, Object> response = new HashMap<>();
+        response.put("testId", result.testId());
+        response.put("testType", result.testType());
+        response.put("questions", result.questions());
+        response.put("totalQuestions", result.totalQuestions());
+        response.put("startedAt", result.startedAt());
 
-            return createResponse(200, ApiResponse.success("Test started", response));
-        } catch (IllegalStateException e) {
-            return createResponse(404, ApiResponse.error(e.getMessage()));
-        }
+        return createResponse(200, ApiResponse.success("Test started", response));
     }
 
     @SuppressWarnings("unchecked")
