@@ -5,6 +5,7 @@ import com.amazonaws.services.lambda.runtime.RequestHandler;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyRequestEvent;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyResponseEvent;
 import com.mzc.secondproject.serverless.common.dto.ApiResponse;
+import com.mzc.secondproject.serverless.common.dto.PaginatedResult;
 import com.mzc.secondproject.serverless.common.util.ResponseUtil;
 import static com.mzc.secondproject.serverless.common.util.ResponseUtil.createResponse;
 import com.mzc.secondproject.serverless.domain.chatting.model.ChatMessage;
@@ -127,10 +128,10 @@ public class ChatMessageHandler implements RequestHandler<APIGatewayProxyRequest
         }
 
         // 메시지 목록 조회 (최신순, 페이지네이션)
-        ChatMessageRepository.MessagePage messagePage = chatMessageService.getMessagesByRoomWithPagination(roomId, limit, cursor);
+        PaginatedResult<ChatMessage> messagePage = chatMessageService.getMessagesByRoomWithPagination(roomId, limit, cursor);
 
         Map<String, Object> result = new HashMap<>();
-        result.put("messages", messagePage.getMessages());
+        result.put("messages", messagePage.getItems());
         result.put("nextCursor", messagePage.getNextCursor());
         result.put("hasMore", messagePage.hasMore());
 
