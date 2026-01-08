@@ -13,6 +13,7 @@ import software.amazon.awssdk.enhanced.dynamodb.model.QueryEnhancedRequest;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 
+import com.mzc.secondproject.serverless.common.dto.PaginatedResult;
 import com.mzc.secondproject.serverless.common.util.CursorUtil;
 
 import java.util.List;
@@ -64,7 +65,7 @@ public class ChatMessageRepository {
      * @param cursor Base64 인코딩된 커서 (무한스크롤용)
      * @return 메시지 목록과 다음 페이지 커서
      */
-    public MessagePage findByRoomIdWithPagination(String roomId, int limit, String cursor) {
+    public PaginatedResult<ChatMessage> findByRoomIdWithPagination(String roomId, int limit, String cursor) {
         QueryConditional queryConditional = QueryConditional
                 .sortBeginsWith(Key.builder()
                         .partitionValue("ROOM#" + roomId)
@@ -90,13 +91,13 @@ public class ChatMessageRepository {
         // 다음 페이지 커서 (Base64 인코딩)
         String nextCursor = CursorUtil.encode(page.lastEvaluatedKey());
 
-        return new MessagePage(messages, nextCursor);
+        return new PaginatedResult<>(messages, nextCursor);
     }
 
     /**
      * 사용자별 메시지 조회 - 페이지네이션 지원 (OOM 방지)
      */
-    public MessagePage findByUserIdWithPagination(String userId, int limit, String cursor) {
+    public PaginatedResult<ChatMessage> findByUserIdWithPagination(String userId, int limit, String cursor) {
         QueryConditional queryConditional = QueryConditional
                 .keyEqualTo(Key.builder().partitionValue("USER#" + userId).build());
 
@@ -118,31 +119,6 @@ public class ChatMessageRepository {
                 .next();
 
         String nextCursor = CursorUtil.encode(page.lastEvaluatedKey());
-        return new MessagePage(page.items(), nextCursor);
-    }
-
-    /**
-     * 페이지네이션 결과 클래스
-     */
-    public static class MessagePage {
-        private final List<ChatMessage> messages;
-        private final String nextCursor;
-
-        public MessagePage(List<ChatMessage> messages, String nextCursor) {
-            this.messages = messages;
-            this.nextCursor = nextCursor;
-        }
-
-        public List<ChatMessage> getMessages() {
-            return messages;
-        }
-
-        public String getNextCursor() {
-            return nextCursor;
-        }
-
-        public boolean hasMore() {
-            return nextCursor != null;
-        }
+        return new PaginatedResult<>(page.items(), nextCursor);
     }
 }
