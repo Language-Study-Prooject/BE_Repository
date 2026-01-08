@@ -11,7 +11,8 @@ import com.mzc.secondproject.serverless.common.router.Route;
 import com.mzc.secondproject.serverless.common.util.ResponseUtil;
 import static com.mzc.secondproject.serverless.common.util.ResponseUtil.createResponse;
 import com.mzc.secondproject.serverless.domain.chatting.model.ChatRoom;
-import com.mzc.secondproject.serverless.domain.chatting.service.ChatRoomService;
+import com.mzc.secondproject.serverless.domain.chatting.service.ChatRoomCommandService;
+import com.mzc.secondproject.serverless.domain.chatting.service.ChatRoomQueryService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -24,11 +25,13 @@ public class ChatRoomHandler implements RequestHandler<APIGatewayProxyRequestEve
 
     private static final Logger logger = LoggerFactory.getLogger(ChatRoomHandler.class);
 
-    private final ChatRoomService roomService;
+    private final ChatRoomCommandService commandService;
+    private final ChatRoomQueryService queryService;
     private final HandlerRouter router;
 
     public ChatRoomHandler() {
-        this.roomService = new ChatRoomService();
+        this.commandService = new ChatRoomCommandService();
+        this.queryService = new ChatRoomQueryService();
         this.router = initRouter();
     }
 
@@ -65,7 +68,7 @@ public class ChatRoomHandler implements RequestHandler<APIGatewayProxyRequestEve
             return createResponse(400, ApiResponse.error("name is required"));
         }
 
-        ChatRoom room = roomService.createRoom(name, description, level, maxMembers, isPrivate, password, createdBy);
+        ChatRoom room = commandService.createRoom(name, description, level, maxMembers, isPrivate, password, createdBy);
         room.setPassword(null);
 
         return createResponse(201, ApiResponse.success("Room created", room));
@@ -84,11 +87,11 @@ public class ChatRoomHandler implements RequestHandler<APIGatewayProxyRequestEve
             limit = Math.min(Integer.parseInt(queryParams.get("limit")), 20);
         }
 
-        PaginatedResult<ChatRoom> roomPage = roomService.getRooms(level, limit, cursor);
+        PaginatedResult<ChatRoom> roomPage = queryService.getRooms(level, limit, cursor);
         List<ChatRoom> rooms = roomPage.getItems();
 
         if ("true".equals(joined) && userId != null) {
-            rooms = roomService.filterByJoinedUser(rooms, userId);
+            rooms = queryService.filterByJoinedUser(rooms, userId);
         }
 
         rooms.forEach(room -> room.setPassword(null));
@@ -109,7 +112,7 @@ public class ChatRoomHandler implements RequestHandler<APIGatewayProxyRequestEve
             return createResponse(400, ApiResponse.error("roomId is required"));
         }
 
-        Optional<ChatRoom> optRoom = roomService.getRoom(roomId);
+        Optional<ChatRoom> optRoom = queryService.getRoom(roomId);
         if (optRoom.isEmpty()) {
             return createResponse(404, ApiResponse.error("Room not found"));
         }
@@ -133,7 +136,7 @@ public class ChatRoomHandler implements RequestHandler<APIGatewayProxyRequestEve
             return createResponse(400, ApiResponse.error("roomId and userId are required"));
         }
 
-        ChatRoom room = roomService.joinRoom(roomId, userId, password);
+        ChatRoom room = commandService.joinRoom(roomId, userId, password);
         room.setPassword(null);
         return createResponse(200, ApiResponse.success("Joined room", room));
     }
@@ -150,7 +153,7 @@ public class ChatRoomHandler implements RequestHandler<APIGatewayProxyRequestEve
             return createResponse(400, ApiResponse.error("roomId and userId are required"));
         }
 
-        ChatRoomService.LeaveResult result = roomService.leaveRoom(roomId, userId);
+        ChatRoomCommandService.LeaveResult result = commandService.leaveRoom(roomId, userId);
         if (result.deleted()) {
             return createResponse(200, ApiResponse.success("Room deleted", null));
         }
@@ -173,7 +176,7 @@ public class ChatRoomHandler implements RequestHandler<APIGatewayProxyRequestEve
             return createResponse(400, ApiResponse.error("userId is required"));
         }
 
-        roomService.deleteRoom(roomId, userId);
+        commandService.deleteRoom(roomId, userId);
         return createResponse(200, ApiResponse.success("Room deleted", null));
     }
 }
