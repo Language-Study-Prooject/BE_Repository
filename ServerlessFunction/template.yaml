@@ -11,6 +11,7 @@ Globals:
       - x86_64
     Environment:
       Variables:
+        USER_TABLE_NAME: !Ref UserTable
         CHAT_TABLE_NAME: !Ref ChatTable
         VOCAB_TABLE_NAME: !Ref VocabTable
         CHAT_BUCKET_NAME: group2-englishstudy
@@ -412,6 +413,22 @@ Resources:
   #############################################
   # DynamoDB Tables
   #############################################
+
+  UserTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: group2-englishstudy-user
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: PK
+          AttributeType: S
+        - AttributeName: SK
+          AttributeType: S
+      KeySchema:
+        - AttributeName: PK
+          KeyType: HASH
+        - AttributeName: SK
+          KeyType: RANGE
 
   ChatTable:
     Type: AWS::DynamoDB::Table
