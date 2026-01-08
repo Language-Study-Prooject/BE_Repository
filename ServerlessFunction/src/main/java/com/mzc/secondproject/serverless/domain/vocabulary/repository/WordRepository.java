@@ -18,6 +18,7 @@ import software.amazon.awssdk.enhanced.dynamodb.Expression;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 
+import com.mzc.secondproject.serverless.common.dto.PaginatedResult;
 import com.mzc.secondproject.serverless.common.util.CursorUtil;
 
 import java.util.ArrayList;
@@ -113,7 +114,7 @@ public class WordRepository {
     /**
      * 난이도별 단어 조회 - 페이지네이션
      */
-    public WordPage findByLevelWithPagination(String level, int limit, String cursor) {
+    public PaginatedResult<Word> findByLevelWithPagination(String level, int limit, String cursor) {
         QueryConditional queryConditional = QueryConditional
                 .keyEqualTo(Key.builder().partitionValue("LEVEL#" + level).build());
 
@@ -132,13 +133,13 @@ public class WordRepository {
         Page<Word> page = gsi1.query(requestBuilder.build()).iterator().next();
         String nextCursor = CursorUtil.encode(page.lastEvaluatedKey());
 
-        return new WordPage(page.items(), nextCursor);
+        return new PaginatedResult<>(page.items(), nextCursor);
     }
 
     /**
      * 카테고리별 단어 조회 - 페이지네이션
      */
-    public WordPage findByCategoryWithPagination(String category, int limit, String cursor) {
+    public PaginatedResult<Word> findByCategoryWithPagination(String category, int limit, String cursor) {
         QueryConditional queryConditional = QueryConditional
                 .keyEqualTo(Key.builder().partitionValue("CATEGORY#" + category).build());
 
@@ -157,14 +158,14 @@ public class WordRepository {
         Page<Word> page = gsi2.query(requestBuilder.build()).iterator().next();
         String nextCursor = CursorUtil.encode(page.lastEvaluatedKey());
 
-        return new WordPage(page.items(), nextCursor);
+        return new PaginatedResult<>(page.items(), nextCursor);
     }
 
     /**
      * 키워드로 단어 검색 (영어/한국어 contains)
      * 참고: Scan은 비용이 높으므로 데이터가 많아지면 OpenSearch 도입 권장
      */
-    public WordPage searchByKeyword(String keyword, int limit, String cursor) {
+    public PaginatedResult<Word> searchByKeyword(String keyword, int limit, String cursor) {
         String lowerKeyword = keyword.toLowerCase();
 
         // Filter: PK가 WORD#로 시작하고, english 또는 korean에 keyword 포함
@@ -203,28 +204,6 @@ public class WordRepository {
         }
 
         String nextCursor = results.size() >= limit ? CursorUtil.encode(lastKey) : null;
-        return new WordPage(results, nextCursor);
-    }
-
-    public static class WordPage {
-        private final List<Word> words;
-        private final String nextCursor;
-
-        public WordPage(List<Word> words, String nextCursor) {
-            this.words = words;
-            this.nextCursor = nextCursor;
-        }
-
-        public List<Word> getWords() {
-            return words;
-        }
-
-        public String getNextCursor() {
-            return nextCursor;
-        }
-
-        public boolean hasMore() {
-            return nextCursor != null;
-        }
+        return new PaginatedResult<>(results, nextCursor);
     }
 }
