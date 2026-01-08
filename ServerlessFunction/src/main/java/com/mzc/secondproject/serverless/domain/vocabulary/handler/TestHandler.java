@@ -38,9 +38,9 @@ public class TestHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
 
     private HandlerRouter initRouter() {
         return new HandlerRouter().addRoutes(
-                Route.post("/tests/{userId}/start", this::startTest),
-                Route.post("/tests/{userId}/submit", this::submitAnswer),
-                Route.get("/tests/{userId}/results", this::getTestResults)
+                Route.post("/test/{userId}/start", this::startTest),
+                Route.post("/test/{userId}/submit", this::submitAnswer),
+                Route.get("/test/{userId}/results", this::getTestResults)
         );
     }
 
