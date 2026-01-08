@@ -8,7 +8,8 @@ import com.mzc.secondproject.serverless.common.dto.ApiResponse;
 import com.mzc.secondproject.serverless.common.router.HandlerRouter;
 import com.mzc.secondproject.serverless.common.router.Route;
 import static com.mzc.secondproject.serverless.common.util.ResponseUtil.createResponse;
-import com.mzc.secondproject.serverless.domain.vocabulary.service.DailyStudyService;
+import com.mzc.secondproject.serverless.domain.vocabulary.service.DailyStudyCommandService;
+import com.mzc.secondproject.serverless.domain.vocabulary.service.DailyStudyQueryService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -19,11 +20,13 @@ public class DailyStudyHandler implements RequestHandler<APIGatewayProxyRequestE
 
     private static final Logger logger = LoggerFactory.getLogger(DailyStudyHandler.class);
 
-    private final DailyStudyService dailyStudyService;
+    private final DailyStudyCommandService commandService;
+    private final DailyStudyQueryService queryService;
     private final HandlerRouter router;
 
     public DailyStudyHandler() {
-        this.dailyStudyService = new DailyStudyService();
+        this.commandService = new DailyStudyCommandService();
+        this.queryService = new DailyStudyQueryService();
         this.router = initRouter();
     }
 
@@ -51,7 +54,7 @@ public class DailyStudyHandler implements RequestHandler<APIGatewayProxyRequestE
 
         String level = queryParams != null ? queryParams.get("level") : null;
 
-        DailyStudyService.DailyStudyResult result = dailyStudyService.getDailyWords(userId, level);
+        DailyStudyCommandService.DailyStudyResult result = commandService.getDailyWords(userId, level);
 
         Map<String, Object> response = new HashMap<>();
         response.put("dailyStudy", result.dailyStudy());
@@ -71,7 +74,7 @@ public class DailyStudyHandler implements RequestHandler<APIGatewayProxyRequestE
             return createResponse(400, ApiResponse.error("userId and wordId are required"));
         }
 
-        Map<String, Object> progress = dailyStudyService.markWordLearned(userId, wordId);
+        Map<String, Object> progress = commandService.markWordLearned(userId, wordId);
         return createResponse(200, ApiResponse.success("Word marked as learned", progress));
     }
 }
