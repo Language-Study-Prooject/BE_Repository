@@ -10,7 +10,8 @@ import com.mzc.secondproject.serverless.common.router.Route;
 import com.mzc.secondproject.serverless.common.util.ResponseUtil;
 import static com.mzc.secondproject.serverless.common.util.ResponseUtil.createResponse;
 import com.mzc.secondproject.serverless.domain.vocabulary.model.UserWord;
-import com.mzc.secondproject.serverless.domain.vocabulary.service.UserWordService;
+import com.mzc.secondproject.serverless.domain.vocabulary.service.UserWordCommandService;
+import com.mzc.secondproject.serverless.domain.vocabulary.service.UserWordQueryService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -22,11 +23,13 @@ public class UserWordHandler implements RequestHandler<APIGatewayProxyRequestEve
 
     private static final Logger logger = LoggerFactory.getLogger(UserWordHandler.class);
 
-    private final UserWordService userWordService;
+    private final UserWordCommandService commandService;
+    private final UserWordQueryService queryService;
     private final HandlerRouter router;
 
     public UserWordHandler() {
-        this.userWordService = new UserWordService();
+        this.commandService = new UserWordCommandService();
+        this.queryService = new UserWordQueryService();
         this.router = initRouter();
     }
 
@@ -64,7 +67,7 @@ public class UserWordHandler implements RequestHandler<APIGatewayProxyRequestEve
             limit = Math.min(Integer.parseInt(queryParams.get("limit")), 50);
         }
 
-        UserWordService.UserWordsResult result = userWordService.getUserWords(userId, status, bookmarked, incorrectOnly, limit, cursor);
+        UserWordQueryService.UserWordsResult result = queryService.getUserWords(userId, status, bookmarked, incorrectOnly, limit, cursor);
 
         Map<String, Object> response = new HashMap<>();
         response.put("userWords", result.userWords());
@@ -83,7 +86,7 @@ public class UserWordHandler implements RequestHandler<APIGatewayProxyRequestEve
             return createResponse(400, ApiResponse.error("userId and wordId are required"));
         }
 
-        Optional<UserWord> optUserWord = userWordService.getUserWord(userId, wordId);
+        Optional<UserWord> optUserWord = queryService.getUserWord(userId, wordId);
         if (optUserWord.isEmpty()) {
             return createResponse(404, ApiResponse.error("UserWord not found"));
         }
@@ -108,7 +111,7 @@ public class UserWordHandler implements RequestHandler<APIGatewayProxyRequestEve
             return createResponse(400, ApiResponse.error("isCorrect is required"));
         }
 
-        UserWord userWord = userWordService.updateUserWord(userId, wordId, isCorrect);
+        UserWord userWord = commandService.updateUserWord(userId, wordId, isCorrect);
         return createResponse(200, ApiResponse.success("UserWord updated", userWord));
     }
 
@@ -128,7 +131,7 @@ public class UserWordHandler implements RequestHandler<APIGatewayProxyRequestEve
         Boolean favorite = (Boolean) requestBody.get("favorite");
         String difficulty = (String) requestBody.get("difficulty");
 
-        UserWord userWord = userWordService.updateUserWordTag(userId, wordId, bookmarked, favorite, difficulty);
+        UserWord userWord = commandService.updateUserWordTag(userId, wordId, bookmarked, favorite, difficulty);
         return createResponse(200, ApiResponse.success("Tag updated", userWord));
     }
 }
