@@ -3,7 +3,6 @@ package com.mzc.secondproject.serverless.domain.chatting.repository;
 import com.mzc.secondproject.serverless.domain.chatting.model.ChatRoom;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import software.amazon.awssdk.enhanced.dynamodb.DynamoDbEnhancedClient;
 import software.amazon.awssdk.enhanced.dynamodb.DynamoDbIndex;
 import software.amazon.awssdk.enhanced.dynamodb.DynamoDbTable;
 import software.amazon.awssdk.enhanced.dynamodb.Key;
@@ -11,11 +10,11 @@ import software.amazon.awssdk.enhanced.dynamodb.TableSchema;
 import software.amazon.awssdk.enhanced.dynamodb.model.Page;
 import software.amazon.awssdk.enhanced.dynamodb.model.QueryConditional;
 import software.amazon.awssdk.enhanced.dynamodb.model.QueryEnhancedRequest;
-import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 import software.amazon.awssdk.services.dynamodb.model.UpdateItemRequest;
 
 import com.mzc.secondproject.serverless.common.dto.PaginatedResult;
+import com.mzc.secondproject.serverless.common.util.AwsClients;
 import com.mzc.secondproject.serverless.common.util.CursorUtil;
 
 import java.util.HashMap;
@@ -26,18 +25,12 @@ import java.util.Optional;
 public class ChatRoomRepository {
 
     private static final Logger logger = LoggerFactory.getLogger(ChatRoomRepository.class);
-
-    // Singleton 패턴으로 Cold Start 최적화
-    private static final DynamoDbClient dynamoDbClient = DynamoDbClient.builder().build();
-    private static final DynamoDbEnhancedClient enhancedClient = DynamoDbEnhancedClient.builder()
-            .dynamoDbClient(dynamoDbClient)
-            .build();
-    private static final String tableName = System.getenv("CHAT_TABLE_NAME");
+    private static final String TABLE_NAME = System.getenv("CHAT_TABLE_NAME");
 
     private final DynamoDbTable<ChatRoom> table;
 
     public ChatRoomRepository() {
-        this.table = enhancedClient.table(tableName, TableSchema.fromBean(ChatRoom.class));
+        this.table = AwsClients.dynamoDbEnhanced().table(TABLE_NAME, TableSchema.fromBean(ChatRoom.class));
     }
 
     public ChatRoom save(ChatRoom room) {
@@ -142,13 +135,13 @@ public class ChatRoomRepository {
         expressionValues.put(":ts", AttributeValue.builder().s(timestamp).build());
 
         UpdateItemRequest updateRequest = UpdateItemRequest.builder()
-                .tableName(tableName)
+                .tableName(TABLE_NAME)
                 .key(key)
                 .updateExpression("SET lastMessageAt = :ts")
                 .expressionAttributeValues(expressionValues)
                 .build();
 
-        dynamoDbClient.updateItem(updateRequest);
+        AwsClients.dynamoDb().updateItem(updateRequest);
         logger.info("Updated lastMessageAt for room: {}", roomId);
     }
 

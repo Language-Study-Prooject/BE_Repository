@@ -3,17 +3,16 @@ package com.mzc.secondproject.serverless.domain.vocabulary.repository;
 import com.mzc.secondproject.serverless.domain.vocabulary.model.TestResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import software.amazon.awssdk.enhanced.dynamodb.DynamoDbEnhancedClient;
 import software.amazon.awssdk.enhanced.dynamodb.DynamoDbTable;
 import software.amazon.awssdk.enhanced.dynamodb.Key;
 import software.amazon.awssdk.enhanced.dynamodb.TableSchema;
 import software.amazon.awssdk.enhanced.dynamodb.model.Page;
 import software.amazon.awssdk.enhanced.dynamodb.model.QueryConditional;
 import software.amazon.awssdk.enhanced.dynamodb.model.QueryEnhancedRequest;
-import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 
 import com.mzc.secondproject.serverless.common.dto.PaginatedResult;
+import com.mzc.secondproject.serverless.common.util.AwsClients;
 import com.mzc.secondproject.serverless.common.util.CursorUtil;
 
 import java.util.List;
@@ -23,18 +22,12 @@ import java.util.Optional;
 public class TestResultRepository {
 
     private static final Logger logger = LoggerFactory.getLogger(TestResultRepository.class);
-
-    // Singleton 패턴으로 Cold Start 최적화
-    private static final DynamoDbClient dynamoDbClient = DynamoDbClient.builder().build();
-    private static final DynamoDbEnhancedClient enhancedClient = DynamoDbEnhancedClient.builder()
-            .dynamoDbClient(dynamoDbClient)
-            .build();
-    private static final String tableName = System.getenv("VOCAB_TABLE_NAME");
+    private static final String TABLE_NAME = System.getenv("VOCAB_TABLE_NAME");
 
     private final DynamoDbTable<TestResult> table;
 
     public TestResultRepository() {
-        this.table = enhancedClient.table(tableName, TableSchema.fromBean(TestResult.class));
+        this.table = AwsClients.dynamoDbEnhanced().table(TABLE_NAME, TableSchema.fromBean(TestResult.class));
     }
 
     public TestResult save(TestResult testResult) {

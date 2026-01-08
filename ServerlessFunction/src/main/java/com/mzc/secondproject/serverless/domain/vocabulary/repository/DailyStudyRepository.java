@@ -3,18 +3,17 @@ package com.mzc.secondproject.serverless.domain.vocabulary.repository;
 import com.mzc.secondproject.serverless.domain.vocabulary.model.DailyStudy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import software.amazon.awssdk.enhanced.dynamodb.DynamoDbEnhancedClient;
 import software.amazon.awssdk.enhanced.dynamodb.DynamoDbTable;
 import software.amazon.awssdk.enhanced.dynamodb.Key;
 import software.amazon.awssdk.enhanced.dynamodb.TableSchema;
 import software.amazon.awssdk.enhanced.dynamodb.model.Page;
 import software.amazon.awssdk.enhanced.dynamodb.model.QueryConditional;
 import software.amazon.awssdk.enhanced.dynamodb.model.QueryEnhancedRequest;
-import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 import software.amazon.awssdk.services.dynamodb.model.UpdateItemRequest;
 
 import com.mzc.secondproject.serverless.common.dto.PaginatedResult;
+import com.mzc.secondproject.serverless.common.util.AwsClients;
 import com.mzc.secondproject.serverless.common.util.CursorUtil;
 
 import java.util.HashMap;
@@ -25,18 +24,12 @@ import java.util.Optional;
 public class DailyStudyRepository {
 
     private static final Logger logger = LoggerFactory.getLogger(DailyStudyRepository.class);
-
-    // Singleton 패턴으로 Cold Start 최적화
-    private static final DynamoDbClient dynamoDbClient = DynamoDbClient.builder().build();
-    private static final DynamoDbEnhancedClient enhancedClient = DynamoDbEnhancedClient.builder()
-            .dynamoDbClient(dynamoDbClient)
-            .build();
-    private static final String tableName = System.getenv("VOCAB_TABLE_NAME");
+    private static final String TABLE_NAME = System.getenv("VOCAB_TABLE_NAME");
 
     private final DynamoDbTable<DailyStudy> table;
 
     public DailyStudyRepository() {
-        this.table = enhancedClient.table(tableName, TableSchema.fromBean(DailyStudy.class));
+        this.table = AwsClients.dynamoDbEnhanced().table(TABLE_NAME, TableSchema.fromBean(DailyStudy.class));
     }
 
     public DailyStudy save(DailyStudy dailyStudy) {
@@ -96,13 +89,13 @@ public class DailyStudyRepository {
         expressionValues.put(":one", AttributeValue.builder().n("1").build());
 
         UpdateItemRequest updateRequest = UpdateItemRequest.builder()
-                .tableName(tableName)
+                .tableName(TABLE_NAME)
                 .key(key)
                 .updateExpression("ADD learnedWordIds :wordId, learnedCount :one")
                 .expressionAttributeValues(expressionValues)
                 .build();
 
-        dynamoDbClient.updateItem(updateRequest);
+        AwsClients.dynamoDb().updateItem(updateRequest);
         logger.info("Added learned word: userId={}, date={}, wordId={}", userId, date, wordId);
     }
 }
