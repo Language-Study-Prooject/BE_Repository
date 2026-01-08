@@ -267,6 +267,12 @@ Resources:
         - DynamoDBCrudPolicy:
             TableName: !Ref VocabTable
       Events:
+        GetWrongAnswers:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /vocab/users/{userId}/wrong-answers
+            Method: GET
         GetUserWords:
           Type: Api
           Properties:
@@ -291,6 +297,62 @@ Resources:
             RestApiId: !Ref MainApi
             Path: /vocab/users/{userId}/words/{wordId}/tag
             Method: PUT
+
+  WordGroupFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: group2-englishstudy-vocab-wordgroup-handler
+      CodeUri: .
+      Handler: com.mzc.secondproject.serverless.domain.vocabulary.handler.WordGroupHandler::handleRequest
+      Description: Handle user custom word groups
+      SnapStart:
+        ApplyOn: PublishedVersions
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref VocabTable
+      Events:
+        CreateGroup:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /vocab/users/{userId}/groups
+            Method: POST
+        GetGroups:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /vocab/users/{userId}/groups
+            Method: GET
+        GetGroupDetail:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /vocab/users/{userId}/groups/{groupId}
+            Method: GET
+        UpdateGroup:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /vocab/users/{userId}/groups/{groupId}
+            Method: PUT
+        DeleteGroup:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /vocab/users/{userId}/groups/{groupId}
+            Method: DELETE
+        AddWordToGroup:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /vocab/users/{userId}/groups/{groupId}/words/{wordId}
+            Method: POST
+        RemoveWordFromGroup:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /vocab/users/{userId}/groups/{groupId}/words/{wordId}
+            Method: DELETE
 
   DailyStudyFunction:
     Type: AWS::Serverless::Function
