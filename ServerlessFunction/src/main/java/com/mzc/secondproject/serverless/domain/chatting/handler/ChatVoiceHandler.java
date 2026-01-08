@@ -4,13 +4,13 @@ import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.lambda.runtime.RequestHandler;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyRequestEvent;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyResponseEvent;
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
 import com.mzc.secondproject.serverless.common.dto.ApiResponse;
+import com.mzc.secondproject.serverless.common.util.ResponseUtil;
+import static com.mzc.secondproject.serverless.common.util.ResponseUtil.createResponse;
 import com.mzc.secondproject.serverless.domain.chatting.model.ChatMessage;
 import com.mzc.secondproject.serverless.domain.chatting.repository.ChatMessageRepository;
-import com.mzc.secondproject.serverless.domain.chatting.service.PollyService;
-import com.mzc.secondproject.serverless.domain.chatting.service.PollyService.VoiceSynthesisResult;
+import com.mzc.secondproject.serverless.common.service.PollyService;
+import com.mzc.secondproject.serverless.common.service.PollyService.VoiceSynthesisResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -20,13 +20,13 @@ import java.util.Optional;
 public class ChatVoiceHandler implements RequestHandler<APIGatewayProxyRequestEvent, APIGatewayProxyResponseEvent> {
 
     private static final Logger logger = LoggerFactory.getLogger(ChatVoiceHandler.class);
-    private static final Gson gson = new GsonBuilder().setPrettyPrinting().create();
+    private static final String BUCKET_NAME = System.getenv("CHAT_BUCKET_NAME");
 
     private final PollyService pollyService;
     private final ChatMessageRepository messageRepository;
 
     public ChatVoiceHandler() {
-        this.pollyService = new PollyService();
+        this.pollyService = new PollyService(BUCKET_NAME, "voice/");
         this.messageRepository = new ChatMessageRepository();
     }
 
@@ -40,7 +40,7 @@ public class ChatVoiceHandler implements RequestHandler<APIGatewayProxyRequestEv
             }
 
             String body = request.getBody();
-            Map<String, String> requestBody = gson.fromJson(body, Map.class);
+            Map<String, String> requestBody = ResponseUtil.gson().fromJson(body, Map.class);
             String messageId = requestBody.get("messageId");
             String roomId = requestBody.get("roomId");
             String voice = requestBody.getOrDefault("voice", "FEMALE");
@@ -74,7 +74,7 @@ public class ChatVoiceHandler implements RequestHandler<APIGatewayProxyRequestEv
                 cached = true;
             } else {
                 // 캐시 미스: Polly 변환 → S3 저장 → DynamoDB 업데이트
-                VoiceSynthesisResult result = pollyService.synthesizeSpeechForMessage(
+                VoiceSynthesisResult result = pollyService.synthesizeSpeech(
                         messageId, message.getContent(), voice);
 
                 // DynamoDB에 S3 키 저장
@@ -101,17 +101,5 @@ public class ChatVoiceHandler implements RequestHandler<APIGatewayProxyRequestEv
             logger.error("Error synthesizing speech", e);
             return createResponse(500, ApiResponse.error("Internal server error: " + e.getMessage()));
         }
-    }
-
-    private APIGatewayProxyResponseEvent createResponse(int statusCode, Object body) {
-        return new APIGatewayProxyResponseEvent()
-                .withStatusCode(statusCode)
-                .withHeaders(Map.of(
-                        "Content-Type", "application/json",
-                        "Access-Control-Allow-Origin", "*",
-                        "Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS",
-                        "Access-Control-Allow-Headers", "Content-Type,Authorization"
-                ))
-                .withBody(gson.toJson(body));
     }
 }

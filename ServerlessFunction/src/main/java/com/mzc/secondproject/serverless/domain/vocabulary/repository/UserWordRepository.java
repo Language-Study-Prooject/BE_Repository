@@ -3,7 +3,6 @@ package com.mzc.secondproject.serverless.domain.vocabulary.repository;
 import com.mzc.secondproject.serverless.domain.vocabulary.model.UserWord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import software.amazon.awssdk.enhanced.dynamodb.DynamoDbEnhancedClient;
 import software.amazon.awssdk.enhanced.dynamodb.DynamoDbIndex;
 import software.amazon.awssdk.enhanced.dynamodb.DynamoDbTable;
 import software.amazon.awssdk.enhanced.dynamodb.Key;
@@ -11,31 +10,25 @@ import software.amazon.awssdk.enhanced.dynamodb.TableSchema;
 import software.amazon.awssdk.enhanced.dynamodb.model.Page;
 import software.amazon.awssdk.enhanced.dynamodb.model.QueryConditional;
 import software.amazon.awssdk.enhanced.dynamodb.model.QueryEnhancedRequest;
-import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.enhanced.dynamodb.Expression;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 
-import java.util.Base64;
-import java.util.HashMap;
-import java.util.List;
+import com.mzc.secondproject.serverless.common.dto.PaginatedResult;
+import com.mzc.secondproject.serverless.common.config.AwsClients;
+import com.mzc.secondproject.serverless.common.util.CursorUtil;
+
 import java.util.Map;
 import java.util.Optional;
 
 public class UserWordRepository {
 
     private static final Logger logger = LoggerFactory.getLogger(UserWordRepository.class);
-
-    // Singleton 패턴으로 Cold Start 최적화
-    private static final DynamoDbClient dynamoDbClient = DynamoDbClient.builder().build();
-    private static final DynamoDbEnhancedClient enhancedClient = DynamoDbEnhancedClient.builder()
-            .dynamoDbClient(dynamoDbClient)
-            .build();
-    private static final String tableName = System.getenv("VOCAB_TABLE_NAME");
+    private static final String TABLE_NAME = System.getenv("VOCAB_TABLE_NAME");
 
     private final DynamoDbTable<UserWord> table;
 
     public UserWordRepository() {
-        this.table = enhancedClient.table(tableName, TableSchema.fromBean(UserWord.class));
+        this.table = AwsClients.dynamoDbEnhanced().table(TABLE_NAME, TableSchema.fromBean(UserWord.class));
     }
 
     public UserWord save(UserWord userWord) {
@@ -57,7 +50,7 @@ public class UserWordRepository {
     /**
      * 사용자의 모든 단어 학습 상태 조회 - 페이지네이션
      */
-    public UserWordPage findByUserIdWithPagination(String userId, int limit, String cursor) {
+    public PaginatedResult<UserWord> findByUserIdWithPagination(String userId, int limit, String cursor) {
         QueryConditional queryConditional = QueryConditional
                 .sortBeginsWith(Key.builder()
                         .partitionValue("USER#" + userId)
@@ -69,22 +62,22 @@ public class UserWordRepository {
                 .limit(limit);
 
         if (cursor != null && !cursor.isEmpty()) {
-            Map<String, AttributeValue> exclusiveStartKey = decodeCursor(cursor);
+            Map<String, AttributeValue> exclusiveStartKey = CursorUtil.decode(cursor);
             if (exclusiveStartKey != null) {
                 requestBuilder.exclusiveStartKey(exclusiveStartKey);
             }
         }
 
         Page<UserWord> page = table.query(requestBuilder.build()).iterator().next();
-        String nextCursor = encodeCursor(page.lastEvaluatedKey());
+        String nextCursor = CursorUtil.encode(page.lastEvaluatedKey());
 
-        return new UserWordPage(page.items(), nextCursor);
+        return new PaginatedResult<>(page.items(), nextCursor);
     }
 
     /**
      * 복습 예정 단어 조회 (오늘 이전 날짜) - 페이지네이션
      */
-    public UserWordPage findReviewDueWords(String userId, String todayDate, int limit, String cursor) {
+    public PaginatedResult<UserWord> findReviewDueWords(String userId, String todayDate, int limit, String cursor) {
         QueryConditional queryConditional = QueryConditional
                 .sortLessThanOrEqualTo(Key.builder()
                         .partitionValue("USER#" + userId + "#REVIEW")
@@ -96,7 +89,7 @@ public class UserWordRepository {
                 .limit(limit);
 
         if (cursor != null && !cursor.isEmpty()) {
-            Map<String, AttributeValue> exclusiveStartKey = decodeCursor(cursor);
+            Map<String, AttributeValue> exclusiveStartKey = CursorUtil.decode(cursor);
             if (exclusiveStartKey != null) {
                 requestBuilder.exclusiveStartKey(exclusiveStartKey);
             }
@@ -104,15 +97,15 @@ public class UserWordRepository {
 
         DynamoDbIndex<UserWord> gsi1 = table.index("GSI1");
         Page<UserWord> page = gsi1.query(requestBuilder.build()).iterator().next();
-        String nextCursor = encodeCursor(page.lastEvaluatedKey());
+        String nextCursor = CursorUtil.encode(page.lastEvaluatedKey());
 
-        return new UserWordPage(page.items(), nextCursor);
+        return new PaginatedResult<>(page.items(), nextCursor);
     }
 
     /**
      * 북마크된 단어만 조회 - FilterExpression 사용 (GSI 추가 없이 비용 최적화)
      */
-    public UserWordPage findBookmarkedWords(String userId, int limit, String cursor) {
+    public PaginatedResult<UserWord> findBookmarkedWords(String userId, int limit, String cursor) {
         QueryConditional queryConditional = QueryConditional
                 .sortBeginsWith(Key.builder()
                         .partitionValue("USER#" + userId)
@@ -130,22 +123,22 @@ public class UserWordRepository {
                 .limit(limit);
 
         if (cursor != null && !cursor.isEmpty()) {
-            Map<String, AttributeValue> exclusiveStartKey = decodeCursor(cursor);
+            Map<String, AttributeValue> exclusiveStartKey = CursorUtil.decode(cursor);
             if (exclusiveStartKey != null) {
                 requestBuilder.exclusiveStartKey(exclusiveStartKey);
             }
         }
 
         Page<UserWord> page = table.query(requestBuilder.build()).iterator().next();
-        String nextCursor = encodeCursor(page.lastEvaluatedKey());
+        String nextCursor = CursorUtil.encode(page.lastEvaluatedKey());
 
-        return new UserWordPage(page.items(), nextCursor);
+        return new PaginatedResult<>(page.items(), nextCursor);
     }
 
     /**
      * 틀린 적 있는 단어만 조회 - FilterExpression 사용 (GSI 추가 없이 비용 최적화)
      */
-    public UserWordPage findIncorrectWords(String userId, int limit, String cursor) {
+    public PaginatedResult<UserWord> findIncorrectWords(String userId, int limit, String cursor) {
         QueryConditional queryConditional = QueryConditional
                 .sortBeginsWith(Key.builder()
                         .partitionValue("USER#" + userId)
@@ -163,22 +156,22 @@ public class UserWordRepository {
                 .limit(limit);
 
         if (cursor != null && !cursor.isEmpty()) {
-            Map<String, AttributeValue> exclusiveStartKey = decodeCursor(cursor);
+            Map<String, AttributeValue> exclusiveStartKey = CursorUtil.decode(cursor);
             if (exclusiveStartKey != null) {
                 requestBuilder.exclusiveStartKey(exclusiveStartKey);
             }
         }
 
         Page<UserWord> page = table.query(requestBuilder.build()).iterator().next();
-        String nextCursor = encodeCursor(page.lastEvaluatedKey());
+        String nextCursor = CursorUtil.encode(page.lastEvaluatedKey());
 
-        return new UserWordPage(page.items(), nextCursor);
+        return new PaginatedResult<>(page.items(), nextCursor);
     }
 
     /**
      * 상태별 단어 조회 - 페이지네이션
      */
-    public UserWordPage findByUserIdAndStatus(String userId, String status, int limit, String cursor) {
+    public PaginatedResult<UserWord> findByUserIdAndStatus(String userId, String status, int limit, String cursor) {
         QueryConditional queryConditional = QueryConditional
                 .keyEqualTo(Key.builder()
                         .partitionValue("USER#" + userId + "#STATUS")
@@ -190,7 +183,7 @@ public class UserWordRepository {
                 .limit(limit);
 
         if (cursor != null && !cursor.isEmpty()) {
-            Map<String, AttributeValue> exclusiveStartKey = decodeCursor(cursor);
+            Map<String, AttributeValue> exclusiveStartKey = CursorUtil.decode(cursor);
             if (exclusiveStartKey != null) {
                 requestBuilder.exclusiveStartKey(exclusiveStartKey);
             }
@@ -198,63 +191,8 @@ public class UserWordRepository {
 
         DynamoDbIndex<UserWord> gsi2 = table.index("GSI2");
         Page<UserWord> page = gsi2.query(requestBuilder.build()).iterator().next();
-        String nextCursor = encodeCursor(page.lastEvaluatedKey());
+        String nextCursor = CursorUtil.encode(page.lastEvaluatedKey());
 
-        return new UserWordPage(page.items(), nextCursor);
-    }
-
-    private String encodeCursor(Map<String, AttributeValue> lastEvaluatedKey) {
-        if (lastEvaluatedKey == null || lastEvaluatedKey.isEmpty()) {
-            return null;
-        }
-
-        StringBuilder sb = new StringBuilder();
-        for (Map.Entry<String, AttributeValue> entry : lastEvaluatedKey.entrySet()) {
-            if (sb.length() > 0) sb.append("|");
-            sb.append(entry.getKey()).append("=").append(entry.getValue().s());
-        }
-
-        return Base64.getUrlEncoder().encodeToString(sb.toString().getBytes());
-    }
-
-    private Map<String, AttributeValue> decodeCursor(String cursor) {
-        try {
-            String decoded = new String(Base64.getUrlDecoder().decode(cursor));
-            Map<String, AttributeValue> result = new HashMap<>();
-
-            for (String pair : decoded.split("\\|")) {
-                String[] kv = pair.split("=", 2);
-                if (kv.length == 2) {
-                    result.put(kv[0], AttributeValue.builder().s(kv[1]).build());
-                }
-            }
-
-            return result.isEmpty() ? null : result;
-        } catch (Exception e) {
-            logger.error("Failed to decode cursor: {}", cursor, e);
-            return null;
-        }
-    }
-
-    public static class UserWordPage {
-        private final List<UserWord> userWords;
-        private final String nextCursor;
-
-        public UserWordPage(List<UserWord> userWords, String nextCursor) {
-            this.userWords = userWords;
-            this.nextCursor = nextCursor;
-        }
-
-        public List<UserWord> getUserWords() {
-            return userWords;
-        }
-
-        public String getNextCursor() {
-            return nextCursor;
-        }
-
-        public boolean hasMore() {
-            return nextCursor != null;
-        }
+        return new PaginatedResult<>(page.items(), nextCursor);
     }
 }
