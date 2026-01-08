@@ -1,4 +1,4 @@
-package com.mzc.secondproject.serverless.common.util;
+package com.mzc.secondproject.serverless.common.config;
 
 import software.amazon.awssdk.enhanced.dynamodb.DynamoDbEnhancedClient;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
