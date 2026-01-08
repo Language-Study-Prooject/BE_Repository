@@ -6,6 +6,7 @@ import com.mzc.secondproject.serverless.domain.vocabulary.repository.WordReposit
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -36,5 +37,9 @@ public class WordQueryService {
 
     public PaginatedResult<Word> searchWords(String query, int limit, String cursor) {
         return wordRepository.searchByKeyword(query, limit, cursor);
+    }
+
+    public List<Word> getWordsByIds(List<String> wordIds) {
+        return wordRepository.findByIds(wordIds);
     }
 }

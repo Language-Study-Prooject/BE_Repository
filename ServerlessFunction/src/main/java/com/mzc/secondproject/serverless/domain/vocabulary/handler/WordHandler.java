@@ -6,6 +6,7 @@ import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyRequestEvent;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyResponseEvent;
 import com.mzc.secondproject.serverless.common.dto.ApiResponse;
 import com.mzc.secondproject.serverless.common.dto.PaginatedResult;
+import com.mzc.secondproject.serverless.domain.vocabulary.dto.request.BatchGetWordsRequest;
 import com.mzc.secondproject.serverless.domain.vocabulary.dto.request.CreateWordRequest;
 import com.mzc.secondproject.serverless.domain.vocabulary.dto.request.CreateWordsBatchRequest;
 import com.mzc.secondproject.serverless.common.router.HandlerRouter;
@@ -39,6 +40,7 @@ public class WordHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
 
     private HandlerRouter initRouter() {
         return new HandlerRouter().addRoutes(
+                Route.post("/words/batch/get", this::getWordsBatch),
                 Route.post("/words/batch", this::createWordsBatch),
                 Route.get("/words/search", this::searchWords),
                 Route.post("/words", this::createWord),
@@ -180,5 +182,27 @@ public class WordHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
         result.put("hasMore", wordPage.hasMore());
 
         return createResponse(200, ApiResponse.success("Search completed", result));
+    }
+
+    private APIGatewayProxyResponseEvent getWordsBatch(APIGatewayProxyRequestEvent request) {
+        String body = request.getBody();
+        BatchGetWordsRequest req = ResponseUtil.gson().fromJson(body, BatchGetWordsRequest.class);
+
+        if (req.getWordIds() == null || req.getWordIds().isEmpty()) {
+            return createResponse(400, ApiResponse.error("wordIds array is required"));
+        }
+
+        if (req.getWordIds().size() > 100) {
+            return createResponse(400, ApiResponse.error("Maximum 100 wordIds allowed per request"));
+        }
+
+        List<Word> words = queryService.getWordsByIds(req.getWordIds());
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("words", words);
+        result.put("requestedCount", req.getWordIds().size());
+        result.put("retrievedCount", words.size());
+
+        return createResponse(200, ApiResponse.success("Words retrieved", result));
     }
 }
