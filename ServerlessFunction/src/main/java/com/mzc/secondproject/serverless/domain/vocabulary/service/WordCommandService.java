@@ -1,6 +1,6 @@
 package com.mzc.secondproject.serverless.domain.vocabulary.service;
 
-import com.mzc.secondproject.serverless.common.dto.request.vocabulary.CreateWordRequest;
+import com.mzc.secondproject.serverless.domain.vocabulary.dto.request.CreateWordRequest;
 import com.mzc.secondproject.serverless.domain.vocabulary.model.Word;
 import com.mzc.secondproject.serverless.domain.vocabulary.repository.WordRepository;
 import org.slf4j.Logger;
