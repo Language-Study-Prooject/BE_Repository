@@ -6,6 +6,9 @@ import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyRequestEvent;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyResponseEvent;
 import com.mzc.secondproject.serverless.common.dto.ApiResponse;
 import com.mzc.secondproject.serverless.common.dto.PaginatedResult;
+import com.mzc.secondproject.serverless.common.dto.request.chatting.CreateRoomRequest;
+import com.mzc.secondproject.serverless.common.dto.request.chatting.JoinRoomRequest;
+import com.mzc.secondproject.serverless.common.dto.request.chatting.LeaveRoomRequest;
 import com.mzc.secondproject.serverless.common.router.HandlerRouter;
 import com.mzc.secondproject.serverless.common.router.Route;
 import com.mzc.secondproject.serverless.common.util.ResponseUtil;
@@ -53,22 +56,18 @@ public class ChatRoomHandler implements RequestHandler<APIGatewayProxyRequestEve
     }
 
     private APIGatewayProxyResponseEvent createRoom(APIGatewayProxyRequestEvent request) {
-        String body = request.getBody();
-        Map<String, Object> requestBody = ResponseUtil.gson().fromJson(body, Map.class);
+        CreateRoomRequest req = ResponseUtil.gson().fromJson(request.getBody(), CreateRoomRequest.class);
 
-        String name = (String) requestBody.get("name");
-        String description = (String) requestBody.get("description");
-        String level = (String) requestBody.getOrDefault("level", "beginner");
-        Integer maxMembers = ((Double) requestBody.getOrDefault("maxMembers", 6.0)).intValue();
-        Boolean isPrivate = (Boolean) requestBody.getOrDefault("isPrivate", false);
-        String password = (String) requestBody.get("password");
-        String createdBy = (String) requestBody.get("createdBy");
-
-        if (name == null || name.isEmpty()) {
+        if (req.getName() == null || req.getName().isEmpty()) {
             return createResponse(400, ApiResponse.error("name is required"));
         }
 
-        ChatRoom room = commandService.createRoom(name, description, level, maxMembers, isPrivate, password, createdBy);
+        String level = req.getLevel() != null ? req.getLevel() : "beginner";
+        Integer maxMembers = req.getMaxMembers() != null ? req.getMaxMembers() : 6;
+        Boolean isPrivate = req.getIsPrivate() != null ? req.getIsPrivate() : false;
+
+        ChatRoom room = commandService.createRoom(
+                req.getName(), req.getDescription(), level, maxMembers, isPrivate, req.getPassword(), req.getCreatedBy());
         room.setPassword(null);
 
         return createResponse(201, ApiResponse.success("Room created", room));
@@ -127,16 +126,13 @@ public class ChatRoomHandler implements RequestHandler<APIGatewayProxyRequestEve
         Map<String, String> pathParams = request.getPathParameters();
         String roomId = pathParams != null ? pathParams.get("roomId") : null;
 
-        String body = request.getBody();
-        Map<String, String> requestBody = ResponseUtil.gson().fromJson(body, Map.class);
-        String userId = requestBody.get("userId");
-        String password = requestBody.get("password");
+        JoinRoomRequest req = ResponseUtil.gson().fromJson(request.getBody(), JoinRoomRequest.class);
 
-        if (roomId == null || userId == null) {
+        if (roomId == null || req.getUserId() == null) {
             return createResponse(400, ApiResponse.error("roomId and userId are required"));
         }
 
-        ChatRoom room = commandService.joinRoom(roomId, userId, password);
+        ChatRoom room = commandService.joinRoom(roomId, req.getUserId(), req.getPassword());
         room.setPassword(null);
         return createResponse(200, ApiResponse.success("Joined room", room));
     }
@@ -145,15 +141,13 @@ public class ChatRoomHandler implements RequestHandler<APIGatewayProxyRequestEve
         Map<String, String> pathParams = request.getPathParameters();
         String roomId = pathParams != null ? pathParams.get("roomId") : null;
 
-        String body = request.getBody();
-        Map<String, String> requestBody = ResponseUtil.gson().fromJson(body, Map.class);
-        String userId = requestBody.get("userId");
+        LeaveRoomRequest req = ResponseUtil.gson().fromJson(request.getBody(), LeaveRoomRequest.class);
 
-        if (roomId == null || userId == null) {
+        if (roomId == null || req.getUserId() == null) {
             return createResponse(400, ApiResponse.error("roomId and userId are required"));
         }
 
-        ChatRoomCommandService.LeaveResult result = commandService.leaveRoom(roomId, userId);
+        ChatRoomCommandService.LeaveResult result = commandService.leaveRoom(roomId, req.getUserId());
         if (result.deleted()) {
             return createResponse(200, ApiResponse.success("Room deleted", null));
         }
