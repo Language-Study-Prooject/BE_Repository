@@ -4,26 +4,31 @@ import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.lambda.runtime.RequestHandler;
 import com.mzc.secondproject.serverless.common.config.WebSocketConfig;
 import com.mzc.secondproject.serverless.domain.chatting.model.Connection;
+import com.mzc.secondproject.serverless.domain.chatting.model.RoomToken;
 import com.mzc.secondproject.serverless.domain.chatting.repository.ConnectionRepository;
+import com.mzc.secondproject.serverless.domain.chatting.service.RoomTokenService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * WebSocket $connect 라우트 핸들러
- * 클라이언트 연결 시 Connection 정보를 DynamoDB에 저장
+ * roomToken 검증 후 Connection 정보를 DynamoDB에 저장
  */
 public class WebSocketConnectHandler implements RequestHandler<Map<String, Object>, Map<String, Object>> {
 
     private static final Logger logger = LoggerFactory.getLogger(WebSocketConnectHandler.class);
 
     private final ConnectionRepository connectionRepository;
+    private final RoomTokenService roomTokenService;
 
     public WebSocketConnectHandler() {
         this.connectionRepository = new ConnectionRepository();
+        this.roomTokenService = new RoomTokenService();
     }
 
     @Override
@@ -34,13 +39,23 @@ public class WebSocketConnectHandler implements RequestHandler<Map<String, Objec
             String connectionId = extractConnectionId(event);
             Map<String, String> queryParams = extractQueryStringParameters(event);
 
-            String userId = queryParams.get("userId");
-            String roomId = queryParams.get("roomId");
+            String roomToken = queryParams.get("roomToken");
 
-            if (userId == null || roomId == null) {
-                logger.warn("Missing required parameters: userId={}, roomId={}", userId, roomId);
-                return createResponse(400, "userId and roomId are required");
+            if (roomToken == null || roomToken.isEmpty()) {
+                logger.warn("Missing roomToken parameter");
+                return createResponse(401, "roomToken is required");
             }
+
+            // 토큰 검증
+            Optional<RoomToken> optToken = roomTokenService.validateToken(roomToken);
+            if (optToken.isEmpty()) {
+                logger.warn("Invalid or expired roomToken: {}", roomToken);
+                return createResponse(401, "Invalid or expired token");
+            }
+
+            RoomToken token = optToken.get();
+            String userId = token.getUserId();
+            String roomId = token.getRoomId();
 
             String now = Instant.now().toString();
             long ttl = Instant.now().plusSeconds(WebSocketConfig.connectionTtlSeconds()).getEpochSecond();
