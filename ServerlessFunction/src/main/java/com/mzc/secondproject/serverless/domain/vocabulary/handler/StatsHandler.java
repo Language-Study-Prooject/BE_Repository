@@ -4,10 +4,9 @@ import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.lambda.runtime.RequestHandler;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyRequestEvent;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyResponseEvent;
-import com.mzc.secondproject.serverless.common.dto.ApiResponse;
 import com.mzc.secondproject.serverless.common.router.HandlerRouter;
 import com.mzc.secondproject.serverless.common.router.Route;
-import static com.mzc.secondproject.serverless.common.util.ResponseUtil.createResponse;
+import com.mzc.secondproject.serverless.common.util.ResponseGenerator;
 import com.mzc.secondproject.serverless.domain.vocabulary.service.StatsService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -42,27 +41,16 @@ public class StatsHandler implements RequestHandler<APIGatewayProxyRequestEvent,
     }
 
     private APIGatewayProxyResponseEvent getOverallStats(APIGatewayProxyRequestEvent request) {
-        Map<String, String> pathParams = request.getPathParameters();
-        String userId = pathParams != null ? pathParams.get("userId") : null;
-
-        if (userId == null) {
-            return createResponse(400, ApiResponse.error("userId is required"));
-        }
+        String userId = request.getPathParameters().get("userId");
 
         Map<String, Object> stats = statsService.getOverallStats(userId);
-        return createResponse(200, ApiResponse.success("Stats retrieved", stats));
+        return ResponseGenerator.ok("Stats retrieved", stats);
     }
 
     private APIGatewayProxyResponseEvent getDailyStats(APIGatewayProxyRequestEvent request) {
-        Map<String, String> pathParams = request.getPathParameters();
+        String userId = request.getPathParameters().get("userId");
         Map<String, String> queryParams = request.getQueryStringParameters();
-
-        String userId = pathParams != null ? pathParams.get("userId") : null;
         String cursor = queryParams != null ? queryParams.get("cursor") : null;
-
-        if (userId == null) {
-            return createResponse(400, ApiResponse.error("userId is required"));
-        }
 
         int limit = 30;
         if (queryParams != null && queryParams.get("limit") != null) {
@@ -76,18 +64,13 @@ public class StatsHandler implements RequestHandler<APIGatewayProxyRequestEvent,
         result.put("nextCursor", dailyResult.nextCursor());
         result.put("hasMore", dailyResult.hasMore());
 
-        return createResponse(200, ApiResponse.success("Daily stats retrieved", result));
+        return ResponseGenerator.ok("Daily stats retrieved", result);
     }
 
     private APIGatewayProxyResponseEvent getWeaknessAnalysis(APIGatewayProxyRequestEvent request) {
-        Map<String, String> pathParams = request.getPathParameters();
-        String userId = pathParams != null ? pathParams.get("userId") : null;
-
-        if (userId == null) {
-            return createResponse(400, ApiResponse.error("userId is required"));
-        }
+        String userId = request.getPathParameters().get("userId");
 
         Map<String, Object> analysis = statsService.getWeaknessAnalysis(userId);
-        return createResponse(200, ApiResponse.success("Weakness analysis completed", analysis));
+        return ResponseGenerator.ok("Weakness analysis completed", analysis);
     }
 }

@@ -1,4 +1,4 @@
-package com.mzc.secondproject.serverless.common.constants;
+package com.mzc.secondproject.serverless.common.config;
 
 public final class StudyConfig {
 

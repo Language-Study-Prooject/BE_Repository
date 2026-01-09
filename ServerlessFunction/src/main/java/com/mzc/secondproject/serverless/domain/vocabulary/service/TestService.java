@@ -2,7 +2,7 @@ package com.mzc.secondproject.serverless.domain.vocabulary.service;
 
 import com.mzc.secondproject.serverless.common.dto.PaginatedResult;
 import com.mzc.secondproject.serverless.common.config.AwsClients;
-import com.mzc.secondproject.serverless.common.util.ResponseUtil;
+import com.mzc.secondproject.serverless.common.util.ResponseGenerator;
 import com.mzc.secondproject.serverless.domain.vocabulary.model.DailyStudy;
 import com.mzc.secondproject.serverless.domain.vocabulary.model.TestResult;
 import com.mzc.secondproject.serverless.domain.vocabulary.model.Word;
@@ -168,7 +168,7 @@ public class TestService {
 
     private List<String> getDistractorsForLevel(String level, List<String> excludeWordIds) {
         PaginatedResult<Word> wordPage = wordRepository.findByLevelWithPagination(level, 50, null);
-        return wordPage.getItems().stream()
+        return wordPage.items().stream()
                 .filter(w -> !excludeWordIds.contains(w.getWordId()))
                 .map(Word::getKorean)
                 .collect(Collectors.toList());
@@ -219,7 +219,7 @@ public class TestService {
             message.put("userId", userId);
             message.put("results", results);
 
-            String messageJson = ResponseUtil.gson().toJson(message);
+            String messageJson = ResponseGenerator.gson().toJson(message);
 
             PublishRequest publishRequest = PublishRequest.builder()
                     .topicArn(TEST_RESULT_TOPIC_ARN)

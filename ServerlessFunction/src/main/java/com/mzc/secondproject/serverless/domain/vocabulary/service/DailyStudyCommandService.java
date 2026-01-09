@@ -97,7 +97,7 @@ public class DailyStudyCommandService {
         String now = Instant.now().toString();
 
         PaginatedResult<UserWord> reviewPage = userWordRepository.findReviewDueWords(userId, date, REVIEW_WORDS_COUNT, null);
-        List<String> reviewWordIds = reviewPage.getItems().stream()
+        List<String> reviewWordIds = reviewPage.items().stream()
                 .map(UserWord::getWordId)
                 .collect(Collectors.toList());
 
@@ -128,7 +128,7 @@ public class DailyStudyCommandService {
 
     private List<String> getNewWordsForUser(String userId, String level, int count) {
         PaginatedResult<UserWord> userWordPage = userWordRepository.findByUserIdWithPagination(userId, 1000, null);
-        List<String> learnedWordIds = userWordPage.getItems().stream()
+        List<String> learnedWordIds = userWordPage.items().stream()
                 .map(UserWord::getWordId)
                 .collect(Collectors.toList());
 
@@ -137,13 +137,13 @@ public class DailyStudyCommandService {
 
         do {
             PaginatedResult<Word> wordPage = wordRepository.findByLevelWithPagination(level, count * 2, lastEvaluatedKey);
-            for (Word word : wordPage.getItems()) {
+            for (Word word : wordPage.items()) {
                 if (!learnedWordIds.contains(word.getWordId()) && !newWordIds.contains(word.getWordId())) {
                     newWordIds.add(word.getWordId());
                     if (newWordIds.size() >= count) break;
                 }
             }
-            lastEvaluatedKey = wordPage.getNextCursor();
+            lastEvaluatedKey = wordPage.nextCursor();
         } while (newWordIds.size() < count && lastEvaluatedKey != null);
 
         logger.info("Selected {} new words for user {} at level {}", newWordIds.size(), userId, level);
