@@ -4,10 +4,10 @@ import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.lambda.runtime.RequestHandler;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyRequestEvent;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyResponseEvent;
-import com.mzc.secondproject.serverless.common.dto.ApiResponse;
+import com.mzc.secondproject.serverless.domain.vocabulary.exception.VocabularyErrorCode;
 import com.mzc.secondproject.serverless.common.router.HandlerRouter;
 import com.mzc.secondproject.serverless.common.router.Route;
-import static com.mzc.secondproject.serverless.common.util.ResponseUtil.createResponse;
+import com.mzc.secondproject.serverless.common.util.ResponseGenerator;
 import com.mzc.secondproject.serverless.domain.vocabulary.service.DailyStudyCommandService;
 import com.mzc.secondproject.serverless.domain.vocabulary.service.DailyStudyQueryService;
 import org.slf4j.Logger;
@@ -44,13 +44,8 @@ public class DailyStudyHandler implements RequestHandler<APIGatewayProxyRequestE
     }
 
     private APIGatewayProxyResponseEvent getDailyWords(APIGatewayProxyRequestEvent request) {
-        Map<String, String> pathParams = request.getPathParameters();
+        String userId = request.getPathParameters().get("userId");
         Map<String, String> queryParams = request.getQueryStringParameters();
-        String userId = pathParams != null ? pathParams.get("userId") : null;
-
-        if (userId == null) {
-            return createResponse(400, ApiResponse.error("userId is required"));
-        }
 
         String date = queryParams != null ? queryParams.get("date") : null;
         String level = queryParams != null ? queryParams.get("level") : null;
@@ -69,14 +64,14 @@ public class DailyStudyHandler implements RequestHandler<APIGatewayProxyRequestE
         response.put("reviewWords", result.reviewWords());
         response.put("progress", result.progress());
 
-        return createResponse(200, ApiResponse.success("Daily words retrieved", response));
+        return ResponseGenerator.ok("Daily words retrieved", response);
     }
 
     private APIGatewayProxyResponseEvent getDailyStudyByDate(String userId, String date) {
         var optDailyStudy = queryService.getDailyStudy(userId, date);
 
         if (optDailyStudy.isEmpty()) {
-            return createResponse(404, ApiResponse.error("No daily study found for date: " + date));
+            return ResponseGenerator.fail(VocabularyErrorCode.DAILY_STUDY_NOT_FOUND, "No daily study found for date: " + date);
         }
 
         var dailyStudy = optDailyStudy.get();
@@ -90,19 +85,14 @@ public class DailyStudyHandler implements RequestHandler<APIGatewayProxyRequestE
         response.put("reviewWords", reviewWords);
         response.put("progress", progress);
 
-        return createResponse(200, ApiResponse.success("Daily study retrieved for " + date, response));
+        return ResponseGenerator.ok("Daily study retrieved for " + date, response);
     }
 
     private APIGatewayProxyResponseEvent markWordLearned(APIGatewayProxyRequestEvent request) {
-        Map<String, String> pathParams = request.getPathParameters();
-        String userId = pathParams != null ? pathParams.get("userId") : null;
-        String wordId = pathParams != null ? pathParams.get("wordId") : null;
-
-        if (userId == null || wordId == null) {
-            return createResponse(400, ApiResponse.error("userId and wordId are required"));
-        }
+        String userId = request.getPathParameters().get("userId");
+        String wordId = request.getPathParameters().get("wordId");
 
         Map<String, Object> progress = commandService.markWordLearned(userId, wordId);
-        return createResponse(200, ApiResponse.success("Word marked as learned", progress));
+        return ResponseGenerator.ok("Word marked as learned", progress);
     }
 }
