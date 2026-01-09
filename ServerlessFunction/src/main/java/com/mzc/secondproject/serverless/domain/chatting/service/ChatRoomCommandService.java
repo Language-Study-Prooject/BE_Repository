@@ -1,6 +1,8 @@
 package com.mzc.secondproject.serverless.domain.chatting.service;
 
+import com.mzc.secondproject.serverless.domain.chatting.dto.response.JoinRoomResponse;
 import com.mzc.secondproject.serverless.domain.chatting.model.ChatRoom;
+import com.mzc.secondproject.serverless.domain.chatting.model.RoomToken;
 import com.mzc.secondproject.serverless.domain.chatting.repository.ChatRoomRepository;
 import org.mindrot.jbcrypt.BCrypt;
 import org.slf4j.Logger;
@@ -20,9 +22,11 @@ public class ChatRoomCommandService {
     private static final Logger logger = LoggerFactory.getLogger(ChatRoomCommandService.class);
 
     private final ChatRoomRepository roomRepository;
+    private final RoomTokenService roomTokenService;
 
     public ChatRoomCommandService() {
         this.roomRepository = new ChatRoomRepository();
+        this.roomTokenService = new RoomTokenService();
     }
 
     public ChatRoom createRoom(String name, String description, String level, Integer maxMembers,
@@ -55,7 +59,7 @@ public class ChatRoomCommandService {
         return room;
     }
 
-    public ChatRoom joinRoom(String roomId, String userId, String password) {
+    public JoinRoomResponse joinRoom(String roomId, String userId, String password) {
         Optional<ChatRoom> optRoom = roomRepository.findById(roomId);
         if (optRoom.isEmpty()) {
             throw new IllegalArgumentException("Room not found");
@@ -73,21 +77,27 @@ public class ChatRoomCommandService {
             throw new IllegalStateException("Room is full");
         }
 
-        if (room.getMemberIds() != null && room.getMemberIds().contains(userId)) {
+        boolean alreadyMember = room.getMemberIds() != null && room.getMemberIds().contains(userId);
+        if (!alreadyMember) {
+            if (room.getMemberIds() == null) {
+                room.setMemberIds(new ArrayList<>());
+            }
+            room.getMemberIds().add(userId);
+            room.setCurrentMembers(room.getCurrentMembers() + 1);
+            roomRepository.save(room);
+            logger.info("User {} joined room {}", userId, roomId);
+        } else {
             logger.info("User {} already in room {}", userId, roomId);
-            return room;
         }
 
-        if (room.getMemberIds() == null) {
-            room.setMemberIds(new ArrayList<>());
-        }
-        room.getMemberIds().add(userId);
-        room.setCurrentMembers(room.getCurrentMembers() + 1);
+        // 토큰 발급
+        RoomToken token = roomTokenService.generateToken(roomId, userId);
 
-        roomRepository.save(room);
-        logger.info("User {} joined room {}", userId, roomId);
-
-        return room;
+        return JoinRoomResponse.builder()
+                .room(room)
+                .roomToken(token.getToken())
+                .tokenExpiresAt(token.getTtl())
+                .build();
     }
 
     public LeaveResult leaveRoom(String roomId, String userId) {

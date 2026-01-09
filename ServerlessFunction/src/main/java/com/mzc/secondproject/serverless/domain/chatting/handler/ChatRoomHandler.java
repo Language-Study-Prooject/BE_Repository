@@ -9,6 +9,7 @@ import com.mzc.secondproject.serverless.common.dto.PaginatedResult;
 import com.mzc.secondproject.serverless.domain.chatting.dto.request.CreateRoomRequest;
 import com.mzc.secondproject.serverless.domain.chatting.dto.request.JoinRoomRequest;
 import com.mzc.secondproject.serverless.domain.chatting.dto.request.LeaveRoomRequest;
+import com.mzc.secondproject.serverless.domain.chatting.dto.response.JoinRoomResponse;
 import com.mzc.secondproject.serverless.common.router.HandlerRouter;
 import com.mzc.secondproject.serverless.common.router.Route;
 import com.mzc.secondproject.serverless.common.util.ResponseUtil;
@@ -132,9 +133,9 @@ public class ChatRoomHandler implements RequestHandler<APIGatewayProxyRequestEve
             return createResponse(400, ApiResponse.error("roomId and userId are required"));
         }
 
-        ChatRoom room = commandService.joinRoom(roomId, req.getUserId(), req.getPassword());
-        room.setPassword(null);
-        return createResponse(200, ApiResponse.success("Joined room", room));
+        JoinRoomResponse response = commandService.joinRoom(roomId, req.getUserId(), req.getPassword());
+        response.getRoom().setPassword(null);
+        return createResponse(200, ApiResponse.success("Joined room", response));
     }
 
     private APIGatewayProxyResponseEvent leaveRoom(APIGatewayProxyRequestEvent request) {
