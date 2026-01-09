@@ -3,6 +3,8 @@ package com.mzc.secondproject.serverless.common.router;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyRequestEvent;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyResponseEvent;
 import com.mzc.secondproject.serverless.common.dto.ApiResponse;
+import com.mzc.secondproject.serverless.common.exception.ServerlessException;
+import com.mzc.secondproject.serverless.common.response.ErrorInfo;
 import static com.mzc.secondproject.serverless.common.util.ResponseUtil.createResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -56,6 +58,8 @@ public class HandlerRouter {
                 logger.debug("Matched route: {} {}", entry.route.method(), entry.route.pathPattern());
                 try {
                     return entry.route.handler().apply(request);
+                } catch (ServerlessException e) {
+                    return handleServerlessException(e);
                 } catch (IllegalArgumentException e) {
                     logger.warn("Bad request: {}", e.getMessage());
                     return createResponse(400, ApiResponse.error(e.getMessage()));
@@ -86,6 +90,22 @@ public class HandlerRouter {
                 .replaceAll("\\{[^}]+\\}", "[^/]+")
                 .replace("/", "\\/");
         return ".*" + regex + "$";
+    }
+
+    /**
+     * ServerlessException 처리
+     * ErrorCode 기반의 표준화된 에러 응답 생성
+     */
+    private APIGatewayProxyResponseEvent handleServerlessException(ServerlessException e) {
+        ErrorInfo errorInfo = ErrorInfo.from(e);
+
+        if (e.isClientError()) {
+            logger.warn("Client error [{}]: {}", errorInfo.code(), e.getMessage());
+        } else {
+            logger.error("Server error [{}]: {}", errorInfo.code(), e.getMessage(), e);
+        }
+
+        return createResponse(e.getStatusCode(), com.mzc.secondproject.serverless.common.response.ApiResponse.error(errorInfo));
     }
 
     /**
