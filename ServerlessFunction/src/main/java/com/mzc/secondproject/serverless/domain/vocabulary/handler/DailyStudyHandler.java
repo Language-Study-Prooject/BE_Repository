@@ -49,7 +49,7 @@ public class DailyStudyHandler implements RequestHandler<APIGatewayProxyRequestE
         String userId = pathParams != null ? pathParams.get("userId") : null;
 
         if (userId == null) {
-            return createResponse(400, ApiResponse.error("userId is required"));
+            return createResponse(400, ApiResponse.fail("userId is required"));
         }
 
         String date = queryParams != null ? queryParams.get("date") : null;
@@ -69,14 +69,14 @@ public class DailyStudyHandler implements RequestHandler<APIGatewayProxyRequestE
         response.put("reviewWords", result.reviewWords());
         response.put("progress", result.progress());
 
-        return createResponse(200, ApiResponse.success("Daily words retrieved", response));
+        return createResponse(200, ApiResponse.ok("Daily words retrieved", response));
     }
 
     private APIGatewayProxyResponseEvent getDailyStudyByDate(String userId, String date) {
         var optDailyStudy = queryService.getDailyStudy(userId, date);
 
         if (optDailyStudy.isEmpty()) {
-            return createResponse(404, ApiResponse.error("No daily study found for date: " + date));
+            return createResponse(404, ApiResponse.fail("No daily study found for date: " + date));
         }
 
         var dailyStudy = optDailyStudy.get();
@@ -90,7 +90,7 @@ public class DailyStudyHandler implements RequestHandler<APIGatewayProxyRequestE
         response.put("reviewWords", reviewWords);
         response.put("progress", progress);
 
-        return createResponse(200, ApiResponse.success("Daily study retrieved for " + date, response));
+        return createResponse(200, ApiResponse.ok("Daily study retrieved for " + date, response));
     }
 
     private APIGatewayProxyResponseEvent markWordLearned(APIGatewayProxyRequestEvent request) {
@@ -99,10 +99,10 @@ public class DailyStudyHandler implements RequestHandler<APIGatewayProxyRequestE
         String wordId = pathParams != null ? pathParams.get("wordId") : null;
 
         if (userId == null || wordId == null) {
-            return createResponse(400, ApiResponse.error("userId and wordId are required"));
+            return createResponse(400, ApiResponse.fail("userId and wordId are required"));
         }
 
         Map<String, Object> progress = commandService.markWordLearned(userId, wordId);
-        return createResponse(200, ApiResponse.success("Word marked as learned", progress));
+        return createResponse(200, ApiResponse.ok("Word marked as learned", progress));
     }
 }

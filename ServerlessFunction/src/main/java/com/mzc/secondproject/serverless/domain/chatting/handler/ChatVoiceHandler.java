@@ -36,7 +36,7 @@ public class ChatVoiceHandler implements RequestHandler<APIGatewayProxyRequestEv
 
         try {
             if (!"POST".equals(request.getHttpMethod())) {
-                return createResponse(405, ApiResponse.error("Method not allowed"));
+                return createResponse(405, ApiResponse.fail("Method not allowed"));
             }
 
             String body = request.getBody();
@@ -46,16 +46,16 @@ public class ChatVoiceHandler implements RequestHandler<APIGatewayProxyRequestEv
             String voice = requestBody.getOrDefault("voice", "FEMALE");
 
             if (messageId == null || messageId.isEmpty()) {
-                return createResponse(400, ApiResponse.error("messageId is required"));
+                return createResponse(400, ApiResponse.fail("messageId is required"));
             }
             if (roomId == null || roomId.isEmpty()) {
-                return createResponse(400, ApiResponse.error("roomId is required"));
+                return createResponse(400, ApiResponse.fail("roomId is required"));
             }
 
             // 메시지 조회
             Optional<ChatMessage> messageOpt = messageRepository.findByRoomIdAndMessageId(roomId, messageId);
             if (messageOpt.isEmpty()) {
-                return createResponse(404, ApiResponse.error("Message not found"));
+                return createResponse(404, ApiResponse.fail("Message not found"));
             }
 
             ChatMessage message = messageOpt.get();
@@ -89,7 +89,7 @@ public class ChatVoiceHandler implements RequestHandler<APIGatewayProxyRequestEv
                 cached = result.isCached();
             }
 
-            return createResponse(200, ApiResponse.success(
+            return createResponse(200, ApiResponse.ok(
                     cached ? "Speech retrieved from cache" : "Speech synthesized",
                     Map.of(
                             "audioUrl", audioUrl,
@@ -99,7 +99,7 @@ public class ChatVoiceHandler implements RequestHandler<APIGatewayProxyRequestEv
 
         } catch (Exception e) {
             logger.error("Error synthesizing speech", e);
-            return createResponse(500, ApiResponse.error("Internal server error: " + e.getMessage()));
+            return createResponse(500, ApiResponse.fail("Internal server error: " + e.getMessage()));
         }
     }
 }

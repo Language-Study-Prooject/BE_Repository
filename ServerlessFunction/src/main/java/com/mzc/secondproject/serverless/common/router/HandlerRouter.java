@@ -4,7 +4,7 @@ import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyRequestEvent;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyResponseEvent;
 import com.mzc.secondproject.serverless.common.dto.ApiResponse;
 import com.mzc.secondproject.serverless.common.exception.ServerlessException;
-import com.mzc.secondproject.serverless.common.response.ErrorInfo;
+import com.mzc.secondproject.serverless.common.dto.ErrorInfo;
 import static com.mzc.secondproject.serverless.common.util.ResponseUtil.createResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -62,22 +62,22 @@ public class HandlerRouter {
                     return handleServerlessException(e);
                 } catch (IllegalArgumentException e) {
                     logger.warn("Bad request: {}", e.getMessage());
-                    return createResponse(400, ApiResponse.error(e.getMessage()));
+                    return createResponse(400, ApiResponse.fail(e.getMessage()));
                 } catch (IllegalStateException e) {
                     logger.warn("Conflict: {}", e.getMessage());
-                    return createResponse(409, ApiResponse.error(e.getMessage()));
+                    return createResponse(409, ApiResponse.fail(e.getMessage()));
                 } catch (SecurityException e) {
                     logger.warn("Forbidden: {}", e.getMessage());
-                    return createResponse(403, ApiResponse.error(e.getMessage()));
+                    return createResponse(403, ApiResponse.fail(e.getMessage()));
                 } catch (Exception e) {
                     logger.error("Error handling request", e);
-                    return createResponse(500, ApiResponse.error("Internal server error: " + e.getMessage()));
+                    return createResponse(500, ApiResponse.fail("Internal server error: " + e.getMessage()));
                 }
             }
         }
 
         logger.warn("No route found for: {} {}", method, path);
-        return createResponse(404, ApiResponse.error("Not found"));
+        return createResponse(404, ApiResponse.fail("Not found"));
     }
 
     /**
@@ -105,7 +105,7 @@ public class HandlerRouter {
             logger.error("Server error [{}]: {}", errorInfo.code(), e.getMessage(), e);
         }
 
-        return createResponse(e.getStatusCode(), com.mzc.secondproject.serverless.common.response.ApiResponse.fail(errorInfo));
+        return createResponse(e.getStatusCode(), errorInfo);
     }
 
     /**

@@ -64,7 +64,7 @@ public class UserWordHandler implements RequestHandler<APIGatewayProxyRequestEve
         String incorrectOnly = queryParams != null ? queryParams.get("incorrectOnly") : null;
 
         if (userId == null) {
-            return createResponse(400, ApiResponse.error("userId is required"));
+            return createResponse(400, ApiResponse.fail("userId is required"));
         }
 
         int limit = 20;
@@ -79,7 +79,7 @@ public class UserWordHandler implements RequestHandler<APIGatewayProxyRequestEve
         response.put("nextCursor", result.nextCursor());
         response.put("hasMore", result.hasMore());
 
-        return createResponse(200, ApiResponse.success("User words retrieved", response));
+        return createResponse(200, ApiResponse.ok("User words retrieved", response));
     }
 
     private APIGatewayProxyResponseEvent getUserWord(APIGatewayProxyRequestEvent request) {
@@ -88,15 +88,15 @@ public class UserWordHandler implements RequestHandler<APIGatewayProxyRequestEve
         String wordId = pathParams != null ? pathParams.get("wordId") : null;
 
         if (userId == null || wordId == null) {
-            return createResponse(400, ApiResponse.error("userId and wordId are required"));
+            return createResponse(400, ApiResponse.fail("userId and wordId are required"));
         }
 
         Optional<UserWord> optUserWord = queryService.getUserWord(userId, wordId);
         if (optUserWord.isEmpty()) {
-            return createResponse(404, ApiResponse.error("UserWord not found"));
+            return createResponse(404, ApiResponse.fail("UserWord not found"));
         }
 
-        return createResponse(200, ApiResponse.success("UserWord retrieved", optUserWord.get()));
+        return createResponse(200, ApiResponse.ok("UserWord retrieved", optUserWord.get()));
     }
 
     private APIGatewayProxyResponseEvent updateUserWord(APIGatewayProxyRequestEvent request) {
@@ -105,18 +105,18 @@ public class UserWordHandler implements RequestHandler<APIGatewayProxyRequestEve
         String wordId = pathParams != null ? pathParams.get("wordId") : null;
 
         if (userId == null || wordId == null) {
-            return createResponse(400, ApiResponse.error("userId and wordId are required"));
+            return createResponse(400, ApiResponse.fail("userId and wordId are required"));
         }
 
         String body = request.getBody();
         UpdateUserWordRequest req = ResponseUtil.gson().fromJson(body, UpdateUserWordRequest.class);
 
         if (req.getIsCorrect() == null) {
-            return createResponse(400, ApiResponse.error("isCorrect is required"));
+            return createResponse(400, ApiResponse.fail("isCorrect is required"));
         }
 
         UserWord userWord = commandService.updateUserWord(userId, wordId, req.getIsCorrect());
-        return createResponse(200, ApiResponse.success("UserWord updated", userWord));
+        return createResponse(200, ApiResponse.ok("UserWord updated", userWord));
     }
 
     private APIGatewayProxyResponseEvent updateUserWordTag(APIGatewayProxyRequestEvent request) {
@@ -125,14 +125,14 @@ public class UserWordHandler implements RequestHandler<APIGatewayProxyRequestEve
         String wordId = pathParams != null ? pathParams.get("wordId") : null;
 
         if (userId == null || wordId == null) {
-            return createResponse(400, ApiResponse.error("userId and wordId are required"));
+            return createResponse(400, ApiResponse.fail("userId and wordId are required"));
         }
 
         String body = request.getBody();
         UpdateUserWordTagRequest req = ResponseUtil.gson().fromJson(body, UpdateUserWordTagRequest.class);
 
         UserWord userWord = commandService.updateUserWordTag(userId, wordId, req.getBookmarked(), req.getFavorite(), req.getDifficulty());
-        return createResponse(200, ApiResponse.success("Tag updated", userWord));
+        return createResponse(200, ApiResponse.ok("Tag updated", userWord));
     }
 
     private APIGatewayProxyResponseEvent getWrongAnswers(APIGatewayProxyRequestEvent request) {
@@ -147,7 +147,7 @@ public class UserWordHandler implements RequestHandler<APIGatewayProxyRequestEve
                 .build();
 
         if (validation.isInvalid()) {
-            return createResponse(400, ApiResponse.error(validation.getErrorMessage().orElse("Validation failed")));
+            return createResponse(400, ApiResponse.fail(validation.getErrorMessage().orElse("Validation failed")));
         }
 
         int limit = parseIntParam(queryParams, "limit", 20, 1, 50);
@@ -160,7 +160,7 @@ public class UserWordHandler implements RequestHandler<APIGatewayProxyRequestEve
         response.put("nextCursor", result.nextCursor());
         response.put("hasMore", result.hasMore());
 
-        return createResponse(200, ApiResponse.success("Wrong answers retrieved", response));
+        return createResponse(200, ApiResponse.ok("Wrong answers retrieved", response));
     }
 
     private int parseIntParam(Map<String, String> params, String key, int defaultValue, int min, int max) {

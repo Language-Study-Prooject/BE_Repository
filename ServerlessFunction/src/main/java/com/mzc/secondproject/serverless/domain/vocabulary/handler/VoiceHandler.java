@@ -44,11 +44,11 @@ public class VoiceHandler implements RequestHandler<APIGatewayProxyRequestEvent,
                 return synthesizeSpeech(request);
             }
 
-            return createResponse(404, ApiResponse.error("Not found"));
+            return createResponse(404, ApiResponse.fail("Not found"));
 
         } catch (Exception e) {
             logger.error("Error handling request", e);
-            return createResponse(500, ApiResponse.error("Internal server error: " + e.getMessage()));
+            return createResponse(500, ApiResponse.fail("Internal server error: " + e.getMessage()));
         }
     }
 
@@ -57,7 +57,7 @@ public class VoiceHandler implements RequestHandler<APIGatewayProxyRequestEvent,
         SynthesizeVoiceRequest req = ResponseUtil.gson().fromJson(body, SynthesizeVoiceRequest.class);
 
         if (req.getWordId() == null || req.getWordId().isEmpty()) {
-            return createResponse(400, ApiResponse.error("wordId is required"));
+            return createResponse(400, ApiResponse.fail("wordId is required"));
         }
 
         String wordId = req.getWordId();
@@ -67,7 +67,7 @@ public class VoiceHandler implements RequestHandler<APIGatewayProxyRequestEvent,
         // 단어 조회
         Optional<Word> optWord = wordRepository.findById(wordId);
         if (optWord.isEmpty()) {
-            return createResponse(404, ApiResponse.error("Word not found"));
+            return createResponse(404, ApiResponse.fail("Word not found"));
         }
 
         Word word = optWord.get();
@@ -76,7 +76,7 @@ public class VoiceHandler implements RequestHandler<APIGatewayProxyRequestEvent,
 
         // 예문 요청인데 예문이 없는 경우
         if (isExample && (word.getExample() == null || word.getExample().isEmpty())) {
-            return createResponse(400, ApiResponse.error("This word has no example sentence"));
+            return createResponse(400, ApiResponse.fail("This word has no example sentence"));
         }
 
         // 음성 합성할 텍스트 결정
@@ -115,7 +115,7 @@ public class VoiceHandler implements RequestHandler<APIGatewayProxyRequestEvent,
         responseData.put("audioUrl", audioUrl);
         responseData.put("cached", cached);
 
-        return createResponse(200, ApiResponse.success("Speech synthesized", responseData));
+        return createResponse(200, ApiResponse.ok("Speech synthesized", responseData));
     }
 
     private String getCachedKey(Word word, boolean isMale, boolean isExample) {

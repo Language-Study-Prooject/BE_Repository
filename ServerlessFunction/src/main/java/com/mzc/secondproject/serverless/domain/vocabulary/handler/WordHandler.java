@@ -62,17 +62,17 @@ public class WordHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
         CreateWordRequest req = ResponseUtil.gson().fromJson(body, CreateWordRequest.class);
 
         if (req.getEnglish() == null || req.getEnglish().isEmpty()) {
-            return createResponse(400, ApiResponse.error("english is required"));
+            return createResponse(400, ApiResponse.fail("english is required"));
         }
         if (req.getKorean() == null || req.getKorean().isEmpty()) {
-            return createResponse(400, ApiResponse.error("korean is required"));
+            return createResponse(400, ApiResponse.fail("korean is required"));
         }
 
         String level = req.getLevel() != null ? req.getLevel() : "BEGINNER";
         String category = req.getCategory() != null ? req.getCategory() : "DAILY";
 
         Word word = commandService.createWord(req.getEnglish(), req.getKorean(), req.getExample(), level, category);
-        return createResponse(201, ApiResponse.success("Word created", word));
+        return createResponse(201, ApiResponse.ok("Word created", word));
     }
 
     private APIGatewayProxyResponseEvent getWords(APIGatewayProxyRequestEvent request) {
@@ -90,11 +90,11 @@ public class WordHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
         PaginatedResult<Word> wordPage = queryService.getWords(level, category, limit, cursor);
 
         Map<String, Object> result = new HashMap<>();
-        result.put("words", wordPage.getItems());
-        result.put("nextCursor", wordPage.getNextCursor());
+        result.put("words", wordPage.items());
+        result.put("nextCursor", wordPage.nextCursor());
         result.put("hasMore", wordPage.hasMore());
 
-        return createResponse(200, ApiResponse.success("Words retrieved", result));
+        return createResponse(200, ApiResponse.ok("Words retrieved", result));
     }
 
     private APIGatewayProxyResponseEvent getWord(APIGatewayProxyRequestEvent request) {
@@ -102,15 +102,15 @@ public class WordHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
         String wordId = pathParams != null ? pathParams.get("wordId") : null;
 
         if (wordId == null) {
-            return createResponse(400, ApiResponse.error("wordId is required"));
+            return createResponse(400, ApiResponse.fail("wordId is required"));
         }
 
         Optional<Word> optWord = queryService.getWord(wordId);
         if (optWord.isEmpty()) {
-            return createResponse(404, ApiResponse.error("Word not found"));
+            return createResponse(404, ApiResponse.fail("Word not found"));
         }
 
-        return createResponse(200, ApiResponse.success("Word retrieved", optWord.get()));
+        return createResponse(200, ApiResponse.ok("Word retrieved", optWord.get()));
     }
 
     private APIGatewayProxyResponseEvent updateWord(APIGatewayProxyRequestEvent request) {
@@ -118,14 +118,14 @@ public class WordHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
         String wordId = pathParams != null ? pathParams.get("wordId") : null;
 
         if (wordId == null) {
-            return createResponse(400, ApiResponse.error("wordId is required"));
+            return createResponse(400, ApiResponse.fail("wordId is required"));
         }
 
         String body = request.getBody();
         Map<String, Object> requestBody = ResponseUtil.gson().fromJson(body, Map.class);
 
         Word word = commandService.updateWord(wordId, requestBody);
-        return createResponse(200, ApiResponse.success("Word updated", word));
+        return createResponse(200, ApiResponse.ok("Word updated", word));
     }
 
     private APIGatewayProxyResponseEvent deleteWord(APIGatewayProxyRequestEvent request) {
@@ -133,11 +133,11 @@ public class WordHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
         String wordId = pathParams != null ? pathParams.get("wordId") : null;
 
         if (wordId == null) {
-            return createResponse(400, ApiResponse.error("wordId is required"));
+            return createResponse(400, ApiResponse.fail("wordId is required"));
         }
 
         commandService.deleteWord(wordId);
-        return createResponse(200, ApiResponse.success("Word deleted", null));
+        return createResponse(200, ApiResponse.ok("Word deleted", null));
     }
 
     private APIGatewayProxyResponseEvent createWordsBatch(APIGatewayProxyRequestEvent request) {
@@ -145,7 +145,7 @@ public class WordHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
         CreateWordsBatchRequest req = ResponseUtil.gson().fromJson(body, CreateWordsBatchRequest.class);
 
         if (req.getWords() == null || req.getWords().isEmpty()) {
-            return createResponse(400, ApiResponse.error("words array is required"));
+            return createResponse(400, ApiResponse.fail("words array is required"));
         }
 
         WordCommandService.BatchResult result = commandService.createWordsBatch(req.getWords());
@@ -155,7 +155,7 @@ public class WordHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
         response.put("failCount", result.failCount());
         response.put("totalRequested", result.totalRequested());
 
-        return createResponse(201, ApiResponse.success("Batch completed", response));
+        return createResponse(201, ApiResponse.ok("Batch completed", response));
     }
 
     private APIGatewayProxyResponseEvent searchWords(APIGatewayProxyRequestEvent request) {
@@ -165,7 +165,7 @@ public class WordHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
         String cursor = queryParams != null ? queryParams.get("cursor") : null;
 
         if (query == null || query.isEmpty()) {
-            return createResponse(400, ApiResponse.error("q (query) parameter is required"));
+            return createResponse(400, ApiResponse.fail("q (query) parameter is required"));
         }
 
         int limit = 20;
@@ -176,12 +176,12 @@ public class WordHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
         PaginatedResult<Word> wordPage = queryService.searchWords(query, limit, cursor);
 
         Map<String, Object> result = new HashMap<>();
-        result.put("words", wordPage.getItems());
+        result.put("words", wordPage.items());
         result.put("query", query);
-        result.put("nextCursor", wordPage.getNextCursor());
+        result.put("nextCursor", wordPage.nextCursor());
         result.put("hasMore", wordPage.hasMore());
 
-        return createResponse(200, ApiResponse.success("Search completed", result));
+        return createResponse(200, ApiResponse.ok("Search completed", result));
     }
 
     private APIGatewayProxyResponseEvent getWordsBatch(APIGatewayProxyRequestEvent request) {
@@ -189,11 +189,11 @@ public class WordHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
         BatchGetWordsRequest req = ResponseUtil.gson().fromJson(body, BatchGetWordsRequest.class);
 
         if (req.getWordIds() == null || req.getWordIds().isEmpty()) {
-            return createResponse(400, ApiResponse.error("wordIds array is required"));
+            return createResponse(400, ApiResponse.fail("wordIds array is required"));
         }
 
         if (req.getWordIds().size() > 100) {
-            return createResponse(400, ApiResponse.error("Maximum 100 wordIds allowed per request"));
+            return createResponse(400, ApiResponse.fail("Maximum 100 wordIds allowed per request"));
         }
 
         List<Word> words = queryService.getWordsByIds(req.getWordIds());
@@ -203,6 +203,6 @@ public class WordHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
         result.put("requestedCount", req.getWordIds().size());
         result.put("retrievedCount", words.size());
 
-        return createResponse(200, ApiResponse.success("Words retrieved", result));
+        return createResponse(200, ApiResponse.ok("Words retrieved", result));
     }
 }

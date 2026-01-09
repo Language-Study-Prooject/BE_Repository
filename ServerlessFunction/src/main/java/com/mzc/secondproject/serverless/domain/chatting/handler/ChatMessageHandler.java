@@ -56,13 +56,13 @@ public class ChatMessageHandler implements RequestHandler<APIGatewayProxyRequest
         String roomId = pathParams != null ? pathParams.get("roomId") : null;
 
         if (roomId == null) {
-            return createResponse(400, ApiResponse.error("roomId is required"));
+            return createResponse(400, ApiResponse.fail("roomId is required"));
         }
 
         SendMessageRequest req = ResponseUtil.gson().fromJson(request.getBody(), SendMessageRequest.class);
 
         if (req.getUserId() == null || req.getContent() == null) {
-            return createResponse(400, ApiResponse.error("userId and content are required"));
+            return createResponse(400, ApiResponse.fail("userId and content are required"));
         }
 
         String messageType = req.getMessageType() != null ? req.getMessageType() : "TEXT";
@@ -88,7 +88,7 @@ public class ChatMessageHandler implements RequestHandler<APIGatewayProxyRequest
         chatRoomRepository.updateLastMessageAt(roomId, now);
 
         logger.info("Message sent: {} in room: {}", messageId, roomId);
-        return createResponse(201, ApiResponse.success("Message sent", savedMessage));
+        return createResponse(201, ApiResponse.ok("Message sent", savedMessage));
     }
 
     private APIGatewayProxyResponseEvent getMessage(APIGatewayProxyRequestEvent request) {
@@ -97,14 +97,14 @@ public class ChatMessageHandler implements RequestHandler<APIGatewayProxyRequest
         String messageId = pathParams != null ? pathParams.get("messageId") : null;
 
         if (roomId == null || messageId == null) {
-            return createResponse(400, ApiResponse.error("roomId and messageId are required"));
+            return createResponse(400, ApiResponse.fail("roomId and messageId are required"));
         }
 
         Optional<ChatMessage> message = chatMessageService.getMessage(roomId, messageId);
         if (message.isEmpty()) {
-            return createResponse(404, ApiResponse.error("Message not found"));
+            return createResponse(404, ApiResponse.fail("Message not found"));
         }
-        return createResponse(200, ApiResponse.success("Message retrieved", message.get()));
+        return createResponse(200, ApiResponse.ok("Message retrieved", message.get()));
     }
 
     private APIGatewayProxyResponseEvent getMessages(APIGatewayProxyRequestEvent request) {
@@ -114,7 +114,7 @@ public class ChatMessageHandler implements RequestHandler<APIGatewayProxyRequest
         String roomId = pathParams != null ? pathParams.get("roomId") : null;
 
         if (roomId == null) {
-            return createResponse(400, ApiResponse.error("roomId is required"));
+            return createResponse(400, ApiResponse.fail("roomId is required"));
         }
 
         int limit = 20;
@@ -130,10 +130,10 @@ public class ChatMessageHandler implements RequestHandler<APIGatewayProxyRequest
         PaginatedResult<ChatMessage> messagePage = chatMessageService.getMessagesByRoomWithPagination(roomId, limit, cursor);
 
         Map<String, Object> result = new HashMap<>();
-        result.put("messages", messagePage.getItems());
-        result.put("nextCursor", messagePage.getNextCursor());
+        result.put("messages", messagePage.items());
+        result.put("nextCursor", messagePage.nextCursor());
         result.put("hasMore", messagePage.hasMore());
 
-        return createResponse(200, ApiResponse.success("Messages retrieved", result));
+        return createResponse(200, ApiResponse.ok("Messages retrieved", result));
     }
 }

@@ -28,7 +28,7 @@ public class ChatAIHandler implements RequestHandler<APIGatewayProxyRequestEvent
 
         try {
             if (!"POST".equals(request.getHttpMethod())) {
-                return createResponse(405, ApiResponse.error("Method not allowed"));
+                return createResponse(405, ApiResponse.fail("Method not allowed"));
             }
 
             String body = request.getBody();
@@ -36,11 +36,11 @@ public class ChatAIHandler implements RequestHandler<APIGatewayProxyRequestEvent
 
             String aiResponse = bedrockService.generateResponse("Hello, how can I help you?");
 
-            return createResponse(200, ApiResponse.success("AI response generated", Map.of("response", aiResponse)));
+            return createResponse(200, ApiResponse.ok("AI response generated", Map.of("response", aiResponse)));
 
         } catch (Exception e) {
             logger.error("Error generating AI response", e);
-            return createResponse(500, ApiResponse.error("Internal server error: " + e.getMessage()));
+            return createResponse(500, ApiResponse.fail("Internal server error: " + e.getMessage()));
         }
     }
 }

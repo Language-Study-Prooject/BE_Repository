@@ -168,7 +168,7 @@ public class TestCommandService {
 
     private List<String> getDistractorsForLevel(String level, List<String> excludeWordIds) {
         PaginatedResult<Word> wordPage = wordRepository.findByLevelWithPagination(level, 50, null);
-        return wordPage.getItems().stream()
+        return wordPage.items().stream()
                 .filter(w -> !excludeWordIds.contains(w.getWordId()))
                 .map(Word::getKorean)
                 .collect(Collectors.toList());
