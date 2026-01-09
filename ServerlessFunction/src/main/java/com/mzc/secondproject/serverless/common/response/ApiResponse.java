@@ -37,28 +37,28 @@ public record ApiResponse<T>(
     /**
      * 성공 응답 생성 (데이터 포함)
      */
-    public static <T> ApiResponse<T> success(T data) {
+    public static <T> ApiResponse<T> ok(T data) {
         return new ApiResponse<>(true, data, null, Instant.now().toString());
     }
 
     /**
      * 성공 응답 생성 (데이터 없음)
      */
-    public static <T> ApiResponse<T> success() {
+    public static <T> ApiResponse<T> ok() {
         return new ApiResponse<>(true, null, null, Instant.now().toString());
     }
 
     /**
      * 실패 응답 생성 (ErrorInfo 직접 전달)
      */
-    public static <T> ApiResponse<T> error(ErrorInfo errorInfo) {
+    public static <T> ApiResponse<T> fail(ErrorInfo errorInfo) {
         return new ApiResponse<>(false, null, errorInfo, Instant.now().toString());
     }
 
     /**
      * 실패 응답 생성 (에러 코드, 메시지 전달)
      */
-    public static <T> ApiResponse<T> error(String code, String message, int status) {
+    public static <T> ApiResponse<T> fail(String code, String message, int status) {
         return new ApiResponse<>(false, null,
                 ErrorInfo.of(code, message, status), Instant.now().toString());
     }
@@ -66,7 +66,7 @@ public record ApiResponse<T>(
     /**
      * 실패 응답 생성 (ServerlessException에서 변환)
      */
-    public static <T> ApiResponse<T> error(com.mzc.secondproject.serverless.common.exception.ServerlessException ex) {
+    public static <T> ApiResponse<T> fail(com.mzc.secondproject.serverless.common.exception.ServerlessException ex) {
         return new ApiResponse<>(false, null, ErrorInfo.from(ex), Instant.now().toString());
     }
 }
