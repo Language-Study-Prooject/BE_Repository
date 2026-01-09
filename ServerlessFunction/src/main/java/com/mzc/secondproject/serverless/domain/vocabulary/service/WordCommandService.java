@@ -1,5 +1,7 @@
 package com.mzc.secondproject.serverless.domain.vocabulary.service;
 
+import com.mzc.secondproject.serverless.common.constants.DynamoDbKey;
+import com.mzc.secondproject.serverless.domain.vocabulary.constants.VocabKey;
 import com.mzc.secondproject.serverless.domain.vocabulary.dto.request.CreateWordRequest;
 import com.mzc.secondproject.serverless.domain.vocabulary.model.Word;
 import com.mzc.secondproject.serverless.domain.vocabulary.repository.WordRepository;
@@ -31,12 +33,12 @@ public class WordCommandService {
         String now = Instant.now().toString();
 
         Word word = Word.builder()
-                .pk("WORD#" + wordId)
-                .sk("METADATA")
-                .gsi1pk("LEVEL#" + level)
-                .gsi1sk("WORD#" + wordId)
-                .gsi2pk("CATEGORY#" + category)
-                .gsi2sk("WORD#" + wordId)
+                .pk(VocabKey.wordPk(wordId))
+                .sk(DynamoDbKey.METADATA)
+                .gsi1pk(VocabKey.levelPk(level))
+                .gsi1sk(VocabKey.wordSk(wordId))
+                .gsi2pk(VocabKey.categoryPk(category))
+                .gsi2sk(VocabKey.wordSk(wordId))
                 .wordId(wordId)
                 .english(english)
                 .korean(korean)
@@ -72,12 +74,12 @@ public class WordCommandService {
         if (updates.containsKey("level")) {
             String newLevel = (String) updates.get("level");
             word.setLevel(newLevel);
-            word.setGsi1pk("LEVEL#" + newLevel);
+            word.setGsi1pk(VocabKey.levelPk(newLevel));
         }
         if (updates.containsKey("category")) {
             String newCategory = (String) updates.get("category");
             word.setCategory(newCategory);
-            word.setGsi2pk("CATEGORY#" + newCategory);
+            word.setGsi2pk(VocabKey.categoryPk(newCategory));
         }
 
         wordRepository.save(word);
@@ -118,12 +120,12 @@ public class WordCommandService {
                 String wordId = UUID.randomUUID().toString();
 
                 Word word = Word.builder()
-                        .pk("WORD#" + wordId)
-                        .sk("METADATA")
-                        .gsi1pk("LEVEL#" + level)
-                        .gsi1sk("WORD#" + wordId)
-                        .gsi2pk("CATEGORY#" + category)
-                        .gsi2sk("WORD#" + wordId)
+                        .pk(VocabKey.wordPk(wordId))
+                        .sk(DynamoDbKey.METADATA)
+                        .gsi1pk(VocabKey.levelPk(level))
+                        .gsi1sk(VocabKey.wordSk(wordId))
+                        .gsi2pk(VocabKey.categoryPk(category))
+                        .gsi2sk(VocabKey.wordSk(wordId))
                         .wordId(wordId)
                         .english(english)
                         .korean(korean)
