@@ -1,5 +1,9 @@
 package com.mzc.secondproject.serverless.domain.vocabulary.service;
 
+import com.mzc.secondproject.serverless.common.constants.StudyConfig;
+import com.mzc.secondproject.serverless.common.enums.Difficulty;
+import com.mzc.secondproject.serverless.domain.vocabulary.constants.VocabKey;
+import com.mzc.secondproject.serverless.domain.vocabulary.enums.WordStatus;
 import com.mzc.secondproject.serverless.domain.vocabulary.model.UserWord;
 import com.mzc.secondproject.serverless.domain.vocabulary.repository.UserWordRepository;
 import org.slf4j.Logger;
@@ -29,18 +33,18 @@ public class UserWordCommandService {
 
         if (optUserWord.isEmpty()) {
             userWord = UserWord.builder()
-                    .pk("USER#" + userId)
-                    .sk("WORD#" + wordId)
-                    .gsi1pk("USER#" + userId + "#REVIEW")
-                    .gsi2pk("USER#" + userId + "#STATUS")
+                    .pk(VocabKey.userPk(userId))
+                    .sk(VocabKey.wordSk(wordId))
+                    .gsi1pk(VocabKey.userReviewPk(userId))
+                    .gsi2pk(VocabKey.userStatusPk(userId))
                     .userId(userId)
                     .wordId(wordId)
-                    .status("NEW")
-                    .interval(1)
-                    .easeFactor(2.5)
-                    .repetitions(0)
-                    .correctCount(0)
-                    .incorrectCount(0)
+                    .status(WordStatus.NEW.name())
+                    .interval(StudyConfig.INITIAL_INTERVAL_DAYS)
+                    .easeFactor(StudyConfig.DEFAULT_EASE_FACTOR)
+                    .repetitions(StudyConfig.INITIAL_REPETITIONS)
+                    .correctCount(StudyConfig.INITIAL_CORRECT_COUNT)
+                    .incorrectCount(StudyConfig.INITIAL_INCORRECT_COUNT)
                     .createdAt(now)
                     .build();
         } else {
@@ -51,8 +55,8 @@ public class UserWordCommandService {
         userWord.setUpdatedAt(now);
         userWord.setLastReviewedAt(now);
 
-        userWord.setGsi1sk("DATE#" + userWord.getNextReviewAt());
-        userWord.setGsi2sk("STATUS#" + userWord.getStatus());
+        userWord.setGsi1sk(VocabKey.dateSk(userWord.getNextReviewAt()));
+        userWord.setGsi2sk(VocabKey.statusSk(userWord.getStatus()));
 
         userWordRepository.save(userWord);
 
@@ -68,19 +72,19 @@ public class UserWordCommandService {
 
         if (optUserWord.isEmpty()) {
             userWord = UserWord.builder()
-                    .pk("USER#" + userId)
-                    .sk("WORD#" + wordId)
-                    .gsi1pk("USER#" + userId + "#REVIEW")
-                    .gsi2pk("USER#" + userId + "#STATUS")
-                    .gsi2sk("STATUS#NEW")
+                    .pk(VocabKey.userPk(userId))
+                    .sk(VocabKey.wordSk(wordId))
+                    .gsi1pk(VocabKey.userReviewPk(userId))
+                    .gsi2pk(VocabKey.userStatusPk(userId))
+                    .gsi2sk(VocabKey.statusSk(WordStatus.NEW.name()))
                     .userId(userId)
                     .wordId(wordId)
-                    .status("NEW")
-                    .interval(1)
-                    .easeFactor(2.5)
-                    .repetitions(0)
-                    .correctCount(0)
-                    .incorrectCount(0)
+                    .status(WordStatus.NEW.name())
+                    .interval(StudyConfig.INITIAL_INTERVAL_DAYS)
+                    .easeFactor(StudyConfig.DEFAULT_EASE_FACTOR)
+                    .repetitions(StudyConfig.INITIAL_REPETITIONS)
+                    .correctCount(StudyConfig.INITIAL_CORRECT_COUNT)
+                    .incorrectCount(StudyConfig.INITIAL_INCORRECT_COUNT)
                     .bookmarked(false)
                     .favorite(false)
                     .createdAt(now)
@@ -96,7 +100,7 @@ public class UserWordCommandService {
             userWord.setFavorite(favorite);
         }
         if (difficulty != null) {
-            if (!difficulty.equals("EASY") && !difficulty.equals("NORMAL") && !difficulty.equals("HARD")) {
+            if (!Difficulty.isValid(difficulty)) {
                 throw new IllegalArgumentException("difficulty must be EASY, NORMAL, or HARD");
             }
             userWord.setDifficulty(difficulty);
@@ -115,7 +119,7 @@ public class UserWordCommandService {
             userWord.setRepetitions(userWord.getRepetitions() + 1);
 
             if (userWord.getRepetitions() == 1) {
-                userWord.setInterval(1);
+                userWord.setInterval(StudyConfig.INITIAL_INTERVAL_DAYS);
             } else if (userWord.getRepetitions() == 2) {
                 userWord.setInterval(6);
             } else {
@@ -124,20 +128,20 @@ public class UserWordCommandService {
             }
 
             if (userWord.getRepetitions() >= 5) {
-                userWord.setStatus("MASTERED");
+                userWord.setStatus(WordStatus.MASTERED.name());
             } else if (userWord.getRepetitions() >= 2) {
-                userWord.setStatus("REVIEWING");
+                userWord.setStatus(WordStatus.REVIEWING.name());
             } else {
-                userWord.setStatus("LEARNING");
+                userWord.setStatus(WordStatus.LEARNING.name());
             }
         } else {
             userWord.setIncorrectCount(userWord.getIncorrectCount() + 1);
-            userWord.setRepetitions(0);
-            userWord.setInterval(1);
-            userWord.setStatus("LEARNING");
+            userWord.setRepetitions(StudyConfig.INITIAL_REPETITIONS);
+            userWord.setInterval(StudyConfig.INITIAL_INTERVAL_DAYS);
+            userWord.setStatus(WordStatus.LEARNING.name());
 
             double newEaseFactor = userWord.getEaseFactor() - 0.2;
-            userWord.setEaseFactor(Math.max(1.3, newEaseFactor));
+            userWord.setEaseFactor(Math.max(StudyConfig.MIN_EASE_FACTOR, newEaseFactor));
         }
 
         LocalDate nextReview = LocalDate.now().plusDays(userWord.getInterval());
