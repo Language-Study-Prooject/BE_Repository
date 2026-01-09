@@ -3,7 +3,7 @@ package com.mzc.secondproject.serverless.domain.vocabulary.service;
 import com.mzc.secondproject.serverless.common.dto.PaginatedResult;
 import com.mzc.secondproject.serverless.domain.vocabulary.dto.request.SubmitTestRequest;
 import com.mzc.secondproject.serverless.common.config.AwsClients;
-import com.mzc.secondproject.serverless.common.util.ResponseUtil;
+import com.mzc.secondproject.serverless.common.util.ResponseGenerator;
 import com.mzc.secondproject.serverless.domain.vocabulary.model.DailyStudy;
 import com.mzc.secondproject.serverless.domain.vocabulary.model.TestResult;
 import com.mzc.secondproject.serverless.domain.vocabulary.model.Word;
@@ -118,13 +118,16 @@ public class TestCommandService {
 
             Word word = wordMap.get(wordId);
             if (word != null) {
-                boolean isCorrect = word.getKorean().trim().equalsIgnoreCase(userAnswer.trim());
+                // 빈 답변은 오답 처리
+                boolean isCorrect = userAnswer != null
+                        && !userAnswer.isBlank()
+                        && word.getKorean().trim().equalsIgnoreCase(userAnswer.trim());
 
                 Map<String, Object> resultItem = new HashMap<>();
                 resultItem.put("wordId", wordId);
                 resultItem.put("english", word.getEnglish());
                 resultItem.put("correctAnswer", word.getKorean());
-                resultItem.put("userAnswer", userAnswer);
+                resultItem.put("userAnswer", userAnswer != null ? userAnswer : "");
                 resultItem.put("isCorrect", isCorrect);
                 results.add(resultItem);
 
@@ -219,7 +222,7 @@ public class TestCommandService {
             message.put("userId", userId);
             message.put("results", results);
 
-            String messageJson = ResponseUtil.gson().toJson(message);
+            String messageJson = ResponseGenerator.gson().toJson(message);
 
             PublishRequest publishRequest = PublishRequest.builder()
                     .topicArn(TEST_RESULT_TOPIC_ARN)

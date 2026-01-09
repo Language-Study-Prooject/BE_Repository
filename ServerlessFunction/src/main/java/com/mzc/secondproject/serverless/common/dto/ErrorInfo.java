@@ -58,6 +58,16 @@ public record ErrorInfo(
     }
 
     /**
+     * ErrorCode에서 에러 정보 생성 (커스텀 메시지)
+     */
+    public static ErrorInfo from(ErrorCode errorCode, String customMessage) {
+        String code = errorCode instanceof DomainErrorCode domainCode
+                ? domainCode.getFullCode()
+                : errorCode.getCode();
+        return new ErrorInfo(code, customMessage, errorCode.getStatusCode(), null);
+    }
+
+    /**
      * ServerlessException에서 에러 정보 생성
      */
     public static ErrorInfo from(ServerlessException ex) {

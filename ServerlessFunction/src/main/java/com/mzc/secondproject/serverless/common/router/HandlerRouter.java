@@ -2,21 +2,32 @@ package com.mzc.secondproject.serverless.common.router;
 
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyRequestEvent;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyResponseEvent;
-import com.mzc.secondproject.serverless.common.dto.ApiResponse;
+import com.mzc.secondproject.serverless.common.exception.CommonErrorCode;
 import com.mzc.secondproject.serverless.common.exception.ServerlessException;
 import com.mzc.secondproject.serverless.common.dto.ErrorInfo;
-import static com.mzc.secondproject.serverless.common.util.ResponseUtil.createResponse;
+import com.mzc.secondproject.serverless.common.util.ResponseGenerator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 /**
  * Lambda Handler를 위한 HTTP 라우터
- * if-else 체인 대신 선언적 라우팅 제공
+ *
+ * 선언적 라우팅 + 자동 Path/Query 파라미터 검증 제공
+ *
+ * 사용 예시:
+ * <pre>
+ * new HandlerRouter().addRoutes(
+ *     Route.get("/rooms/{roomId}", this::getRoom),  // roomId 자동 검증
+ *     Route.delete("/rooms/{roomId}", this::deleteRoom).requireQueryParams("userId")  // roomId + userId 검증
+ * );
+ * </pre>
  */
 public class HandlerRouter {
 
@@ -56,28 +67,73 @@ public class HandlerRouter {
         for (RouteEntry entry : routes) {
             if (entry.matches(method, path)) {
                 logger.debug("Matched route: {} {}", entry.route.method(), entry.route.pathPattern());
+
+                // Path/Query 파라미터 자동 검증
+                String validationError = validateParams(request, entry.route);
+                if (validationError != null) {
+                    logger.warn("Validation failed: {}", validationError);
+                    return ResponseGenerator.fail(CommonErrorCode.REQUIRED_FIELD_MISSING, validationError);
+                }
+
                 try {
                     return entry.route.handler().apply(request);
                 } catch (ServerlessException e) {
                     return handleServerlessException(e);
                 } catch (IllegalArgumentException e) {
                     logger.warn("Bad request: {}", e.getMessage());
-                    return createResponse(400, ApiResponse.fail(e.getMessage()));
+                    return ResponseGenerator.fail(CommonErrorCode.INVALID_INPUT, e.getMessage());
                 } catch (IllegalStateException e) {
                     logger.warn("Conflict: {}", e.getMessage());
-                    return createResponse(409, ApiResponse.fail(e.getMessage()));
+                    return ResponseGenerator.fail(CommonErrorCode.RESOURCE_ALREADY_EXISTS, e.getMessage());
                 } catch (SecurityException e) {
                     logger.warn("Forbidden: {}", e.getMessage());
-                    return createResponse(403, ApiResponse.fail(e.getMessage()));
+                    return ResponseGenerator.fail(CommonErrorCode.FORBIDDEN, e.getMessage());
                 } catch (Exception e) {
                     logger.error("Error handling request", e);
-                    return createResponse(500, ApiResponse.fail("Internal server error: " + e.getMessage()));
+                    return ResponseGenerator.fail(CommonErrorCode.INTERNAL_SERVER_ERROR);
                 }
             }
         }
 
         logger.warn("No route found for: {} {}", method, path);
-        return createResponse(404, ApiResponse.fail("Not found"));
+        return ResponseGenerator.fail(CommonErrorCode.RESOURCE_NOT_FOUND);
+    }
+
+    /**
+     * Path/Query 파라미터 검증
+     *
+     * @return 에러 메시지 (검증 성공 시 null)
+     */
+    private String validateParams(APIGatewayProxyRequestEvent request, Route route) {
+        List<String> missingParams = new ArrayList<>();
+
+        // Path 파라미터 검증
+        Map<String, String> pathParams = request.getPathParameters();
+        for (String param : route.requiredPathParams()) {
+            if (pathParams == null || isBlank(pathParams.get(param))) {
+                missingParams.add(param);
+            }
+        }
+
+        // Query 파라미터 검증
+        Map<String, String> queryParams = request.getQueryStringParameters();
+        for (String param : route.requiredQueryParams()) {
+            if (queryParams == null || isBlank(queryParams.get(param))) {
+                missingParams.add(param);
+            }
+        }
+
+        if (missingParams.isEmpty()) {
+            return null;
+        }
+
+        return missingParams.stream()
+                .map(p -> p + " is required")
+                .collect(Collectors.joining(", "));
+    }
+
+    private boolean isBlank(String value) {
+        return value == null || value.trim().isEmpty();
     }
 
     /**
@@ -105,7 +161,7 @@ public class HandlerRouter {
             logger.error("Server error [{}]: {}", errorInfo.code(), e.getMessage(), e);
         }
 
-        return createResponse(e.getStatusCode(), errorInfo);
+        return ResponseGenerator.createResponse(e.getStatusCode(), errorInfo);
     }
 
     /**

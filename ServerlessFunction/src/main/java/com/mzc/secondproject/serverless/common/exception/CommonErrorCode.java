@@ -24,6 +24,7 @@ public enum CommonErrorCode implements ErrorCode {
 
     // 리소스 관련 에러
     RESOURCE_NOT_FOUND("RESOURCE_001", "리소스를 찾을 수 없습니다", 404),
+    METHOD_NOT_ALLOWED("RESOURCE_003", "허용되지 않는 메서드입니다", 405),
     RESOURCE_ALREADY_EXISTS("RESOURCE_002", "이미 존재하는 리소스입니다", 409),
 
     // 시스템 에러

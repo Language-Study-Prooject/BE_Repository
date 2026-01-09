@@ -4,15 +4,14 @@ import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.lambda.runtime.RequestHandler;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyRequestEvent;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyResponseEvent;
-import com.mzc.secondproject.serverless.common.dto.ApiResponse;
-import com.mzc.secondproject.serverless.common.validation.RequestValidator;
-import com.mzc.secondproject.serverless.common.validation.ValidationResult;
+import com.mzc.secondproject.serverless.common.exception.CommonErrorCode;
+import com.mzc.secondproject.serverless.common.validation.BeanValidator;
 import com.mzc.secondproject.serverless.domain.vocabulary.dto.request.UpdateUserWordRequest;
 import com.mzc.secondproject.serverless.domain.vocabulary.dto.request.UpdateUserWordTagRequest;
+import com.mzc.secondproject.serverless.domain.vocabulary.exception.VocabularyErrorCode;
 import com.mzc.secondproject.serverless.common.router.HandlerRouter;
 import com.mzc.secondproject.serverless.common.router.Route;
-import com.mzc.secondproject.serverless.common.util.ResponseUtil;
-import static com.mzc.secondproject.serverless.common.util.ResponseUtil.createResponse;
+import com.mzc.secondproject.serverless.common.util.ResponseGenerator;
 import com.mzc.secondproject.serverless.domain.vocabulary.model.UserWord;
 import com.mzc.secondproject.serverless.domain.vocabulary.service.UserWordCommandService;
 import com.mzc.secondproject.serverless.domain.vocabulary.service.UserWordQueryService;
@@ -54,18 +53,13 @@ public class UserWordHandler implements RequestHandler<APIGatewayProxyRequestEve
     }
 
     private APIGatewayProxyResponseEvent getUserWords(APIGatewayProxyRequestEvent request) {
-        Map<String, String> pathParams = request.getPathParameters();
+        String userId = request.getPathParameters().get("userId");
         Map<String, String> queryParams = request.getQueryStringParameters();
 
-        String userId = pathParams != null ? pathParams.get("userId") : null;
         String status = queryParams != null ? queryParams.get("status") : null;
         String cursor = queryParams != null ? queryParams.get("cursor") : null;
         String bookmarked = queryParams != null ? queryParams.get("bookmarked") : null;
         String incorrectOnly = queryParams != null ? queryParams.get("incorrectOnly") : null;
-
-        if (userId == null) {
-            return createResponse(400, ApiResponse.fail("userId is required"));
-        }
 
         int limit = 20;
         if (queryParams != null && queryParams.get("limit") != null) {
@@ -79,76 +73,45 @@ public class UserWordHandler implements RequestHandler<APIGatewayProxyRequestEve
         response.put("nextCursor", result.nextCursor());
         response.put("hasMore", result.hasMore());
 
-        return createResponse(200, ApiResponse.ok("User words retrieved", response));
+        return ResponseGenerator.ok("User words retrieved", response);
     }
 
     private APIGatewayProxyResponseEvent getUserWord(APIGatewayProxyRequestEvent request) {
-        Map<String, String> pathParams = request.getPathParameters();
-        String userId = pathParams != null ? pathParams.get("userId") : null;
-        String wordId = pathParams != null ? pathParams.get("wordId") : null;
-
-        if (userId == null || wordId == null) {
-            return createResponse(400, ApiResponse.fail("userId and wordId are required"));
-        }
+        String userId = request.getPathParameters().get("userId");
+        String wordId = request.getPathParameters().get("wordId");
 
         Optional<UserWord> optUserWord = queryService.getUserWord(userId, wordId);
         if (optUserWord.isEmpty()) {
-            return createResponse(404, ApiResponse.fail("UserWord not found"));
+            return ResponseGenerator.fail(VocabularyErrorCode.USER_WORD_NOT_FOUND);
         }
 
-        return createResponse(200, ApiResponse.ok("UserWord retrieved", optUserWord.get()));
+        return ResponseGenerator.ok("UserWord retrieved", optUserWord.get());
     }
 
     private APIGatewayProxyResponseEvent updateUserWord(APIGatewayProxyRequestEvent request) {
-        Map<String, String> pathParams = request.getPathParameters();
-        String userId = pathParams != null ? pathParams.get("userId") : null;
-        String wordId = pathParams != null ? pathParams.get("wordId") : null;
+        String userId = request.getPathParameters().get("userId");
+        String wordId = request.getPathParameters().get("wordId");
+        UpdateUserWordRequest req = ResponseGenerator.gson().fromJson(request.getBody(), UpdateUserWordRequest.class);
 
-        if (userId == null || wordId == null) {
-            return createResponse(400, ApiResponse.fail("userId and wordId are required"));
-        }
-
-        String body = request.getBody();
-        UpdateUserWordRequest req = ResponseUtil.gson().fromJson(body, UpdateUserWordRequest.class);
-
-        if (req.getIsCorrect() == null) {
-            return createResponse(400, ApiResponse.fail("isCorrect is required"));
-        }
-
-        UserWord userWord = commandService.updateUserWord(userId, wordId, req.getIsCorrect());
-        return createResponse(200, ApiResponse.ok("UserWord updated", userWord));
+        return BeanValidator.validateAndExecute(req, dto -> {
+            UserWord userWord = commandService.updateUserWord(userId, wordId, dto.getIsCorrect());
+            return ResponseGenerator.ok("UserWord updated", userWord);
+        });
     }
 
     private APIGatewayProxyResponseEvent updateUserWordTag(APIGatewayProxyRequestEvent request) {
-        Map<String, String> pathParams = request.getPathParameters();
-        String userId = pathParams != null ? pathParams.get("userId") : null;
-        String wordId = pathParams != null ? pathParams.get("wordId") : null;
-
-        if (userId == null || wordId == null) {
-            return createResponse(400, ApiResponse.fail("userId and wordId are required"));
-        }
-
-        String body = request.getBody();
-        UpdateUserWordTagRequest req = ResponseUtil.gson().fromJson(body, UpdateUserWordTagRequest.class);
+        String userId = request.getPathParameters().get("userId");
+        String wordId = request.getPathParameters().get("wordId");
+        UpdateUserWordTagRequest req = ResponseGenerator.gson().fromJson(request.getBody(), UpdateUserWordTagRequest.class);
 
         UserWord userWord = commandService.updateUserWordTag(userId, wordId, req.getBookmarked(), req.getFavorite(), req.getDifficulty());
-        return createResponse(200, ApiResponse.ok("Tag updated", userWord));
+        return ResponseGenerator.ok("Tag updated", userWord);
     }
 
     private APIGatewayProxyResponseEvent getWrongAnswers(APIGatewayProxyRequestEvent request) {
-        Map<String, String> pathParams = request.getPathParameters();
+        String userId = request.getPathParameters().get("userId");
         Map<String, String> queryParams = request.getQueryStringParameters();
-
-        String userId = pathParams != null ? pathParams.get("userId") : null;
         String cursor = queryParams != null ? queryParams.get("cursor") : null;
-
-        ValidationResult validation = RequestValidator.create()
-                .requireNotEmpty(userId, "userId")
-                .build();
-
-        if (validation.isInvalid()) {
-            return createResponse(400, ApiResponse.fail(validation.getErrorMessage().orElse("Validation failed")));
-        }
 
         int limit = parseIntParam(queryParams, "limit", 20, 1, 50);
         int minCount = parseIntParam(queryParams, "minCount", 1, 1, 100);
@@ -160,7 +123,7 @@ public class UserWordHandler implements RequestHandler<APIGatewayProxyRequestEve
         response.put("nextCursor", result.nextCursor());
         response.put("hasMore", result.hasMore());
 
-        return createResponse(200, ApiResponse.ok("Wrong answers retrieved", response));
+        return ResponseGenerator.ok("Wrong answers retrieved", response);
     }
 
     private int parseIntParam(Map<String, String> params, String key, int defaultValue, int min, int max) {

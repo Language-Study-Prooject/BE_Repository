@@ -4,14 +4,14 @@ import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.lambda.runtime.RequestHandler;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyRequestEvent;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyResponseEvent;
-import com.mzc.secondproject.serverless.common.dto.ApiResponse;
 import com.mzc.secondproject.serverless.common.dto.PaginatedResult;
+import com.mzc.secondproject.serverless.common.exception.CommonErrorCode;
+import com.mzc.secondproject.serverless.common.validation.BeanValidator;
 import com.mzc.secondproject.serverless.domain.vocabulary.dto.request.StartTestRequest;
 import com.mzc.secondproject.serverless.domain.vocabulary.dto.request.SubmitTestRequest;
 import com.mzc.secondproject.serverless.common.router.HandlerRouter;
 import com.mzc.secondproject.serverless.common.router.Route;
-import com.mzc.secondproject.serverless.common.util.ResponseUtil;
-import static com.mzc.secondproject.serverless.common.util.ResponseUtil.createResponse;
+import com.mzc.secondproject.serverless.common.util.ResponseGenerator;
 import com.mzc.secondproject.serverless.domain.vocabulary.model.TestResult;
 import com.mzc.secondproject.serverless.domain.vocabulary.service.TestCommandService;
 import com.mzc.secondproject.serverless.domain.vocabulary.service.TestQueryService;
@@ -19,7 +19,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 public class TestHandler implements RequestHandler<APIGatewayProxyRequestEvent, APIGatewayProxyResponseEvent> {
@@ -52,15 +51,8 @@ public class TestHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
     }
 
     private APIGatewayProxyResponseEvent startTest(APIGatewayProxyRequestEvent request) {
-        Map<String, String> pathParams = request.getPathParameters();
-        String userId = pathParams != null ? pathParams.get("userId") : null;
-
-        if (userId == null) {
-            return createResponse(400, ApiResponse.fail("userId is required"));
-        }
-
-        String body = request.getBody();
-        StartTestRequest req = ResponseUtil.gson().fromJson(body, StartTestRequest.class);
+        String userId = request.getPathParameters().get("userId");
+        StartTestRequest req = ResponseGenerator.gson().fromJson(request.getBody(), StartTestRequest.class);
         String testType = req != null && req.getTestType() != null ? req.getTestType() : "DAILY";
 
         TestCommandService.StartTestResult result = commandService.startTest(userId, testType);
@@ -72,50 +64,36 @@ public class TestHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
         response.put("totalQuestions", result.totalQuestions());
         response.put("startedAt", result.startedAt());
 
-        return createResponse(200, ApiResponse.ok("Test started", response));
+        return ResponseGenerator.ok("Test started", response);
     }
 
     private APIGatewayProxyResponseEvent submitAnswer(APIGatewayProxyRequestEvent request) {
-        Map<String, String> pathParams = request.getPathParameters();
-        String userId = pathParams != null ? pathParams.get("userId") : null;
+        String userId = request.getPathParameters().get("userId");
+        SubmitTestRequest req = ResponseGenerator.gson().fromJson(request.getBody(), SubmitTestRequest.class);
 
-        if (userId == null) {
-            return createResponse(400, ApiResponse.fail("userId is required"));
-        }
+        return BeanValidator.validateAndExecute(req, dto -> {
+            String testType = dto.getTestType() != null ? dto.getTestType() : "DAILY";
 
-        String body = request.getBody();
-        SubmitTestRequest req = ResponseUtil.gson().fromJson(body, SubmitTestRequest.class);
+            TestCommandService.SubmitTestResult result = commandService.submitTest(
+                    userId, dto.getTestId(), testType, dto.getAnswers(), dto.getStartedAt());
 
-        if (req.getTestId() == null || req.getAnswers() == null) {
-            return createResponse(400, ApiResponse.fail("testId and answers are required"));
-        }
+            Map<String, Object> response = new HashMap<>();
+            response.put("testId", result.testId());
+            response.put("testType", result.testType());
+            response.put("totalQuestions", result.totalQuestions());
+            response.put("correctCount", result.correctCount());
+            response.put("incorrectCount", result.incorrectCount());
+            response.put("successRate", result.successRate());
+            response.put("results", result.results());
 
-        String testType = req.getTestType() != null ? req.getTestType() : "DAILY";
-
-        TestCommandService.SubmitTestResult result = commandService.submitTest(userId, req.getTestId(), testType, req.getAnswers(), req.getStartedAt());
-
-        Map<String, Object> response = new HashMap<>();
-        response.put("testId", result.testId());
-        response.put("testType", result.testType());
-        response.put("totalQuestions", result.totalQuestions());
-        response.put("correctCount", result.correctCount());
-        response.put("incorrectCount", result.incorrectCount());
-        response.put("successRate", result.successRate());
-        response.put("results", result.results());
-
-        return createResponse(200, ApiResponse.ok("Test submitted", response));
+            return ResponseGenerator.ok("Test submitted", response);
+        });
     }
 
     private APIGatewayProxyResponseEvent getTestResults(APIGatewayProxyRequestEvent request) {
-        Map<String, String> pathParams = request.getPathParameters();
+        String userId = request.getPathParameters().get("userId");
         Map<String, String> queryParams = request.getQueryStringParameters();
-
-        String userId = pathParams != null ? pathParams.get("userId") : null;
         String cursor = queryParams != null ? queryParams.get("cursor") : null;
-
-        if (userId == null) {
-            return createResponse(400, ApiResponse.fail("userId is required"));
-        }
 
         int limit = 10;
         if (queryParams != null && queryParams.get("limit") != null) {
@@ -129,22 +107,16 @@ public class TestHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
         result.put("nextCursor", resultPage.nextCursor());
         result.put("hasMore", resultPage.hasMore());
 
-        return createResponse(200, ApiResponse.ok("Test results retrieved", result));
+        return ResponseGenerator.ok("Test results retrieved", result);
     }
 
     private APIGatewayProxyResponseEvent getTestResultDetail(APIGatewayProxyRequestEvent request) {
-        Map<String, String> pathParams = request.getPathParameters();
-
-        String userId = pathParams != null ? pathParams.get("userId") : null;
-        String testId = pathParams != null ? pathParams.get("testId") : null;
-
-        if (userId == null || testId == null) {
-            return createResponse(400, ApiResponse.fail("userId and testId are required"));
-        }
+        String userId = request.getPathParameters().get("userId");
+        String testId = request.getPathParameters().get("testId");
 
         var optDetail = queryService.getTestResultDetail(userId, testId);
         if (optDetail.isEmpty()) {
-            return createResponse(404, ApiResponse.fail("Test result not found"));
+            return ResponseGenerator.fail(CommonErrorCode.RESOURCE_NOT_FOUND,"Test result not found");
         }
 
         var detail = optDetail.get();
@@ -160,6 +132,6 @@ public class TestHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
         result.put("startedAt", detail.testResult().getStartedAt());
         result.put("completedAt", detail.testResult().getCompletedAt());
 
-        return createResponse(200, ApiResponse.ok("Test result detail retrieved", result));
+        return ResponseGenerator.ok("Test result detail retrieved", result);
     }
 }
