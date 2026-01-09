@@ -4,13 +4,12 @@ import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.lambda.runtime.RequestHandler;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyRequestEvent;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyResponseEvent;
-import com.mzc.secondproject.serverless.common.dto.ApiResponse;
 import com.mzc.secondproject.serverless.common.dto.PaginatedResult;
+import com.mzc.secondproject.serverless.common.exception.CommonErrorCode;
 import com.mzc.secondproject.serverless.common.router.HandlerRouter;
 import com.mzc.secondproject.serverless.common.router.Route;
-import com.mzc.secondproject.serverless.common.util.ResponseUtil;
-import com.mzc.secondproject.serverless.common.validation.RequestValidator;
-import com.mzc.secondproject.serverless.common.validation.ValidationResult;
+import com.mzc.secondproject.serverless.common.util.ResponseGenerator;
+import com.mzc.secondproject.serverless.common.validation.BeanValidator;
 import com.mzc.secondproject.serverless.domain.vocabulary.dto.request.CreateWordGroupRequest;
 import com.mzc.secondproject.serverless.domain.vocabulary.model.WordGroup;
 import com.mzc.secondproject.serverless.domain.vocabulary.service.WordGroupCommandService;
@@ -20,8 +19,6 @@ import org.slf4j.LoggerFactory;
 
 import java.util.HashMap;
 import java.util.Map;
-
-import static com.mzc.secondproject.serverless.common.util.ResponseUtil.createResponse;
 
 public class WordGroupHandler implements RequestHandler<APIGatewayProxyRequestEvent, APIGatewayProxyResponseEvent> {
 
@@ -56,39 +53,19 @@ public class WordGroupHandler implements RequestHandler<APIGatewayProxyRequestEv
     }
 
     private APIGatewayProxyResponseEvent createGroup(APIGatewayProxyRequestEvent request) {
-        Map<String, String> pathParams = request.getPathParameters();
-        String userId = pathParams != null ? pathParams.get("userId") : null;
+        String userId = request.getPathParameters().get("userId");
+        CreateWordGroupRequest req = ResponseGenerator.gson().fromJson(request.getBody(), CreateWordGroupRequest.class);
 
-        String body = request.getBody();
-        CreateWordGroupRequest req = ResponseUtil.gson().fromJson(body, CreateWordGroupRequest.class);
-
-        ValidationResult validation = RequestValidator.create()
-                .requireNotEmpty(userId, "userId")
-                .requireNotEmpty(req != null ? req.getGroupName() : null, "groupName")
-                .build();
-
-        if (validation.isInvalid()) {
-            return createResponse(400, ApiResponse.fail(validation.getErrorMessage().orElse("Validation failed")));
-        }
-
-        WordGroup group = commandService.createGroup(userId, req.getGroupName(), req.getDescription());
-        return createResponse(201, ApiResponse.ok("Group created", group));
+        return BeanValidator.validateAndExecute(req, dto -> {
+            WordGroup group = commandService.createGroup(userId, dto.getGroupName(), dto.getDescription());
+            return ResponseGenerator.created("Group created", group);
+        });
     }
 
     private APIGatewayProxyResponseEvent getGroups(APIGatewayProxyRequestEvent request) {
-        Map<String, String> pathParams = request.getPathParameters();
+        String userId = request.getPathParameters().get("userId");
         Map<String, String> queryParams = request.getQueryStringParameters();
-
-        String userId = pathParams != null ? pathParams.get("userId") : null;
         String cursor = queryParams != null ? queryParams.get("cursor") : null;
-
-        ValidationResult validation = RequestValidator.create()
-                .requireNotEmpty(userId, "userId")
-                .build();
-
-        if (validation.isInvalid()) {
-            return createResponse(400, ApiResponse.fail(validation.getErrorMessage().orElse("Validation failed")));
-        }
 
         int limit = parseIntParam(queryParams, "limit", 20, 1, 50);
 
@@ -99,26 +76,16 @@ public class WordGroupHandler implements RequestHandler<APIGatewayProxyRequestEv
         response.put("nextCursor", result.nextCursor());
         response.put("hasMore", result.hasMore());
 
-        return createResponse(200, ApiResponse.ok("Groups retrieved", response));
+        return ResponseGenerator.ok("Groups retrieved", response);
     }
 
     private APIGatewayProxyResponseEvent getGroupDetail(APIGatewayProxyRequestEvent request) {
-        Map<String, String> pathParams = request.getPathParameters();
-        String userId = pathParams != null ? pathParams.get("userId") : null;
-        String groupId = pathParams != null ? pathParams.get("groupId") : null;
-
-        ValidationResult validation = RequestValidator.create()
-                .requireNotEmpty(userId, "userId")
-                .requireNotEmpty(groupId, "groupId")
-                .build();
-
-        if (validation.isInvalid()) {
-            return createResponse(400, ApiResponse.fail(validation.getErrorMessage().orElse("Validation failed")));
-        }
+        String userId = request.getPathParameters().get("userId");
+        String groupId = request.getPathParameters().get("groupId");
 
         var optDetail = queryService.getGroupDetail(userId, groupId);
         if (optDetail.isEmpty()) {
-            return createResponse(404, ApiResponse.fail("Group not found"));
+            return ResponseGenerator.fail(CommonErrorCode.RESOURCE_NOT_FOUND,"Group not found");
         }
 
         var detail = optDetail.get();
@@ -132,103 +99,59 @@ public class WordGroupHandler implements RequestHandler<APIGatewayProxyRequestEv
         response.put("createdAt", detail.group().getCreatedAt());
         response.put("updatedAt", detail.group().getUpdatedAt());
 
-        return createResponse(200, ApiResponse.ok("Group detail retrieved", response));
+        return ResponseGenerator.ok("Group detail retrieved", response);
     }
 
     private APIGatewayProxyResponseEvent updateGroup(APIGatewayProxyRequestEvent request) {
-        Map<String, String> pathParams = request.getPathParameters();
-        String userId = pathParams != null ? pathParams.get("userId") : null;
-        String groupId = pathParams != null ? pathParams.get("groupId") : null;
-
-        ValidationResult validation = RequestValidator.create()
-                .requireNotEmpty(userId, "userId")
-                .requireNotEmpty(groupId, "groupId")
-                .build();
-
-        if (validation.isInvalid()) {
-            return createResponse(400, ApiResponse.fail(validation.getErrorMessage().orElse("Validation failed")));
-        }
-
-        String body = request.getBody();
-        CreateWordGroupRequest req = ResponseUtil.gson().fromJson(body, CreateWordGroupRequest.class);
+        String userId = request.getPathParameters().get("userId");
+        String groupId = request.getPathParameters().get("groupId");
+        CreateWordGroupRequest req = ResponseGenerator.gson().fromJson(request.getBody(), CreateWordGroupRequest.class);
 
         try {
             WordGroup group = commandService.updateGroup(userId, groupId,
                     req != null ? req.getGroupName() : null,
                     req != null ? req.getDescription() : null);
-            return createResponse(200, ApiResponse.ok("Group updated", group));
+            return ResponseGenerator.ok("Group updated", group);
         } catch (IllegalArgumentException e) {
-            return createResponse(404, ApiResponse.fail(e.getMessage()));
+            return ResponseGenerator.fail(CommonErrorCode.RESOURCE_NOT_FOUND,e.getMessage());
         }
     }
 
     private APIGatewayProxyResponseEvent deleteGroup(APIGatewayProxyRequestEvent request) {
-        Map<String, String> pathParams = request.getPathParameters();
-        String userId = pathParams != null ? pathParams.get("userId") : null;
-        String groupId = pathParams != null ? pathParams.get("groupId") : null;
-
-        ValidationResult validation = RequestValidator.create()
-                .requireNotEmpty(userId, "userId")
-                .requireNotEmpty(groupId, "groupId")
-                .build();
-
-        if (validation.isInvalid()) {
-            return createResponse(400, ApiResponse.fail(validation.getErrorMessage().orElse("Validation failed")));
-        }
+        String userId = request.getPathParameters().get("userId");
+        String groupId = request.getPathParameters().get("groupId");
 
         try {
             commandService.deleteGroup(userId, groupId);
-            return createResponse(200, ApiResponse.ok("Group deleted", null));
+            return ResponseGenerator.ok("Group deleted", null);
         } catch (IllegalArgumentException e) {
-            return createResponse(404, ApiResponse.fail(e.getMessage()));
+            return ResponseGenerator.fail(CommonErrorCode.RESOURCE_NOT_FOUND,e.getMessage());
         }
     }
 
     private APIGatewayProxyResponseEvent addWordToGroup(APIGatewayProxyRequestEvent request) {
-        Map<String, String> pathParams = request.getPathParameters();
-        String userId = pathParams != null ? pathParams.get("userId") : null;
-        String groupId = pathParams != null ? pathParams.get("groupId") : null;
-        String wordId = pathParams != null ? pathParams.get("wordId") : null;
-
-        ValidationResult validation = RequestValidator.create()
-                .requireNotEmpty(userId, "userId")
-                .requireNotEmpty(groupId, "groupId")
-                .requireNotEmpty(wordId, "wordId")
-                .build();
-
-        if (validation.isInvalid()) {
-            return createResponse(400, ApiResponse.fail(validation.getErrorMessage().orElse("Validation failed")));
-        }
+        String userId = request.getPathParameters().get("userId");
+        String groupId = request.getPathParameters().get("groupId");
+        String wordId = request.getPathParameters().get("wordId");
 
         try {
             WordGroup group = commandService.addWordToGroup(userId, groupId, wordId);
-            return createResponse(200, ApiResponse.ok("Word added to group", group));
+            return ResponseGenerator.ok("Word added to group", group);
         } catch (IllegalArgumentException e) {
-            return createResponse(404, ApiResponse.fail(e.getMessage()));
+            return ResponseGenerator.fail(CommonErrorCode.RESOURCE_NOT_FOUND,e.getMessage());
         }
     }
 
     private APIGatewayProxyResponseEvent removeWordFromGroup(APIGatewayProxyRequestEvent request) {
-        Map<String, String> pathParams = request.getPathParameters();
-        String userId = pathParams != null ? pathParams.get("userId") : null;
-        String groupId = pathParams != null ? pathParams.get("groupId") : null;
-        String wordId = pathParams != null ? pathParams.get("wordId") : null;
-
-        ValidationResult validation = RequestValidator.create()
-                .requireNotEmpty(userId, "userId")
-                .requireNotEmpty(groupId, "groupId")
-                .requireNotEmpty(wordId, "wordId")
-                .build();
-
-        if (validation.isInvalid()) {
-            return createResponse(400, ApiResponse.fail(validation.getErrorMessage().orElse("Validation failed")));
-        }
+        String userId = request.getPathParameters().get("userId");
+        String groupId = request.getPathParameters().get("groupId");
+        String wordId = request.getPathParameters().get("wordId");
 
         try {
             WordGroup group = commandService.removeWordFromGroup(userId, groupId, wordId);
-            return createResponse(200, ApiResponse.ok("Word removed from group", group));
+            return ResponseGenerator.ok("Word removed from group", group);
         } catch (IllegalArgumentException e) {
-            return createResponse(404, ApiResponse.fail(e.getMessage()));
+            return ResponseGenerator.fail(CommonErrorCode.RESOURCE_NOT_FOUND,e.getMessage());
         }
     }
 

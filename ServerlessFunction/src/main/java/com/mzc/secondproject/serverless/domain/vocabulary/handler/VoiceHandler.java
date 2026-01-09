@@ -4,10 +4,11 @@ import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.lambda.runtime.RequestHandler;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyRequestEvent;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyResponseEvent;
-import com.mzc.secondproject.serverless.common.dto.ApiResponse;
+import com.mzc.secondproject.serverless.common.exception.CommonErrorCode;
+import com.mzc.secondproject.serverless.common.validation.BeanValidator;
 import com.mzc.secondproject.serverless.domain.vocabulary.dto.request.SynthesizeVoiceRequest;
-import com.mzc.secondproject.serverless.common.util.ResponseUtil;
-import static com.mzc.secondproject.serverless.common.util.ResponseUtil.createResponse;
+import com.mzc.secondproject.serverless.domain.vocabulary.exception.VocabularyErrorCode;
+import com.mzc.secondproject.serverless.common.util.ResponseGenerator;
 import com.mzc.secondproject.serverless.domain.vocabulary.model.Word;
 import com.mzc.secondproject.serverless.domain.vocabulary.repository.WordRepository;
 import com.mzc.secondproject.serverless.common.service.PollyService;
@@ -39,83 +40,72 @@ public class VoiceHandler implements RequestHandler<APIGatewayProxyRequestEvent,
         logger.info("Received request: {} {}", httpMethod, path);
 
         try {
-            // POST /vocab/voice/synthesize - 음성 합성
             if ("POST".equals(httpMethod) && path.endsWith("/synthesize")) {
                 return synthesizeSpeech(request);
             }
 
-            return createResponse(404, ApiResponse.fail("Not found"));
+            return ResponseGenerator.fail(CommonErrorCode.RESOURCE_NOT_FOUND);
 
         } catch (Exception e) {
             logger.error("Error handling request", e);
-            return createResponse(500, ApiResponse.fail("Internal server error: " + e.getMessage()));
+            return ResponseGenerator.fail(CommonErrorCode.INTERNAL_SERVER_ERROR);
         }
     }
 
     private APIGatewayProxyResponseEvent synthesizeSpeech(APIGatewayProxyRequestEvent request) {
         String body = request.getBody();
-        SynthesizeVoiceRequest req = ResponseUtil.gson().fromJson(body, SynthesizeVoiceRequest.class);
+        SynthesizeVoiceRequest req = ResponseGenerator.gson().fromJson(body, SynthesizeVoiceRequest.class);
 
-        if (req.getWordId() == null || req.getWordId().isEmpty()) {
-            return createResponse(400, ApiResponse.fail("wordId is required"));
-        }
+        return BeanValidator.validateAndExecute(req, dto -> {
+            String wordId = dto.getWordId();
+            String voice = dto.getVoice() != null ? dto.getVoice() : "FEMALE";
+            String type = dto.getType() != null ? dto.getType() : "WORD";
 
-        String wordId = req.getWordId();
-        String voice = req.getVoice() != null ? req.getVoice() : "FEMALE";
-        String type = req.getType() != null ? req.getType() : "WORD";
+            Optional<Word> optWord = wordRepository.findById(wordId);
+            if (optWord.isEmpty()) {
+                return ResponseGenerator.fail(VocabularyErrorCode.WORD_NOT_FOUND);
+            }
 
-        // 단어 조회
-        Optional<Word> optWord = wordRepository.findById(wordId);
-        if (optWord.isEmpty()) {
-            return createResponse(404, ApiResponse.fail("Word not found"));
-        }
+            Word word = optWord.get();
+            boolean isMale = "MALE".equalsIgnoreCase(voice);
+            boolean isExample = "EXAMPLE".equalsIgnoreCase(type);
 
-        Word word = optWord.get();
-        boolean isMale = "MALE".equalsIgnoreCase(voice);
-        boolean isExample = "EXAMPLE".equalsIgnoreCase(type);
+            if (isExample && (word.getExample() == null || word.getExample().isEmpty())) {
+                return ResponseGenerator.fail(VocabularyErrorCode.INVALID_WORD_DATA, "This word has no example sentence");
+            }
 
-        // 예문 요청인데 예문이 없는 경우
-        if (isExample && (word.getExample() == null || word.getExample().isEmpty())) {
-            return createResponse(400, ApiResponse.fail("This word has no example sentence"));
-        }
+            String textToSynthesize = isExample ? word.getExample() : word.getEnglish();
+            String cachedKey = getCachedKey(word, isMale, isExample);
+            String audioUrl;
+            boolean cached = false;
 
-        // 음성 합성할 텍스트 결정
-        String textToSynthesize = isExample ? word.getExample() : word.getEnglish();
+            if (cachedKey != null && !cachedKey.isEmpty()) {
+                audioUrl = pollyService.getPresignedUrl(cachedKey);
+                cached = true;
+                logger.info("Cache hit from DB: wordId={}, voice={}, type={}", wordId, voice, type);
+            } else {
+                String s3KeySuffix = isExample ? "_example" : "";
+                PollyService.VoiceSynthesisResult result = pollyService.synthesizeSpeech(
+                        wordId + s3KeySuffix, textToSynthesize, voice);
 
-        // 캐시 키 결정
-        String cachedKey = getCachedKey(word, isMale, isExample);
-        String audioUrl;
-        boolean cached = false;
+                audioUrl = result.getAudioUrl();
+                cached = result.isCached();
 
-        if (cachedKey != null && !cachedKey.isEmpty()) {
-            // DB에 캐시 키가 있으면 Pre-signed URL 생성
-            audioUrl = pollyService.getPresignedUrl(cachedKey);
-            cached = true;
-            logger.info("Cache hit from DB: wordId={}, voice={}, type={}", wordId, voice, type);
-        } else {
-            // 캐시 미스: Polly 변환 후 S3 저장
-            String s3KeySuffix = isExample ? "_example" : "";
-            PollyService.VoiceSynthesisResult result = pollyService.synthesizeSpeech(
-                    wordId + s3KeySuffix, textToSynthesize, voice);
+                setCachedKey(word, isMale, isExample, result.getS3Key());
+                wordRepository.save(word);
+                logger.info("Saved voice cache to DB: wordId={}, voice={}, type={}", wordId, voice, type);
+            }
 
-            audioUrl = result.getAudioUrl();
-            cached = result.isCached();
+            Map<String, Object> responseData = new HashMap<>();
+            responseData.put("wordId", wordId);
+            responseData.put("text", textToSynthesize);
+            responseData.put("type", type);
+            responseData.put("voice", voice);
+            responseData.put("audioUrl", audioUrl);
+            responseData.put("cached", cached);
 
-            // DynamoDB에 S3 키 저장
-            setCachedKey(word, isMale, isExample, result.getS3Key());
-            wordRepository.save(word);
-            logger.info("Saved voice cache to DB: wordId={}, voice={}, type={}", wordId, voice, type);
-        }
-
-        Map<String, Object> responseData = new HashMap<>();
-        responseData.put("wordId", wordId);
-        responseData.put("text", textToSynthesize);
-        responseData.put("type", type);
-        responseData.put("voice", voice);
-        responseData.put("audioUrl", audioUrl);
-        responseData.put("cached", cached);
-
-        return createResponse(200, ApiResponse.ok("Speech synthesized", responseData));
+            return ResponseGenerator.ok("Speech synthesized", responseData);
+        });
     }
 
     private String getCachedKey(Word word, boolean isMale, boolean isExample) {

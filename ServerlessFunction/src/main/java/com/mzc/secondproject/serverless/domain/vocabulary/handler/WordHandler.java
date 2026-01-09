@@ -4,15 +4,16 @@ import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.lambda.runtime.RequestHandler;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyRequestEvent;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyResponseEvent;
-import com.mzc.secondproject.serverless.common.dto.ApiResponse;
 import com.mzc.secondproject.serverless.common.dto.PaginatedResult;
+import com.mzc.secondproject.serverless.common.exception.CommonErrorCode;
+import com.mzc.secondproject.serverless.common.validation.BeanValidator;
 import com.mzc.secondproject.serverless.domain.vocabulary.dto.request.BatchGetWordsRequest;
 import com.mzc.secondproject.serverless.domain.vocabulary.dto.request.CreateWordRequest;
 import com.mzc.secondproject.serverless.domain.vocabulary.dto.request.CreateWordsBatchRequest;
+import com.mzc.secondproject.serverless.domain.vocabulary.exception.VocabularyErrorCode;
 import com.mzc.secondproject.serverless.common.router.HandlerRouter;
 import com.mzc.secondproject.serverless.common.router.Route;
-import com.mzc.secondproject.serverless.common.util.ResponseUtil;
-import static com.mzc.secondproject.serverless.common.util.ResponseUtil.createResponse;
+import com.mzc.secondproject.serverless.common.util.ResponseGenerator;
 import com.mzc.secondproject.serverless.domain.vocabulary.model.Word;
 import com.mzc.secondproject.serverless.domain.vocabulary.service.WordCommandService;
 import com.mzc.secondproject.serverless.domain.vocabulary.service.WordQueryService;
@@ -42,7 +43,7 @@ public class WordHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
         return new HandlerRouter().addRoutes(
                 Route.post("/words/batch/get", this::getWordsBatch),
                 Route.post("/words/batch", this::createWordsBatch),
-                Route.get("/words/search", this::searchWords),
+                Route.get("/words/search", this::searchWords).requireQueryParams("q"),
                 Route.post("/words", this::createWord),
                 Route.get("/words", this::getWords),
                 Route.get("/words/{wordId}", this::getWord),
@@ -59,20 +60,15 @@ public class WordHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
 
     private APIGatewayProxyResponseEvent createWord(APIGatewayProxyRequestEvent request) {
         String body = request.getBody();
-        CreateWordRequest req = ResponseUtil.gson().fromJson(body, CreateWordRequest.class);
+        CreateWordRequest req = ResponseGenerator.gson().fromJson(body, CreateWordRequest.class);
 
-        if (req.getEnglish() == null || req.getEnglish().isEmpty()) {
-            return createResponse(400, ApiResponse.fail("english is required"));
-        }
-        if (req.getKorean() == null || req.getKorean().isEmpty()) {
-            return createResponse(400, ApiResponse.fail("korean is required"));
-        }
+        return BeanValidator.validateAndExecute(req, dto -> {
+            String level = dto.getLevel() != null ? dto.getLevel() : "BEGINNER";
+            String category = dto.getCategory() != null ? dto.getCategory() : "DAILY";
 
-        String level = req.getLevel() != null ? req.getLevel() : "BEGINNER";
-        String category = req.getCategory() != null ? req.getCategory() : "DAILY";
-
-        Word word = commandService.createWord(req.getEnglish(), req.getKorean(), req.getExample(), level, category);
-        return createResponse(201, ApiResponse.ok("Word created", word));
+            Word word = commandService.createWord(dto.getEnglish(), dto.getKorean(), dto.getExample(), level, category);
+            return ResponseGenerator.created("Word created", word);
+        });
     }
 
     private APIGatewayProxyResponseEvent getWords(APIGatewayProxyRequestEvent request) {
@@ -94,79 +90,56 @@ public class WordHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
         result.put("nextCursor", wordPage.nextCursor());
         result.put("hasMore", wordPage.hasMore());
 
-        return createResponse(200, ApiResponse.ok("Words retrieved", result));
+        return ResponseGenerator.ok("Words retrieved", result);
     }
 
     private APIGatewayProxyResponseEvent getWord(APIGatewayProxyRequestEvent request) {
-        Map<String, String> pathParams = request.getPathParameters();
-        String wordId = pathParams != null ? pathParams.get("wordId") : null;
-
-        if (wordId == null) {
-            return createResponse(400, ApiResponse.fail("wordId is required"));
-        }
+        String wordId = request.getPathParameters().get("wordId");
 
         Optional<Word> optWord = queryService.getWord(wordId);
         if (optWord.isEmpty()) {
-            return createResponse(404, ApiResponse.fail("Word not found"));
+            return ResponseGenerator.fail(VocabularyErrorCode.WORD_NOT_FOUND);
         }
 
-        return createResponse(200, ApiResponse.ok("Word retrieved", optWord.get()));
+        return ResponseGenerator.ok("Word retrieved", optWord.get());
     }
 
     private APIGatewayProxyResponseEvent updateWord(APIGatewayProxyRequestEvent request) {
-        Map<String, String> pathParams = request.getPathParameters();
-        String wordId = pathParams != null ? pathParams.get("wordId") : null;
-
-        if (wordId == null) {
-            return createResponse(400, ApiResponse.fail("wordId is required"));
-        }
-
+        String wordId = request.getPathParameters().get("wordId");
         String body = request.getBody();
-        Map<String, Object> requestBody = ResponseUtil.gson().fromJson(body, Map.class);
+        Map<String, Object> requestBody = ResponseGenerator.gson().fromJson(body, Map.class);
 
         Word word = commandService.updateWord(wordId, requestBody);
-        return createResponse(200, ApiResponse.ok("Word updated", word));
+        return ResponseGenerator.ok("Word updated", word);
     }
 
     private APIGatewayProxyResponseEvent deleteWord(APIGatewayProxyRequestEvent request) {
-        Map<String, String> pathParams = request.getPathParameters();
-        String wordId = pathParams != null ? pathParams.get("wordId") : null;
-
-        if (wordId == null) {
-            return createResponse(400, ApiResponse.fail("wordId is required"));
-        }
-
+        String wordId = request.getPathParameters().get("wordId");
         commandService.deleteWord(wordId);
-        return createResponse(200, ApiResponse.ok("Word deleted", null));
+        return ResponseGenerator.ok("Word deleted", null);
     }
 
     private APIGatewayProxyResponseEvent createWordsBatch(APIGatewayProxyRequestEvent request) {
         String body = request.getBody();
-        CreateWordsBatchRequest req = ResponseUtil.gson().fromJson(body, CreateWordsBatchRequest.class);
+        CreateWordsBatchRequest req = ResponseGenerator.gson().fromJson(body, CreateWordsBatchRequest.class);
 
-        if (req.getWords() == null || req.getWords().isEmpty()) {
-            return createResponse(400, ApiResponse.fail("words array is required"));
-        }
+        return BeanValidator.validateAndExecute(req, dto -> {
+            WordCommandService.BatchResult result = commandService.createWordsBatch(dto.getWords());
 
-        WordCommandService.BatchResult result = commandService.createWordsBatch(req.getWords());
+            Map<String, Object> response = new HashMap<>();
+            response.put("successCount", result.successCount());
+            response.put("failCount", result.failCount());
+            response.put("totalRequested", result.totalRequested());
 
-        Map<String, Object> response = new HashMap<>();
-        response.put("successCount", result.successCount());
-        response.put("failCount", result.failCount());
-        response.put("totalRequested", result.totalRequested());
-
-        return createResponse(201, ApiResponse.ok("Batch completed", response));
+            return ResponseGenerator.created("Batch completed", response);
+        });
     }
 
     private APIGatewayProxyResponseEvent searchWords(APIGatewayProxyRequestEvent request) {
         Map<String, String> queryParams = request.getQueryStringParameters();
 
-        String query = queryParams != null ? queryParams.get("q") : null;
-        String cursor = queryParams != null ? queryParams.get("cursor") : null;
-
-        if (query == null || query.isEmpty()) {
-            return createResponse(400, ApiResponse.fail("q (query) parameter is required"));
-        }
+        String query = queryParams.get("q");
+        String cursor = queryParams.get("cursor");
 
         int limit = 20;
         if (queryParams.get("limit") != null) {
@@ -181,28 +154,26 @@ public class WordHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
         result.put("nextCursor", wordPage.nextCursor());
         result.put("hasMore", wordPage.hasMore());
 
-        return createResponse(200, ApiResponse.ok("Search completed", result));
+        return ResponseGenerator.ok("Search completed", result);
     }
 
     private APIGatewayProxyResponseEvent getWordsBatch(APIGatewayProxyRequestEvent request) {
         String body = request.getBody();
-        BatchGetWordsRequest req = ResponseUtil.gson().fromJson(body, BatchGetWordsRequest.class);
+        BatchGetWordsRequest req = ResponseGenerator.gson().fromJson(body, BatchGetWordsRequest.class);
 
-        if (req.getWordIds() == null || req.getWordIds().isEmpty()) {
-            return createResponse(400, ApiResponse.fail("wordIds array is required"));
-        }
+        return BeanValidator.validateAndExecute(req, dto -> {
+            if (dto.getWordIds().size() > 100) {
+                return ResponseGenerator.fail(CommonErrorCode.VALUE_OUT_OF_RANGE, "Maximum 100 wordIds allowed per request");
+            }
 
-        if (req.getWordIds().size() > 100) {
-            return createResponse(400, ApiResponse.fail("Maximum 100 wordIds allowed per request"));
-        }
+            List<Word> words = queryService.getWordsByIds(dto.getWordIds());
 
-        List<Word> words = queryService.getWordsByIds(req.getWordIds());
+            Map<String, Object> result = new HashMap<>();
+            result.put("words", words);
+            result.put("requestedCount", dto.getWordIds().size());
+            result.put("retrievedCount", words.size());
 
-        Map<String, Object> result = new HashMap<>();
-        result.put("words", words);
-        result.put("requestedCount", req.getWordIds().size());
-        result.put("retrievedCount", words.size());
-
-        return createResponse(200, ApiResponse.ok("Words retrieved", result));
+            return ResponseGenerator.ok("Words retrieved", result);
+        });
     }
 }

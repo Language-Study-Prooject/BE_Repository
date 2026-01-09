@@ -3,7 +3,7 @@ package com.mzc.secondproject.serverless.domain.vocabulary.handler;
 import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.lambda.runtime.RequestHandler;
 import com.amazonaws.services.lambda.runtime.events.SQSEvent;
-import com.mzc.secondproject.serverless.common.util.ResponseUtil;
+import com.mzc.secondproject.serverless.common.util.ResponseGenerator;
 import com.mzc.secondproject.serverless.domain.vocabulary.service.StatisticsService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -46,7 +46,7 @@ public class StatisticsHandler implements RequestHandler<SQSEvent, Void> {
         String body = message.getBody();
         logger.info("Processing message: {}", body);
 
-        Map<String, Object> testResult = ResponseUtil.gson().fromJson(body, Map.class);
+        Map<String, Object> testResult = ResponseGenerator.gson().fromJson(body, Map.class);
 
         String userId = (String) testResult.get("userId");
         List<Map<String, Object>> results = (List<Map<String, Object>>) testResult.get("results");

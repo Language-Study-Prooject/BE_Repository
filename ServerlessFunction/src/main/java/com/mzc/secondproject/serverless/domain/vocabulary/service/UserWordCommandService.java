@@ -1,6 +1,6 @@
 package com.mzc.secondproject.serverless.domain.vocabulary.service;
 
-import com.mzc.secondproject.serverless.common.constants.StudyConfig;
+import com.mzc.secondproject.serverless.common.config.StudyConfig;
 import com.mzc.secondproject.serverless.common.enums.Difficulty;
 import com.mzc.secondproject.serverless.domain.vocabulary.constants.VocabKey;
 import com.mzc.secondproject.serverless.domain.vocabulary.enums.WordStatus;
