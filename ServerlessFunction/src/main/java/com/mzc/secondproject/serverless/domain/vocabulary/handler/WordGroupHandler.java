@@ -68,11 +68,11 @@ public class WordGroupHandler implements RequestHandler<APIGatewayProxyRequestEv
                 .build();
 
         if (validation.isInvalid()) {
-            return createResponse(400, ApiResponse.error(validation.getErrorMessage().orElse("Validation failed")));
+            return createResponse(400, ApiResponse.fail(validation.getErrorMessage().orElse("Validation failed")));
         }
 
         WordGroup group = commandService.createGroup(userId, req.getGroupName(), req.getDescription());
-        return createResponse(201, ApiResponse.success("Group created", group));
+        return createResponse(201, ApiResponse.ok("Group created", group));
     }
 
     private APIGatewayProxyResponseEvent getGroups(APIGatewayProxyRequestEvent request) {
@@ -87,7 +87,7 @@ public class WordGroupHandler implements RequestHandler<APIGatewayProxyRequestEv
                 .build();
 
         if (validation.isInvalid()) {
-            return createResponse(400, ApiResponse.error(validation.getErrorMessage().orElse("Validation failed")));
+            return createResponse(400, ApiResponse.fail(validation.getErrorMessage().orElse("Validation failed")));
         }
 
         int limit = parseIntParam(queryParams, "limit", 20, 1, 50);
@@ -95,11 +95,11 @@ public class WordGroupHandler implements RequestHandler<APIGatewayProxyRequestEv
         PaginatedResult<WordGroup> result = queryService.getGroups(userId, limit, cursor);
 
         Map<String, Object> response = new HashMap<>();
-        response.put("groups", result.getItems());
-        response.put("nextCursor", result.getNextCursor());
+        response.put("groups", result.items());
+        response.put("nextCursor", result.nextCursor());
         response.put("hasMore", result.hasMore());
 
-        return createResponse(200, ApiResponse.success("Groups retrieved", response));
+        return createResponse(200, ApiResponse.ok("Groups retrieved", response));
     }
 
     private APIGatewayProxyResponseEvent getGroupDetail(APIGatewayProxyRequestEvent request) {
@@ -113,12 +113,12 @@ public class WordGroupHandler implements RequestHandler<APIGatewayProxyRequestEv
                 .build();
 
         if (validation.isInvalid()) {
-            return createResponse(400, ApiResponse.error(validation.getErrorMessage().orElse("Validation failed")));
+            return createResponse(400, ApiResponse.fail(validation.getErrorMessage().orElse("Validation failed")));
         }
 
         var optDetail = queryService.getGroupDetail(userId, groupId);
         if (optDetail.isEmpty()) {
-            return createResponse(404, ApiResponse.error("Group not found"));
+            return createResponse(404, ApiResponse.fail("Group not found"));
         }
 
         var detail = optDetail.get();
@@ -132,7 +132,7 @@ public class WordGroupHandler implements RequestHandler<APIGatewayProxyRequestEv
         response.put("createdAt", detail.group().getCreatedAt());
         response.put("updatedAt", detail.group().getUpdatedAt());
 
-        return createResponse(200, ApiResponse.success("Group detail retrieved", response));
+        return createResponse(200, ApiResponse.ok("Group detail retrieved", response));
     }
 
     private APIGatewayProxyResponseEvent updateGroup(APIGatewayProxyRequestEvent request) {
@@ -146,7 +146,7 @@ public class WordGroupHandler implements RequestHandler<APIGatewayProxyRequestEv
                 .build();
 
         if (validation.isInvalid()) {
-            return createResponse(400, ApiResponse.error(validation.getErrorMessage().orElse("Validation failed")));
+            return createResponse(400, ApiResponse.fail(validation.getErrorMessage().orElse("Validation failed")));
         }
 
         String body = request.getBody();
@@ -156,9 +156,9 @@ public class WordGroupHandler implements RequestHandler<APIGatewayProxyRequestEv
             WordGroup group = commandService.updateGroup(userId, groupId,
                     req != null ? req.getGroupName() : null,
                     req != null ? req.getDescription() : null);
-            return createResponse(200, ApiResponse.success("Group updated", group));
+            return createResponse(200, ApiResponse.ok("Group updated", group));
         } catch (IllegalArgumentException e) {
-            return createResponse(404, ApiResponse.error(e.getMessage()));
+            return createResponse(404, ApiResponse.fail(e.getMessage()));
         }
     }
 
@@ -173,14 +173,14 @@ public class WordGroupHandler implements RequestHandler<APIGatewayProxyRequestEv
                 .build();
 
         if (validation.isInvalid()) {
-            return createResponse(400, ApiResponse.error(validation.getErrorMessage().orElse("Validation failed")));
+            return createResponse(400, ApiResponse.fail(validation.getErrorMessage().orElse("Validation failed")));
         }
 
         try {
             commandService.deleteGroup(userId, groupId);
-            return createResponse(200, ApiResponse.success("Group deleted", null));
+            return createResponse(200, ApiResponse.ok("Group deleted", null));
         } catch (IllegalArgumentException e) {
-            return createResponse(404, ApiResponse.error(e.getMessage()));
+            return createResponse(404, ApiResponse.fail(e.getMessage()));
         }
     }
 
@@ -197,14 +197,14 @@ public class WordGroupHandler implements RequestHandler<APIGatewayProxyRequestEv
                 .build();
 
         if (validation.isInvalid()) {
-            return createResponse(400, ApiResponse.error(validation.getErrorMessage().orElse("Validation failed")));
+            return createResponse(400, ApiResponse.fail(validation.getErrorMessage().orElse("Validation failed")));
         }
 
         try {
             WordGroup group = commandService.addWordToGroup(userId, groupId, wordId);
-            return createResponse(200, ApiResponse.success("Word added to group", group));
+            return createResponse(200, ApiResponse.ok("Word added to group", group));
         } catch (IllegalArgumentException e) {
-            return createResponse(404, ApiResponse.error(e.getMessage()));
+            return createResponse(404, ApiResponse.fail(e.getMessage()));
         }
     }
 
@@ -221,14 +221,14 @@ public class WordGroupHandler implements RequestHandler<APIGatewayProxyRequestEv
                 .build();
 
         if (validation.isInvalid()) {
-            return createResponse(400, ApiResponse.error(validation.getErrorMessage().orElse("Validation failed")));
+            return createResponse(400, ApiResponse.fail(validation.getErrorMessage().orElse("Validation failed")));
         }
 
         try {
             WordGroup group = commandService.removeWordFromGroup(userId, groupId, wordId);
-            return createResponse(200, ApiResponse.success("Word removed from group", group));
+            return createResponse(200, ApiResponse.ok("Word removed from group", group));
         } catch (IllegalArgumentException e) {
-            return createResponse(404, ApiResponse.error(e.getMessage()));
+            return createResponse(404, ApiResponse.fail(e.getMessage()));
         }
     }
 

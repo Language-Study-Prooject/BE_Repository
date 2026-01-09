@@ -1,4 +1,4 @@
-package com.mzc.secondproject.serverless.common.response;
+package com.mzc.secondproject.serverless.common.dto;
 
 import com.mzc.secondproject.serverless.common.exception.DomainErrorCode;
 import com.mzc.secondproject.serverless.common.exception.ErrorCode;

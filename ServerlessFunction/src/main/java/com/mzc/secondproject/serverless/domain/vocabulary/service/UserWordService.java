@@ -43,9 +43,9 @@ public class UserWordService {
             userWordPage = userWordRepository.findByUserIdWithPagination(userId, limit, cursor);
         }
 
-        List<Map<String, Object>> enrichedUserWords = enrichWithWordInfo(userWordPage.getItems());
+        List<Map<String, Object>> enrichedUserWords = enrichWithWordInfo(userWordPage.items());
 
-        return new UserWordsResult(enrichedUserWords, userWordPage.getNextCursor(), userWordPage.hasMore());
+        return new UserWordsResult(enrichedUserWords, userWordPage.nextCursor(), userWordPage.hasMore());
     }
 
     public Optional<UserWord> getUserWord(String userId, String wordId) {

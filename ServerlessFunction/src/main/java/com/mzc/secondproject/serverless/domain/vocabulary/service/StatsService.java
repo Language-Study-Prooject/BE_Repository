@@ -47,19 +47,19 @@ public class StatsService {
         String cursor = null;
         do {
             PaginatedResult<UserWord> page = userWordRepository.findByUserIdWithPagination(userId, 100, cursor);
-            for (UserWord userWord : page.getItems()) {
+            for (UserWord userWord : page.items()) {
                 String status = userWord.getStatus();
                 wordStatusCounts.merge(status, 1, Integer::sum);
                 totalCorrect += userWord.getCorrectCount() != null ? userWord.getCorrectCount() : 0;
                 totalIncorrect += userWord.getIncorrectCount() != null ? userWord.getIncorrectCount() : 0;
             }
-            cursor = page.getNextCursor();
+            cursor = page.nextCursor();
         } while (cursor != null);
 
         int totalWords = wordStatusCounts.values().stream().mapToInt(Integer::intValue).sum();
 
         PaginatedResult<TestResult> testPage = testResultRepository.findByUserIdWithPagination(userId, 100, null);
-        List<TestResult> testResults = testPage.getItems();
+        List<TestResult> testResults = testPage.items();
 
         double avgSuccessRate = testResults.stream()
                 .mapToDouble(TestResult::getSuccessRate)
@@ -67,8 +67,8 @@ public class StatsService {
                 .orElse(0.0);
 
         PaginatedResult<DailyStudy> dailyPage = dailyStudyRepository.findByUserIdWithPagination(userId, 365, null);
-        int studyDays = dailyPage.getItems().size();
-        int completedDays = (int) dailyPage.getItems().stream()
+        int studyDays = dailyPage.items().size();
+        int completedDays = (int) dailyPage.items().stream()
                 .filter(d -> Boolean.TRUE.equals(d.getIsCompleted()))
                 .count();
 
@@ -91,7 +91,7 @@ public class StatsService {
     public DailyStatsResult getDailyStats(String userId, int limit, String cursor) {
         PaginatedResult<DailyStudy> dailyPage = dailyStudyRepository.findByUserIdWithPagination(userId, limit, cursor);
 
-        List<Map<String, Object>> dailyStats = dailyPage.getItems().stream()
+        List<Map<String, Object>> dailyStats = dailyPage.items().stream()
                 .map(daily -> {
                     Map<String, Object> stat = new HashMap<>();
                     stat.put("date", daily.getDate());
@@ -104,7 +104,7 @@ public class StatsService {
                 })
                 .toList();
 
-        return new DailyStatsResult(dailyStats, dailyPage.getNextCursor(), dailyPage.hasMore());
+        return new DailyStatsResult(dailyStats, dailyPage.nextCursor(), dailyPage.hasMore());
     }
 
     public Map<String, Object> getWeaknessAnalysis(String userId) {
@@ -112,8 +112,8 @@ public class StatsService {
         String cursor = null;
         do {
             PaginatedResult<UserWord> page = userWordRepository.findByUserIdWithPagination(userId, 100, cursor);
-            allUserWords.addAll(page.getItems());
-            cursor = page.getNextCursor();
+            allUserWords.addAll(page.items());
+            cursor = page.nextCursor();
         } while (cursor != null);
 
         if (allUserWords.isEmpty()) {

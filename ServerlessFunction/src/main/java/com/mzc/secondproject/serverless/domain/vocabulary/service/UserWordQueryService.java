@@ -44,9 +44,9 @@ public class UserWordQueryService {
             userWordPage = userWordRepository.findByUserIdWithPagination(userId, limit, cursor);
         }
 
-        List<Map<String, Object>> enrichedUserWords = enrichWithWordInfo(userWordPage.getItems());
+        List<Map<String, Object>> enrichedUserWords = enrichWithWordInfo(userWordPage.items());
 
-        return new UserWordsResult(enrichedUserWords, userWordPage.getNextCursor(), userWordPage.hasMore());
+        return new UserWordsResult(enrichedUserWords, userWordPage.nextCursor(), userWordPage.hasMore());
     }
 
     /**
@@ -56,7 +56,7 @@ public class UserWordQueryService {
         PaginatedResult<UserWord> userWordPage = userWordRepository.findIncorrectWords(userId, minCount, limit * 2, cursor);
 
         // 오답 횟수 기준 내림차순 정렬
-        List<UserWord> sorted = userWordPage.getItems().stream()
+        List<UserWord> sorted = userWordPage.items().stream()
                 .sorted((a, b) -> {
                     int countA = a.getIncorrectCount() != null ? a.getIncorrectCount() : 0;
                     int countB = b.getIncorrectCount() != null ? b.getIncorrectCount() : 0;
@@ -67,7 +67,7 @@ public class UserWordQueryService {
 
         List<Map<String, Object>> enrichedUserWords = enrichWithWordInfo(sorted);
 
-        return new UserWordsResult(enrichedUserWords, userWordPage.getNextCursor(), userWordPage.hasMore());
+        return new UserWordsResult(enrichedUserWords, userWordPage.nextCursor(), userWordPage.hasMore());
     }
 
     public Optional<UserWord> getUserWord(String userId, String wordId) {

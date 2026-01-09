@@ -60,7 +60,7 @@ public class ChatRoomHandler implements RequestHandler<APIGatewayProxyRequestEve
         CreateRoomRequest req = ResponseUtil.gson().fromJson(request.getBody(), CreateRoomRequest.class);
 
         if (req.getName() == null || req.getName().isEmpty()) {
-            return createResponse(400, ApiResponse.error("name is required"));
+            return createResponse(400, ApiResponse.fail("name is required"));
         }
 
         String level = req.getLevel() != null ? req.getLevel() : "beginner";
@@ -71,7 +71,7 @@ public class ChatRoomHandler implements RequestHandler<APIGatewayProxyRequestEve
                 req.getName(), req.getDescription(), level, maxMembers, isPrivate, req.getPassword(), req.getCreatedBy());
         room.setPassword(null);
 
-        return createResponse(201, ApiResponse.success("Room created", room));
+        return createResponse(201, ApiResponse.ok("Room created", room));
     }
 
     private APIGatewayProxyResponseEvent getRooms(APIGatewayProxyRequestEvent request) {
@@ -88,7 +88,7 @@ public class ChatRoomHandler implements RequestHandler<APIGatewayProxyRequestEve
         }
 
         PaginatedResult<ChatRoom> roomPage = queryService.getRooms(level, limit, cursor);
-        List<ChatRoom> rooms = roomPage.getItems();
+        List<ChatRoom> rooms = roomPage.items();
 
         if ("true".equals(joined) && userId != null) {
             rooms = queryService.filterByJoinedUser(rooms, userId);
@@ -98,10 +98,10 @@ public class ChatRoomHandler implements RequestHandler<APIGatewayProxyRequestEve
 
         Map<String, Object> result = new HashMap<>();
         result.put("rooms", rooms);
-        result.put("nextCursor", roomPage.getNextCursor());
+        result.put("nextCursor", roomPage.nextCursor());
         result.put("hasMore", roomPage.hasMore());
 
-        return createResponse(200, ApiResponse.success("Rooms retrieved", result));
+        return createResponse(200, ApiResponse.ok("Rooms retrieved", result));
     }
 
     private APIGatewayProxyResponseEvent getRoom(APIGatewayProxyRequestEvent request) {
@@ -109,18 +109,18 @@ public class ChatRoomHandler implements RequestHandler<APIGatewayProxyRequestEve
         String roomId = pathParams != null ? pathParams.get("roomId") : null;
 
         if (roomId == null) {
-            return createResponse(400, ApiResponse.error("roomId is required"));
+            return createResponse(400, ApiResponse.fail("roomId is required"));
         }
 
         Optional<ChatRoom> optRoom = queryService.getRoom(roomId);
         if (optRoom.isEmpty()) {
-            return createResponse(404, ApiResponse.error("Room not found"));
+            return createResponse(404, ApiResponse.fail("Room not found"));
         }
 
         ChatRoom room = optRoom.get();
         room.setPassword(null);
 
-        return createResponse(200, ApiResponse.success("Room retrieved", room));
+        return createResponse(200, ApiResponse.ok("Room retrieved", room));
     }
 
     private APIGatewayProxyResponseEvent joinRoom(APIGatewayProxyRequestEvent request) {
@@ -130,12 +130,12 @@ public class ChatRoomHandler implements RequestHandler<APIGatewayProxyRequestEve
         JoinRoomRequest req = ResponseUtil.gson().fromJson(request.getBody(), JoinRoomRequest.class);
 
         if (roomId == null || req.getUserId() == null) {
-            return createResponse(400, ApiResponse.error("roomId and userId are required"));
+            return createResponse(400, ApiResponse.fail("roomId and userId are required"));
         }
 
         JoinRoomResponse response = commandService.joinRoom(roomId, req.getUserId(), req.getPassword());
         response.getRoom().setPassword(null);
-        return createResponse(200, ApiResponse.success("Joined room", response));
+        return createResponse(200, ApiResponse.ok("Joined room", response));
     }
 
     private APIGatewayProxyResponseEvent leaveRoom(APIGatewayProxyRequestEvent request) {
@@ -145,15 +145,15 @@ public class ChatRoomHandler implements RequestHandler<APIGatewayProxyRequestEve
         LeaveRoomRequest req = ResponseUtil.gson().fromJson(request.getBody(), LeaveRoomRequest.class);
 
         if (roomId == null || req.getUserId() == null) {
-            return createResponse(400, ApiResponse.error("roomId and userId are required"));
+            return createResponse(400, ApiResponse.fail("roomId and userId are required"));
         }
 
         ChatRoomCommandService.LeaveResult result = commandService.leaveRoom(roomId, req.getUserId());
         if (result.deleted()) {
-            return createResponse(200, ApiResponse.success("Room deleted", null));
+            return createResponse(200, ApiResponse.ok("Room deleted", null));
         }
         result.room().setPassword(null);
-        return createResponse(200, ApiResponse.success("Left room", result.room()));
+        return createResponse(200, ApiResponse.ok("Left room", result.room()));
     }
 
     private APIGatewayProxyResponseEvent deleteRoom(APIGatewayProxyRequestEvent request) {
@@ -164,14 +164,14 @@ public class ChatRoomHandler implements RequestHandler<APIGatewayProxyRequestEve
         String userId = queryParams != null ? queryParams.get("userId") : null;
 
         if (roomId == null) {
-            return createResponse(400, ApiResponse.error("roomId is required"));
+            return createResponse(400, ApiResponse.fail("roomId is required"));
         }
 
         if (userId == null) {
-            return createResponse(400, ApiResponse.error("userId is required"));
+            return createResponse(400, ApiResponse.fail("userId is required"));
         }
 
         commandService.deleteRoom(roomId, userId);
-        return createResponse(200, ApiResponse.success("Room deleted", null));
+        return createResponse(200, ApiResponse.ok("Room deleted", null));
     }
 }

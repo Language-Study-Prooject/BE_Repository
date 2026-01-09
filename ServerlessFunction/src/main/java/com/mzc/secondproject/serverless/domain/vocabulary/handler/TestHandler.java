@@ -56,7 +56,7 @@ public class TestHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
         String userId = pathParams != null ? pathParams.get("userId") : null;
 
         if (userId == null) {
-            return createResponse(400, ApiResponse.error("userId is required"));
+            return createResponse(400, ApiResponse.fail("userId is required"));
         }
 
         String body = request.getBody();
@@ -72,7 +72,7 @@ public class TestHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
         response.put("totalQuestions", result.totalQuestions());
         response.put("startedAt", result.startedAt());
 
-        return createResponse(200, ApiResponse.success("Test started", response));
+        return createResponse(200, ApiResponse.ok("Test started", response));
     }
 
     private APIGatewayProxyResponseEvent submitAnswer(APIGatewayProxyRequestEvent request) {
@@ -80,14 +80,14 @@ public class TestHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
         String userId = pathParams != null ? pathParams.get("userId") : null;
 
         if (userId == null) {
-            return createResponse(400, ApiResponse.error("userId is required"));
+            return createResponse(400, ApiResponse.fail("userId is required"));
         }
 
         String body = request.getBody();
         SubmitTestRequest req = ResponseUtil.gson().fromJson(body, SubmitTestRequest.class);
 
         if (req.getTestId() == null || req.getAnswers() == null) {
-            return createResponse(400, ApiResponse.error("testId and answers are required"));
+            return createResponse(400, ApiResponse.fail("testId and answers are required"));
         }
 
         String testType = req.getTestType() != null ? req.getTestType() : "DAILY";
@@ -103,7 +103,7 @@ public class TestHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
         response.put("successRate", result.successRate());
         response.put("results", result.results());
 
-        return createResponse(200, ApiResponse.success("Test submitted", response));
+        return createResponse(200, ApiResponse.ok("Test submitted", response));
     }
 
     private APIGatewayProxyResponseEvent getTestResults(APIGatewayProxyRequestEvent request) {
@@ -114,7 +114,7 @@ public class TestHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
         String cursor = queryParams != null ? queryParams.get("cursor") : null;
 
         if (userId == null) {
-            return createResponse(400, ApiResponse.error("userId is required"));
+            return createResponse(400, ApiResponse.fail("userId is required"));
         }
 
         int limit = 10;
@@ -125,11 +125,11 @@ public class TestHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
         PaginatedResult<TestResult> resultPage = queryService.getTestResults(userId, limit, cursor);
 
         Map<String, Object> result = new HashMap<>();
-        result.put("testResults", resultPage.getItems());
-        result.put("nextCursor", resultPage.getNextCursor());
+        result.put("testResults", resultPage.items());
+        result.put("nextCursor", resultPage.nextCursor());
         result.put("hasMore", resultPage.hasMore());
 
-        return createResponse(200, ApiResponse.success("Test results retrieved", result));
+        return createResponse(200, ApiResponse.ok("Test results retrieved", result));
     }
 
     private APIGatewayProxyResponseEvent getTestResultDetail(APIGatewayProxyRequestEvent request) {
@@ -139,12 +139,12 @@ public class TestHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
         String testId = pathParams != null ? pathParams.get("testId") : null;
 
         if (userId == null || testId == null) {
-            return createResponse(400, ApiResponse.error("userId and testId are required"));
+            return createResponse(400, ApiResponse.fail("userId and testId are required"));
         }
 
         var optDetail = queryService.getTestResultDetail(userId, testId);
         if (optDetail.isEmpty()) {
-            return createResponse(404, ApiResponse.error("Test result not found"));
+            return createResponse(404, ApiResponse.fail("Test result not found"));
         }
 
         var detail = optDetail.get();
@@ -160,6 +160,6 @@ public class TestHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
         result.put("startedAt", detail.testResult().getStartedAt());
         result.put("completedAt", detail.testResult().getCompletedAt());
 
-        return createResponse(200, ApiResponse.success("Test result detail retrieved", result));
+        return createResponse(200, ApiResponse.ok("Test result detail retrieved", result));
     }
 }

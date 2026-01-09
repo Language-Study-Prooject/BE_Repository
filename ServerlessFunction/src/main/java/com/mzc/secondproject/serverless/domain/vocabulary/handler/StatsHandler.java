@@ -46,11 +46,11 @@ public class StatsHandler implements RequestHandler<APIGatewayProxyRequestEvent,
         String userId = pathParams != null ? pathParams.get("userId") : null;
 
         if (userId == null) {
-            return createResponse(400, ApiResponse.error("userId is required"));
+            return createResponse(400, ApiResponse.fail("userId is required"));
         }
 
         Map<String, Object> stats = statsService.getOverallStats(userId);
-        return createResponse(200, ApiResponse.success("Stats retrieved", stats));
+        return createResponse(200, ApiResponse.ok("Stats retrieved", stats));
     }
 
     private APIGatewayProxyResponseEvent getDailyStats(APIGatewayProxyRequestEvent request) {
@@ -61,7 +61,7 @@ public class StatsHandler implements RequestHandler<APIGatewayProxyRequestEvent,
         String cursor = queryParams != null ? queryParams.get("cursor") : null;
 
         if (userId == null) {
-            return createResponse(400, ApiResponse.error("userId is required"));
+            return createResponse(400, ApiResponse.fail("userId is required"));
         }
 
         int limit = 30;
@@ -76,7 +76,7 @@ public class StatsHandler implements RequestHandler<APIGatewayProxyRequestEvent,
         result.put("nextCursor", dailyResult.nextCursor());
         result.put("hasMore", dailyResult.hasMore());
 
-        return createResponse(200, ApiResponse.success("Daily stats retrieved", result));
+        return createResponse(200, ApiResponse.ok("Daily stats retrieved", result));
     }
 
     private APIGatewayProxyResponseEvent getWeaknessAnalysis(APIGatewayProxyRequestEvent request) {
@@ -84,10 +84,10 @@ public class StatsHandler implements RequestHandler<APIGatewayProxyRequestEvent,
         String userId = pathParams != null ? pathParams.get("userId") : null;
 
         if (userId == null) {
-            return createResponse(400, ApiResponse.error("userId is required"));
+            return createResponse(400, ApiResponse.fail("userId is required"));
         }
 
         Map<String, Object> analysis = statsService.getWeaknessAnalysis(userId);
-        return createResponse(200, ApiResponse.success("Weakness analysis completed", analysis));
+        return createResponse(200, ApiResponse.ok("Weakness analysis completed", analysis));
     }
 }
