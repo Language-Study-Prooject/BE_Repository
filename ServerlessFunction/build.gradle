@@ -30,6 +30,7 @@ dependencies {
     implementation 'software.amazon.awssdk:polly'
     implementation 'software.amazon.awssdk:sns'
     implementation 'software.amazon.awssdk:bedrockruntime'
+    implementation 'software.amazon.awssdk:apigatewaymanagementapi'
 
     // JSON Processing
     implementation 'com.google.code.gson:gson:2.10.1'
