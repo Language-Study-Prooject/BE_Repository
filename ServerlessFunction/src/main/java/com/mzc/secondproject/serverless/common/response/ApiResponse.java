@@ -1,7 +1,5 @@
 package com.mzc.secondproject.serverless.common.response;
 
-import com.fasterxml.jackson.annotation.JsonInclude;
-
 import java.time.Instant;
 
 /**
@@ -29,7 +27,6 @@ import java.time.Instant;
  * @param error 에러 정보 (실패 시)
  * @param timestamp 응답 시각
  */
-@JsonInclude(JsonInclude.Include.NON_NULL)
 public record ApiResponse<T>(
         boolean success,
         T data,

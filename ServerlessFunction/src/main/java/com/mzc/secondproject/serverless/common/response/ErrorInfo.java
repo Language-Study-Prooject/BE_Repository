@@ -1,6 +1,5 @@
 package com.mzc.secondproject.serverless.common.response;
 
-import com.fasterxml.jackson.annotation.JsonInclude;
 import com.mzc.secondproject.serverless.common.exception.DomainErrorCode;
 import com.mzc.secondproject.serverless.common.exception.ErrorCode;
 import com.mzc.secondproject.serverless.common.exception.ServerlessException;
@@ -27,7 +26,6 @@ import java.util.Map;
  * @param status HTTP 상태 코드
  * @param details 추가 상세 정보 (선택)
  */
-@JsonInclude(JsonInclude.Include.NON_NULL)
 public record ErrorInfo(
         String code,
         String message,
