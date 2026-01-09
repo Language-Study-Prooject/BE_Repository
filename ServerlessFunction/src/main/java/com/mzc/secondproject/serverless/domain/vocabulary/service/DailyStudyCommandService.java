@@ -1,6 +1,8 @@
 package com.mzc.secondproject.serverless.domain.vocabulary.service;
 
 import com.mzc.secondproject.serverless.common.dto.PaginatedResult;
+import com.mzc.secondproject.serverless.common.enums.StudyLevel;
+import com.mzc.secondproject.serverless.domain.vocabulary.constants.VocabKey;
 import com.mzc.secondproject.serverless.domain.vocabulary.model.DailyStudy;
 import com.mzc.secondproject.serverless.domain.vocabulary.model.UserWord;
 import com.mzc.secondproject.serverless.domain.vocabulary.model.Word;
@@ -51,7 +53,7 @@ public class DailyStudyCommandService {
             if (level == null || level.isEmpty()) {
                 throw new IllegalArgumentException("level is required for first daily study (BEGINNER, INTERMEDIATE, ADVANCED)");
             }
-            if (!level.equals("BEGINNER") && !level.equals("INTERMEDIATE") && !level.equals("ADVANCED")) {
+            if (!StudyLevel.isValid(level)) {
                 throw new IllegalArgumentException("Invalid level. Must be BEGINNER, INTERMEDIATE, or ADVANCED");
             }
             dailyStudy = createDailyStudy(userId, today, level);
@@ -102,10 +104,10 @@ public class DailyStudyCommandService {
         List<String> newWordIds = getNewWordsForUser(userId, level, NEW_WORDS_COUNT);
 
         DailyStudy dailyStudy = DailyStudy.builder()
-                .pk("DAILY#" + userId)
-                .sk("DATE#" + date)
-                .gsi1pk("DAILY#ALL")
-                .gsi1sk("DATE#" + date)
+                .pk(VocabKey.dailyPk(userId))
+                .sk(VocabKey.dateSk(date))
+                .gsi1pk(VocabKey.DAILY_ALL)
+                .gsi1sk(VocabKey.dateSk(date))
                 .userId(userId)
                 .date(date)
                 .newWordIds(newWordIds)
