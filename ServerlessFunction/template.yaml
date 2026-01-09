@@ -16,6 +16,7 @@ Globals:
         CHAT_BUCKET_NAME: group2-englishstudy
         VOCAB_BUCKET_NAME: group2-englishstudy
         AWS_REGION_NAME: !Ref AWS::Region
+        ROOM_TOKEN_TTL_SECONDS: "300"
 
 Resources:
   #############################################
