@@ -35,5 +35,6 @@ public class CreateRoomRequest {
 
     private String password;
 
+    @NotBlank(message = "is required")
     private String createdBy;
 }
