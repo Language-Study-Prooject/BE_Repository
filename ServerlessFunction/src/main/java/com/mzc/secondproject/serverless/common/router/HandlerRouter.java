@@ -105,7 +105,7 @@ public class HandlerRouter {
             logger.error("Server error [{}]: {}", errorInfo.code(), e.getMessage(), e);
         }
 
-        return createResponse(e.getStatusCode(), com.mzc.secondproject.serverless.common.response.ApiResponse.error(errorInfo));
+        return createResponse(e.getStatusCode(), com.mzc.secondproject.serverless.common.response.ApiResponse.fail(errorInfo));
     }
 
     /**
