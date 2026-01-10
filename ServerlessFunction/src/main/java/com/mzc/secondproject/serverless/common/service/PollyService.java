@@ -1,15 +1,13 @@
 package com.mzc.secondproject.serverless.common.service;
 
+import com.mzc.secondproject.serverless.common.config.AwsClients;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import software.amazon.awssdk.core.sync.RequestBody;
-import software.amazon.awssdk.services.polly.PollyClient;
 import software.amazon.awssdk.services.polly.model.OutputFormat;
 import software.amazon.awssdk.services.polly.model.SynthesizeSpeechRequest;
 import software.amazon.awssdk.services.polly.model.VoiceId;
-import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
-import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
 import software.amazon.awssdk.services.s3.presigner.model.PresignedGetObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
@@ -27,11 +25,6 @@ import java.time.Duration;
 public class PollyService {
 
     private static final Logger logger = LoggerFactory.getLogger(PollyService.class);
-
-    // Singleton 패턴으로 Cold Start 최적화
-    private static final PollyClient pollyClient = PollyClient.builder().build();
-    private static final S3Client s3Client = S3Client.builder().build();
-    private static final S3Presigner s3Presigner = S3Presigner.builder().build();
 
     private final String bucketName;
     private final String s3KeyPrefix;
@@ -80,7 +73,7 @@ public class PollyService {
                 .getObjectRequest(getObjectRequest)
                 .build();
 
-        PresignedGetObjectRequest presignedRequest = s3Presigner.presignGetObject(presignRequest);
+        PresignedGetObjectRequest presignedRequest = AwsClients.s3Presigner().presignGetObject(presignRequest);
         return presignedRequest.url().toString();
     }
 
@@ -89,7 +82,7 @@ public class PollyService {
      */
     public boolean existsInS3(String s3Key) {
         try {
-            s3Client.headObject(HeadObjectRequest.builder()
+            AwsClients.s3().headObject(HeadObjectRequest.builder()
                     .bucket(bucketName)
                     .key(s3Key)
                     .build());
@@ -113,7 +106,7 @@ public class PollyService {
                     .outputFormat(OutputFormat.MP3)
                     .build();
 
-            InputStream audioStream = pollyClient.synthesizeSpeech(request);
+            InputStream audioStream = AwsClients.polly().synthesizeSpeech(request);
 
             ByteArrayOutputStream buffer = new ByteArrayOutputStream();
             byte[] data = new byte[4096];
@@ -123,7 +116,7 @@ public class PollyService {
             }
             byte[] audioBytes = buffer.toByteArray();
 
-            s3Client.putObject(
+            AwsClients.s3().putObject(
                     PutObjectRequest.builder()
                             .bucket(bucketName)
                             .key(s3Key)

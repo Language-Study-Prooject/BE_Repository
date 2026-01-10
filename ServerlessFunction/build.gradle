@@ -1,5 +1,7 @@
 plugins {
     id 'java'
+    id 'groovy'
+    id 'jacoco'
 }
 
 group = 'com.mzc.secondproject.serverless'
@@ -28,9 +30,15 @@ dependencies {
     implementation 'software.amazon.awssdk:polly'
     implementation 'software.amazon.awssdk:sns'
     implementation 'software.amazon.awssdk:bedrockruntime'
+    implementation 'software.amazon.awssdk:apigatewaymanagementapi'
 
     // JSON Processing
     implementation 'com.google.code.gson:gson:2.10.1'
+
+    // Jakarta Bean Validation
+    implementation 'jakarta.validation:jakarta.validation-api:3.0.2'
+    implementation 'org.hibernate.validator:hibernate-validator:8.0.1.Final'
+    implementation 'org.glassfish.expressly:expressly:5.0.0'
 
     // Password Hashing
     implementation 'org.mindrot:jbcrypt:0.4'
@@ -48,10 +56,27 @@ dependencies {
     // Testing
     testImplementation 'org.junit.jupiter:junit-jupiter:5.10.1'
     testImplementation 'org.mockito:mockito-core:5.8.0'
+
+    // Groovy & Spock
+    testImplementation 'org.apache.groovy:groovy-all:4.0.15'
+    testImplementation 'org.spockframework:spock-core:2.4-M4-groovy-4.0'
 }
 
 test {
     useJUnitPlatform()
+    finalizedBy jacocoTestReport
+}
+
+jacoco {
+    toolVersion = "0.8.11"
+}
+
+jacocoTestReport {
+    dependsOn test
+    reports {
+        xml.required = true
+        html.required = true
+    }
 }
 
 task buildZip(type: Zip) {

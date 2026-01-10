@@ -4,8 +4,8 @@ import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.lambda.runtime.RequestHandler;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyRequestEvent;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyResponseEvent;
-import com.mzc.secondproject.serverless.common.dto.ApiResponse;
-import static com.mzc.secondproject.serverless.common.util.ResponseUtil.createResponse;
+import com.mzc.secondproject.serverless.common.exception.CommonErrorCode;
+import com.mzc.secondproject.serverless.common.util.ResponseGenerator;
 import com.mzc.secondproject.serverless.domain.chatting.service.BedrockService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -28,7 +28,7 @@ public class ChatAIHandler implements RequestHandler<APIGatewayProxyRequestEvent
 
         try {
             if (!"POST".equals(request.getHttpMethod())) {
-                return createResponse(405, ApiResponse.error("Method not allowed"));
+                return ResponseGenerator.fail(CommonErrorCode.METHOD_NOT_ALLOWED);
             }
 
             String body = request.getBody();
@@ -36,11 +36,11 @@ public class ChatAIHandler implements RequestHandler<APIGatewayProxyRequestEvent
 
             String aiResponse = bedrockService.generateResponse("Hello, how can I help you?");
 
-            return createResponse(200, ApiResponse.success("AI response generated", Map.of("response", aiResponse)));
+            return ResponseGenerator.ok("AI response generated", Map.of("response", aiResponse));
 
         } catch (Exception e) {
             logger.error("Error generating AI response", e);
-            return createResponse(500, ApiResponse.error("Internal server error: " + e.getMessage()));
+            return ResponseGenerator.fail(CommonErrorCode.INTERNAL_SERVER_ERROR);
         }
     }
 }

@@ -3,18 +3,18 @@ package com.mzc.secondproject.serverless.domain.chatting.repository;
 import com.mzc.secondproject.serverless.domain.chatting.model.ChatMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import software.amazon.awssdk.enhanced.dynamodb.DynamoDbEnhancedClient;
 import software.amazon.awssdk.enhanced.dynamodb.DynamoDbTable;
 import software.amazon.awssdk.enhanced.dynamodb.Key;
 import software.amazon.awssdk.enhanced.dynamodb.TableSchema;
 import software.amazon.awssdk.enhanced.dynamodb.model.Page;
 import software.amazon.awssdk.enhanced.dynamodb.model.QueryConditional;
 import software.amazon.awssdk.enhanced.dynamodb.model.QueryEnhancedRequest;
-import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 
-import java.util.Base64;
-import java.util.HashMap;
+import com.mzc.secondproject.serverless.common.dto.PaginatedResult;
+import com.mzc.secondproject.serverless.common.config.AwsClients;
+import com.mzc.secondproject.serverless.common.util.CursorUtil;
+
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -22,18 +22,12 @@ import java.util.Optional;
 public class ChatMessageRepository {
 
     private static final Logger logger = LoggerFactory.getLogger(ChatMessageRepository.class);
-
-    // Singleton 패턴으로 Cold Start 최적화
-    private static final DynamoDbClient dynamoDbClient = DynamoDbClient.builder().build();
-    private static final DynamoDbEnhancedClient enhancedClient = DynamoDbEnhancedClient.builder()
-            .dynamoDbClient(dynamoDbClient)
-            .build();
-    private static final String tableName = System.getenv("CHAT_TABLE_NAME");
+    private static final String TABLE_NAME = System.getenv("CHAT_TABLE_NAME");
 
     private final DynamoDbTable<ChatMessage> table;
 
     public ChatMessageRepository() {
-        this.table = enhancedClient.table(tableName, TableSchema.fromBean(ChatMessage.class));
+        this.table = AwsClients.dynamoDbEnhanced().table(TABLE_NAME, TableSchema.fromBean(ChatMessage.class));
     }
 
     public ChatMessage save(ChatMessage message) {
@@ -64,7 +58,7 @@ public class ChatMessageRepository {
      * @param cursor Base64 인코딩된 커서 (무한스크롤용)
      * @return 메시지 목록과 다음 페이지 커서
      */
-    public MessagePage findByRoomIdWithPagination(String roomId, int limit, String cursor) {
+    public PaginatedResult<ChatMessage> findByRoomIdWithPagination(String roomId, int limit, String cursor) {
         QueryConditional queryConditional = QueryConditional
                 .sortBeginsWith(Key.builder()
                         .partitionValue("ROOM#" + roomId)
@@ -78,7 +72,7 @@ public class ChatMessageRepository {
 
         // 커서 기반 페이지네이션 (Base64 디코딩)
         if (cursor != null && !cursor.isEmpty()) {
-            Map<String, AttributeValue> exclusiveStartKey = decodeCursor(cursor);
+            Map<String, AttributeValue> exclusiveStartKey = CursorUtil.decode(cursor);
             if (exclusiveStartKey != null) {
                 requestBuilder.exclusiveStartKey(exclusiveStartKey);
             }
@@ -88,54 +82,15 @@ public class ChatMessageRepository {
         List<ChatMessage> messages = page.items();
 
         // 다음 페이지 커서 (Base64 인코딩)
-        String nextCursor = encodeCursor(page.lastEvaluatedKey());
+        String nextCursor = CursorUtil.encode(page.lastEvaluatedKey());
 
-        return new MessagePage(messages, nextCursor);
-    }
-
-    /**
-     * 커서 인코딩 (lastEvaluatedKey -> Base64)
-     */
-    private String encodeCursor(Map<String, AttributeValue> lastEvaluatedKey) {
-        if (lastEvaluatedKey == null || lastEvaluatedKey.isEmpty()) {
-            return null;
-        }
-
-        StringBuilder sb = new StringBuilder();
-        for (Map.Entry<String, AttributeValue> entry : lastEvaluatedKey.entrySet()) {
-            if (sb.length() > 0) sb.append("|");
-            sb.append(entry.getKey()).append("=").append(entry.getValue().s());
-        }
-
-        return Base64.getUrlEncoder().encodeToString(sb.toString().getBytes());
-    }
-
-    /**
-     * 커서 디코딩 (Base64 -> exclusiveStartKey)
-     */
-    private Map<String, AttributeValue> decodeCursor(String cursor) {
-        try {
-            String decoded = new String(Base64.getUrlDecoder().decode(cursor));
-            Map<String, AttributeValue> result = new HashMap<>();
-
-            for (String pair : decoded.split("\\|")) {
-                String[] kv = pair.split("=", 2);
-                if (kv.length == 2) {
-                    result.put(kv[0], AttributeValue.builder().s(kv[1]).build());
-                }
-            }
-
-            return result.isEmpty() ? null : result;
-        } catch (Exception e) {
-            logger.error("Failed to decode cursor: {}", cursor, e);
-            return null;
-        }
+        return new PaginatedResult<>(messages, nextCursor);
     }
 
     /**
      * 사용자별 메시지 조회 - 페이지네이션 지원 (OOM 방지)
      */
-    public MessagePage findByUserIdWithPagination(String userId, int limit, String cursor) {
+    public PaginatedResult<ChatMessage> findByUserIdWithPagination(String userId, int limit, String cursor) {
         QueryConditional queryConditional = QueryConditional
                 .keyEqualTo(Key.builder().partitionValue("USER#" + userId).build());
 
@@ -145,7 +100,7 @@ public class ChatMessageRepository {
                 .limit(limit);
 
         if (cursor != null && !cursor.isEmpty()) {
-            Map<String, AttributeValue> exclusiveStartKey = decodeCursor(cursor);
+            Map<String, AttributeValue> exclusiveStartKey = CursorUtil.decode(cursor);
             if (exclusiveStartKey != null) {
                 requestBuilder.exclusiveStartKey(exclusiveStartKey);
             }
@@ -156,32 +111,7 @@ public class ChatMessageRepository {
                 .iterator()
                 .next();
 
-        String nextCursor = encodeCursor(page.lastEvaluatedKey());
-        return new MessagePage(page.items(), nextCursor);
-    }
-
-    /**
-     * 페이지네이션 결과 클래스
-     */
-    public static class MessagePage {
-        private final List<ChatMessage> messages;
-        private final String nextCursor;
-
-        public MessagePage(List<ChatMessage> messages, String nextCursor) {
-            this.messages = messages;
-            this.nextCursor = nextCursor;
-        }
-
-        public List<ChatMessage> getMessages() {
-            return messages;
-        }
-
-        public String getNextCursor() {
-            return nextCursor;
-        }
-
-        public boolean hasMore() {
-            return nextCursor != null;
-        }
+        String nextCursor = CursorUtil.encode(page.lastEvaluatedKey());
+        return new PaginatedResult<>(page.items(), nextCursor);
     }
 }

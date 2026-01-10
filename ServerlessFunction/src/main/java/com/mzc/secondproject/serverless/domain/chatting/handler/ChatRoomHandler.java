@@ -4,124 +4,72 @@ import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.lambda.runtime.RequestHandler;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyRequestEvent;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyResponseEvent;
-import com.mzc.secondproject.serverless.common.dto.ApiResponse;
-import com.mzc.secondproject.serverless.common.util.ResponseUtil;
-import static com.mzc.secondproject.serverless.common.util.ResponseUtil.createResponse;
+import com.mzc.secondproject.serverless.common.dto.PaginatedResult;
+import com.mzc.secondproject.serverless.common.validation.BeanValidator;
+import com.mzc.secondproject.serverless.domain.chatting.dto.request.CreateRoomRequest;
+import com.mzc.secondproject.serverless.domain.chatting.dto.request.JoinRoomRequest;
+import com.mzc.secondproject.serverless.domain.chatting.dto.request.LeaveRoomRequest;
+import com.mzc.secondproject.serverless.domain.chatting.dto.response.JoinRoomResponse;
+import com.mzc.secondproject.serverless.domain.chatting.exception.ChattingErrorCode;
+import com.mzc.secondproject.serverless.common.router.HandlerRouter;
+import com.mzc.secondproject.serverless.common.router.Route;
+import com.mzc.secondproject.serverless.common.util.ResponseGenerator;
 import com.mzc.secondproject.serverless.domain.chatting.model.ChatRoom;
-import com.mzc.secondproject.serverless.domain.chatting.repository.ChatRoomRepository;
-import org.mindrot.jbcrypt.BCrypt;
+import com.mzc.secondproject.serverless.domain.chatting.service.ChatRoomCommandService;
+import com.mzc.secondproject.serverless.domain.chatting.service.ChatRoomQueryService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.time.Instant;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.UUID;
 
 public class ChatRoomHandler implements RequestHandler<APIGatewayProxyRequestEvent, APIGatewayProxyResponseEvent> {
 
     private static final Logger logger = LoggerFactory.getLogger(ChatRoomHandler.class);
 
-    private final ChatRoomRepository roomRepository;
+    private final ChatRoomCommandService commandService;
+    private final ChatRoomQueryService queryService;
+    private final HandlerRouter router;
 
     public ChatRoomHandler() {
-        this.roomRepository = new ChatRoomRepository();
+        this.commandService = new ChatRoomCommandService();
+        this.queryService = new ChatRoomQueryService();
+        this.router = initRouter();
+    }
+
+    private HandlerRouter initRouter() {
+        return new HandlerRouter().addRoutes(
+                Route.post("/rooms", this::createRoom),
+                Route.get("/rooms", this::getRooms),
+                Route.get("/rooms/{roomId}", this::getRoom),                    // roomId 자동 검증
+                Route.post("/rooms/{roomId}/join", this::joinRoom),             // roomId 자동 검증
+                Route.post("/rooms/{roomId}/leave", this::leaveRoom),           // roomId 자동 검증
+                Route.delete("/rooms/{roomId}", this::deleteRoom).requireQueryParams("userId")  // roomId + userId 검증
+        );
     }
 
     @Override
     public APIGatewayProxyResponseEvent handleRequest(APIGatewayProxyRequestEvent request, Context context) {
-        String httpMethod = request.getHttpMethod();
-        String path = request.getPath();
-
-        logger.info("Received request: {} {}", httpMethod, path);
-
-        try {
-            // POST /chat/rooms - 방 생성
-            if ("POST".equals(httpMethod) && path.endsWith("/rooms")) {
-                return createRoom(request);
-            }
-
-            // GET /chat/rooms - 방 목록 조회
-            if ("GET".equals(httpMethod) && path.endsWith("/rooms")) {
-                return getRooms(request);
-            }
-
-            // GET /chat/rooms/{roomId} - 방 상세 조회
-            if ("GET".equals(httpMethod) && path.contains("/rooms/") && !path.contains("/join")) {
-                return getRoom(request);
-            }
-
-            // POST /chat/rooms/{roomId}/join - 방 입장
-            if ("POST".equals(httpMethod) && path.endsWith("/join")) {
-                return joinRoom(request);
-            }
-
-            // POST /chat/rooms/{roomId}/leave - 방 퇴장
-            if ("POST".equals(httpMethod) && path.endsWith("/leave")) {
-                return leaveRoom(request);
-            }
-
-            // DELETE /chat/rooms/{roomId} - 방 삭제
-            if ("DELETE".equals(httpMethod) && path.contains("/rooms/")) {
-                return deleteRoom(request);
-            }
-
-            return createResponse(404, ApiResponse.error("Not found"));
-
-        } catch (Exception e) {
-            logger.error("Error handling request", e);
-            return createResponse(500, ApiResponse.error("Internal server error: " + e.getMessage()));
-        }
+        logger.info("Received request: {} {}", request.getHttpMethod(), request.getPath());
+        return router.route(request);
     }
 
     private APIGatewayProxyResponseEvent createRoom(APIGatewayProxyRequestEvent request) {
-        String body = request.getBody();
-        Map<String, Object> requestBody = ResponseUtil.gson().fromJson(body, Map.class);
+        CreateRoomRequest req = ResponseGenerator.gson().fromJson(request.getBody(), CreateRoomRequest.class);
 
-        String name = (String) requestBody.get("name");
-        String description = (String) requestBody.get("description");
-        String level = (String) requestBody.getOrDefault("level", "beginner");
-        Integer maxMembers = ((Double) requestBody.getOrDefault("maxMembers", 6.0)).intValue();
-        Boolean isPrivate = (Boolean) requestBody.getOrDefault("isPrivate", false);
-        String password = (String) requestBody.get("password");
-        String createdBy = (String) requestBody.get("createdBy");
+        return BeanValidator.validateAndExecute(req, dto -> {
+            String level = dto.getLevel() != null ? dto.getLevel() : "beginner";
+            Integer maxMembers = dto.getMaxMembers() != null ? dto.getMaxMembers() : 6;
+            Boolean isPrivate = dto.getIsPrivate() != null ? dto.getIsPrivate() : false;
 
-        if (name == null || name.isEmpty()) {
-            return createResponse(400, ApiResponse.error("name is required"));
-        }
+            ChatRoom room = commandService.createRoom(
+                    dto.getName(), dto.getDescription(), level, maxMembers, isPrivate, dto.getPassword(), dto.getCreatedBy());
+            room.setPassword(null);
 
-        String roomId = UUID.randomUUID().toString();
-        String now = Instant.now().toString();
-
-        ChatRoom room = ChatRoom.builder()
-                .pk("ROOM#" + roomId)
-                .sk("METADATA")
-                .gsi1pk("ROOMS")
-                .gsi1sk(level + "#" + now)
-                .roomId(roomId)
-                .name(name)
-                .description(description)
-                .level(level)
-                .currentMembers(1)  // 방장 포함
-                .maxMembers(maxMembers)
-                .isPrivate(isPrivate)
-                .password(isPrivate && password != null ? BCrypt.hashpw(password, BCrypt.gensalt()) : null)
-                .createdBy(createdBy)
-                .createdAt(now)
-                .lastMessageAt(now)
-                .memberIds(new ArrayList<>(List.of(createdBy)))
-                .build();
-
-        roomRepository.save(room);
-
-        // 비밀번호는 응답에서 제외
-        room.setPassword(null);
-
-        logger.info("Created room: {}", roomId);
-        return createResponse(201, ApiResponse.success("Room created", room));
+            return ResponseGenerator.created("Room created", room);
+        });
     }
 
     private APIGatewayProxyResponseEvent getRooms(APIGatewayProxyRequestEvent request) {
@@ -132,176 +80,72 @@ public class ChatRoomHandler implements RequestHandler<APIGatewayProxyRequestEve
         String joined = queryParams != null ? queryParams.get("joined") : null;
         String cursor = queryParams != null ? queryParams.get("cursor") : null;
 
-        int limit = 10;  // 기본값
+        int limit = 10;
         if (queryParams != null && queryParams.get("limit") != null) {
-            limit = Math.min(Integer.parseInt(queryParams.get("limit")), 20);  // 최대 20
+            limit = Math.min(Integer.parseInt(queryParams.get("limit")), 20);
         }
 
-        ChatRoomRepository.RoomPage roomPage;
-        if (level != null && !level.isEmpty()) {
-            roomPage = roomRepository.findByLevelWithPagination(level, limit, cursor);
-        } else {
-            roomPage = roomRepository.findAllWithPagination(limit, cursor);
-        }
+        PaginatedResult<ChatRoom> roomPage = queryService.getRooms(level, limit, cursor);
+        List<ChatRoom> rooms = roomPage.items();
 
-        List<ChatRoom> rooms = roomPage.getRooms();
-
-        // "참여중" 필터 - userId가 memberIds에 포함된 방만
         if ("true".equals(joined) && userId != null) {
-            rooms = rooms.stream()
-                    .filter(room -> room.getMemberIds() != null && room.getMemberIds().contains(userId))
-                    .toList();
+            rooms = queryService.filterByJoinedUser(rooms, userId);
         }
 
-        // 비밀번호 제외
         rooms.forEach(room -> room.setPassword(null));
 
         Map<String, Object> result = new HashMap<>();
         result.put("rooms", rooms);
-        result.put("nextCursor", roomPage.getNextCursor());
+        result.put("nextCursor", roomPage.nextCursor());
         result.put("hasMore", roomPage.hasMore());
 
-        return createResponse(200, ApiResponse.success("Rooms retrieved", result));
+        return ResponseGenerator.ok("Rooms retrieved", result);
     }
 
     private APIGatewayProxyResponseEvent getRoom(APIGatewayProxyRequestEvent request) {
-        Map<String, String> pathParams = request.getPathParameters();
-        String roomId = pathParams != null ? pathParams.get("roomId") : null;
+        String roomId = request.getPathParameters().get("roomId");
 
-        if (roomId == null) {
-            return createResponse(400, ApiResponse.error("roomId is required"));
-        }
-
-        Optional<ChatRoom> optRoom = roomRepository.findById(roomId);
+        Optional<ChatRoom> optRoom = queryService.getRoom(roomId);
         if (optRoom.isEmpty()) {
-            return createResponse(404, ApiResponse.error("Room not found"));
+            return ResponseGenerator.fail(ChattingErrorCode.ROOM_NOT_FOUND);
         }
 
         ChatRoom room = optRoom.get();
         room.setPassword(null);
 
-        return createResponse(200, ApiResponse.success("Room retrieved", room));
+        return ResponseGenerator.ok("Room retrieved", room);
     }
 
     private APIGatewayProxyResponseEvent joinRoom(APIGatewayProxyRequestEvent request) {
-        Map<String, String> pathParams = request.getPathParameters();
-        String roomId = pathParams != null ? pathParams.get("roomId") : null;
+        String roomId = request.getPathParameters().get("roomId");
+        JoinRoomRequest req = ResponseGenerator.gson().fromJson(request.getBody(), JoinRoomRequest.class);
 
-        String body = request.getBody();
-        Map<String, String> requestBody = ResponseUtil.gson().fromJson(body, Map.class);
-        String userId = requestBody.get("userId");
-        String password = requestBody.get("password");
-
-        if (roomId == null || userId == null) {
-            return createResponse(400, ApiResponse.error("roomId and userId are required"));
-        }
-
-        Optional<ChatRoom> optRoom = roomRepository.findById(roomId);
-        if (optRoom.isEmpty()) {
-            return createResponse(404, ApiResponse.error("Room not found"));
-        }
-
-        ChatRoom room = optRoom.get();
-
-        // 비밀번호 확인 (BCrypt 해시 검증)
-        if (room.getIsPrivate()) {
-            if (password == null || room.getPassword() == null || !BCrypt.checkpw(password, room.getPassword())) {
-                return createResponse(403, ApiResponse.error("Invalid password"));
-            }
-        }
-
-        // 인원 확인
-        if (room.getCurrentMembers() >= room.getMaxMembers()) {
-            return createResponse(400, ApiResponse.error("Room is full"));
-        }
-
-        // 이미 참여 중인지 확인
-        if (room.getMemberIds() != null && room.getMemberIds().contains(userId)) {
-            room.setPassword(null);
-            return createResponse(200, ApiResponse.success("Already joined", room));
-        }
-
-        // 멤버 추가
-        if (room.getMemberIds() == null) {
-            room.setMemberIds(new ArrayList<>());
-        }
-        room.getMemberIds().add(userId);
-        room.setCurrentMembers(room.getCurrentMembers() + 1);
-
-        roomRepository.save(room);
-        room.setPassword(null);
-
-        logger.info("User {} joined room {}", userId, roomId);
-        return createResponse(200, ApiResponse.success("Joined room", room));
+        return BeanValidator.validateAndExecute(req, dto -> {
+            JoinRoomResponse response = commandService.joinRoom(roomId, dto.getUserId(), dto.getPassword());
+            response.getRoom().setPassword(null);
+            return ResponseGenerator.ok("Joined room", response);
+        });
     }
 
     private APIGatewayProxyResponseEvent leaveRoom(APIGatewayProxyRequestEvent request) {
-        Map<String, String> pathParams = request.getPathParameters();
-        String roomId = pathParams != null ? pathParams.get("roomId") : null;
+        String roomId = request.getPathParameters().get("roomId");
+        LeaveRoomRequest req = ResponseGenerator.gson().fromJson(request.getBody(), LeaveRoomRequest.class);
 
-        String body = request.getBody();
-        Map<String, String> requestBody = ResponseUtil.gson().fromJson(body, Map.class);
-        String userId = requestBody.get("userId");
-
-        if (roomId == null || userId == null) {
-            return createResponse(400, ApiResponse.error("roomId and userId are required"));
-        }
-
-        Optional<ChatRoom> optRoom = roomRepository.findById(roomId);
-        if (optRoom.isEmpty()) {
-            return createResponse(404, ApiResponse.error("Room not found"));
-        }
-
-        ChatRoom room = optRoom.get();
-
-        // 멤버에서 제거
-        if (room.getMemberIds() != null) {
-            room.getMemberIds().remove(userId);
-            room.setCurrentMembers(Math.max(0, room.getCurrentMembers() - 1));
-        }
-
-        // 방장이 나가거나 인원이 0이면 방 삭제
-        if (userId.equals(room.getCreatedBy()) || room.getCurrentMembers() <= 0) {
-            roomRepository.delete(roomId);
-            return createResponse(200, ApiResponse.success("Room deleted", null));
-        }
-
-        roomRepository.save(room);
-        room.setPassword(null);
-
-        logger.info("User {} left room {}", userId, roomId);
-        return createResponse(200, ApiResponse.success("Left room", room));
+        return BeanValidator.validateAndExecute(req, dto -> {
+            ChatRoomCommandService.LeaveResult result = commandService.leaveRoom(roomId, dto.getUserId());
+            if (result.deleted()) {
+                return ResponseGenerator.ok("Room deleted", null);
+            }
+            result.room().setPassword(null);
+            return ResponseGenerator.ok("Left room", result.room());
+        });
     }
 
     private APIGatewayProxyResponseEvent deleteRoom(APIGatewayProxyRequestEvent request) {
-        Map<String, String> pathParams = request.getPathParameters();
-        Map<String, String> queryParams = request.getQueryStringParameters();
+        String roomId = request.getPathParameters().get("roomId");
+        String userId = request.getQueryStringParameters().get("userId");
 
-        String roomId = pathParams != null ? pathParams.get("roomId") : null;
-        String userId = queryParams != null ? queryParams.get("userId") : null;
-
-        if (roomId == null) {
-            return createResponse(400, ApiResponse.error("roomId is required"));
-        }
-
-        if (userId == null) {
-            return createResponse(400, ApiResponse.error("userId is required"));
-        }
-
-        // 방장 확인
-        Optional<ChatRoom> optRoom = roomRepository.findById(roomId);
-        if (optRoom.isEmpty()) {
-            return createResponse(404, ApiResponse.error("Room not found"));
-        }
-
-        ChatRoom room = optRoom.get();
-        if (!userId.equals(room.getCreatedBy())) {
-            return createResponse(403, ApiResponse.error("Only the room owner can delete the room"));
-        }
-
-        roomRepository.delete(roomId);
-        logger.info("Deleted room: {} by owner: {}", roomId, userId);
-
-        return createResponse(200, ApiResponse.success("Room deleted", null));
+        commandService.deleteRoom(roomId, userId);
+        return ResponseGenerator.ok("Room deleted", null);
     }
 }
