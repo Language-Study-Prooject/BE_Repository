@@ -6,6 +6,9 @@ import com.mzc.secondproject.serverless.domain.vocabulary.constants.VocabKey;
 import com.mzc.secondproject.serverless.domain.vocabulary.enums.WordStatus;
 import com.mzc.secondproject.serverless.domain.vocabulary.model.UserWord;
 import com.mzc.secondproject.serverless.domain.vocabulary.repository.UserWordRepository;
+import com.mzc.secondproject.serverless.domain.vocabulary.state.SpacedRepetitionContext;
+import com.mzc.secondproject.serverless.domain.vocabulary.state.WordState;
+import com.mzc.secondproject.serverless.domain.vocabulary.state.WordStateFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -114,37 +117,27 @@ public class UserWordCommandService {
     }
 
     private void applySpacedRepetition(UserWord userWord, boolean isCorrect) {
-        if (isCorrect) {
-            userWord.setCorrectCount(userWord.getCorrectCount() + 1);
-            userWord.setRepetitions(userWord.getRepetitions() + 1);
+        SpacedRepetitionContext context = new SpacedRepetitionContext(
+                userWord.getRepetitions(),
+                userWord.getInterval(),
+                userWord.getEaseFactor(),
+                userWord.getCorrectCount(),
+                userWord.getIncorrectCount()
+        );
 
-            if (userWord.getRepetitions() == 1) {
-                userWord.setInterval(StudyConfig.INITIAL_INTERVAL_DAYS);
-            } else if (userWord.getRepetitions() == 2) {
-                userWord.setInterval(6);
-            } else {
-                int newInterval = (int) Math.round(userWord.getInterval() * userWord.getEaseFactor());
-                userWord.setInterval(newInterval);
-            }
+        WordState currentState = WordStateFactory.fromString(userWord.getStatus());
+        WordState nextState = isCorrect
+                ? currentState.onCorrectAnswer(context)
+                : currentState.onWrongAnswer(context);
 
-            if (userWord.getRepetitions() >= 5) {
-                userWord.setStatus(WordStatus.MASTERED.name());
-            } else if (userWord.getRepetitions() >= 2) {
-                userWord.setStatus(WordStatus.REVIEWING.name());
-            } else {
-                userWord.setStatus(WordStatus.LEARNING.name());
-            }
-        } else {
-            userWord.setIncorrectCount(userWord.getIncorrectCount() + 1);
-            userWord.setRepetitions(StudyConfig.INITIAL_REPETITIONS);
-            userWord.setInterval(StudyConfig.INITIAL_INTERVAL_DAYS);
-            userWord.setStatus(WordStatus.LEARNING.name());
+        userWord.setRepetitions(context.getRepetitions());
+        userWord.setInterval(context.getInterval());
+        userWord.setEaseFactor(context.getEaseFactor());
+        userWord.setCorrectCount(context.getCorrectCount());
+        userWord.setIncorrectCount(context.getIncorrectCount());
+        userWord.setStatus(nextState.getStateName());
 
-            double newEaseFactor = userWord.getEaseFactor() - 0.2;
-            userWord.setEaseFactor(Math.max(StudyConfig.MIN_EASE_FACTOR, newEaseFactor));
-        }
-
-        LocalDate nextReview = LocalDate.now().plusDays(userWord.getInterval());
+        LocalDate nextReview = LocalDate.now().plusDays(context.getInterval());
         userWord.setNextReviewAt(nextReview.toString());
     }
 }
