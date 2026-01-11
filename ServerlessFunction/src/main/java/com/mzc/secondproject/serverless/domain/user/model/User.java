@@ -10,16 +10,15 @@ import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.*;
 @DynamoDbBean
 public class User {
 
-    private String pk;          // USER#{userId}
+    private String pk;          // USER#{cognitoSub}
     private String sk;          // METADATA
     private String gsi1pk;      // EMAIL#{email}
-    private String gsi1sk;      // USER#{userId}
+    private String gsi1sk;      // USER#{cognitoSub}
     private String gsi2pk;      // LEVEL#{level}
-    private String gsi2sk;      // USER#{userId}
+    private String gsi2sk;      // USER#{cognitoSub}
 
-    private String userId;
+    private String cognitoSub;  // Cognito sub (Primary ID)
     private String email;
-    private String password;
     private String nickname;
     private String level;
     private String createdAt;
