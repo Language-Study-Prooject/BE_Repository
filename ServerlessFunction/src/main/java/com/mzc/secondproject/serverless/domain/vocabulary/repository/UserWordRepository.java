@@ -103,23 +103,17 @@ public class UserWordRepository {
     }
 
     /**
-     * 북마크된 단어만 조회 - FilterExpression 사용 (GSI 추가 없이 비용 최적화)
+     * 북마크된 단어만 조회 - GSI3 Sparse Index 활용
      */
     public PaginatedResult<UserWord> findBookmarkedWords(String userId, int limit, String cursor) {
         QueryConditional queryConditional = QueryConditional
                 .sortBeginsWith(Key.builder()
-                        .partitionValue("USER#" + userId)
+                        .partitionValue("USER#" + userId + "#BOOKMARKED")
                         .sortValue("WORD#")
                         .build());
 
-        Expression filterExpression = Expression.builder()
-                .expression("bookmarked = :bookmarked")
-                .putExpressionValue(":bookmarked", AttributeValue.builder().bool(true).build())
-                .build();
-
         QueryEnhancedRequest.Builder requestBuilder = QueryEnhancedRequest.builder()
                 .queryConditional(queryConditional)
-                .filterExpression(filterExpression)
                 .limit(limit);
 
         if (cursor != null && !cursor.isEmpty()) {
@@ -129,7 +123,8 @@ public class UserWordRepository {
             }
         }
 
-        Page<UserWord> page = table.query(requestBuilder.build()).iterator().next();
+        DynamoDbIndex<UserWord> gsi3 = table.index("GSI3");
+        Page<UserWord> page = gsi3.query(requestBuilder.build()).iterator().next();
         String nextCursor = CursorUtil.encode(page.lastEvaluatedKey());
 
         return new PaginatedResult<>(page.items(), nextCursor);

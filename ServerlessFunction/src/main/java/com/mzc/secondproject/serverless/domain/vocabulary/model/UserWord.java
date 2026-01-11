@@ -17,6 +17,7 @@ import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbSortK
  * SK: WORD#{wordId}
  * GSI1: USER#{userId}#REVIEW / DATE#{nextReviewAt} - 복습 예정 조회
  * GSI2: USER#{userId}#STATUS / STATUS#{status} - 상태별 조회
+ * GSI3: USER#{userId}#BOOKMARKED / WORD#{wordId} - 북마크 조회 (Sparse Index)
  */
 @Data
 @Builder
@@ -31,6 +32,8 @@ public class UserWord {
     private String gsi1sk;      // DATE#{nextReviewAt}
     private String gsi2pk;      // USER#{userId}#STATUS
     private String gsi2sk;      // STATUS#{status}
+    private String gsi3pk;      // USER#{userId}#BOOKMARKED (Sparse: only when bookmarked)
+    private String gsi3sk;      // WORD#{wordId}
 
     private String userId;
     private String wordId;
@@ -89,5 +92,17 @@ public class UserWord {
     @DynamoDbAttribute("GSI2SK")
     public String getGsi2sk() {
         return gsi2sk;
+    }
+
+    @DynamoDbSecondaryPartitionKey(indexNames = "GSI3")
+    @DynamoDbAttribute("GSI3PK")
+    public String getGsi3pk() {
+        return gsi3pk;
+    }
+
+    @DynamoDbSecondarySortKey(indexNames = "GSI3")
+    @DynamoDbAttribute("GSI3SK")
+    public String getGsi3sk() {
+        return gsi3sk;
     }
 }

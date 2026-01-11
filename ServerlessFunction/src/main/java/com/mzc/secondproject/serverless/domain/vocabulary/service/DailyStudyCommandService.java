@@ -16,9 +16,12 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -128,11 +131,11 @@ public class DailyStudyCommandService {
 
     private List<String> getNewWordsForUser(String userId, String level, int count) {
         PaginatedResult<UserWord> userWordPage = userWordRepository.findByUserIdWithPagination(userId, 1000, null);
-        List<String> learnedWordIds = userWordPage.items().stream()
+        Set<String> learnedWordIds = userWordPage.items().stream()
                 .map(UserWord::getWordId)
-                .collect(Collectors.toList());
+                .collect(Collectors.toSet());
 
-        List<String> newWordIds = new ArrayList<>();
+        Set<String> newWordIds = new LinkedHashSet<>();
         String lastEvaluatedKey = null;
 
         do {
@@ -147,7 +150,7 @@ public class DailyStudyCommandService {
         } while (newWordIds.size() < count && lastEvaluatedKey != null);
 
         logger.info("Selected {} new words for user {} at level {}", newWordIds.size(), userId, level);
-        return newWordIds;
+        return new ArrayList<>(newWordIds);
     }
 
     private List<Word> getWordDetails(List<String> wordIds) {
