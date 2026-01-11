@@ -19,10 +19,12 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Random;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -170,9 +172,10 @@ public class TestCommandService {
     }
 
     private List<String> getDistractorsForLevel(String level, List<String> excludeWordIds) {
+        Set<String> excludeSet = new HashSet<>(excludeWordIds);
         PaginatedResult<Word> wordPage = wordRepository.findByLevelWithPagination(level, 50, null);
         return wordPage.items().stream()
-                .filter(w -> !excludeWordIds.contains(w.getWordId()))
+                .filter(w -> !excludeSet.contains(w.getWordId()))
                 .map(Word::getKorean)
                 .collect(Collectors.toList());
     }
