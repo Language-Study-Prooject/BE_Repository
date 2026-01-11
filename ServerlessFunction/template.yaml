@@ -265,6 +265,44 @@ Resources:
       SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${WebSocketApi}/*/sendMessage
 
   #############################################
+  # User Lambda Functions
+  #############################################
+
+  UserFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-user-handler"
+      CodeUri: .
+      Handler: com.mzc.secondproject.serverless.domain.user.handler.UserHandler::handleRequest
+      Description: Handle user profile CRUD operations
+      SnapStart:
+        ApplyOn: PublishedVersions
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref UserTable
+        - S3CrudPolicy:
+            BucketName: group2-englishstudy
+      Events:
+        GetMyProfile:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /users/profile/me
+            Method: GET
+        UpdateMyProfile:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /users/profile/me
+            Method: PUT
+        UploadProfileImage:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /users/profile/me/image
+            Method: POST
+
+  #############################################
   # Chatting Lambda Functions
   #############################################
 
