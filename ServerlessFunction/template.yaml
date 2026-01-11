@@ -119,7 +119,6 @@ Resources:
             UserPoolArn: !GetAtt CognitoUserPool.Arn
             Identity:
               Header: Authorization
-              ReauthorizeEvery: 300
 
   #############################################
   # WebSocket API Gateway
@@ -288,36 +287,48 @@ Resources:
             RestApiId: !Ref MainApi
             Path: /chat/rooms
             Method: POST
+            # Auth:
+            #   Authorizer: CognitoAuthorizer
         GetRooms:
           Type: Api
           Properties:
             RestApiId: !Ref MainApi
             Path: /chat/rooms
             Method: GET
+            # Auth:
+            #   Authorizer: CognitoAuthorizer
         GetRoom:
           Type: Api
           Properties:
             RestApiId: !Ref MainApi
             Path: /chat/rooms/{roomId}
             Method: GET
+            # Auth:
+            #   Authorizer: CognitoAuthorizer
         DeleteRoom:
           Type: Api
           Properties:
             RestApiId: !Ref MainApi
             Path: /chat/rooms/{roomId}
             Method: DELETE
+            # Auth:
+            #   Authorizer: CognitoAuthorizer
         JoinRoom:
           Type: Api
           Properties:
             RestApiId: !Ref MainApi
             Path: /chat/rooms/{roomId}/join
             Method: POST
+            # Auth:
+            #   Authorizer: CognitoAuthorizer
         LeaveRoom:
           Type: Api
           Properties:
             RestApiId: !Ref MainApi
             Path: /chat/rooms/{roomId}/leave
             Method: POST
+            # Auth:
+            #   Authorizer: CognitoAuthorizer
 
   ChatMessageFunction:
     Type: AWS::Serverless::Function
@@ -352,18 +363,24 @@ Resources:
             RestApiId: !Ref MainApi
             Path: /chat/rooms/{roomId}/messages
             Method: POST
+            # Auth:
+            #   Authorizer: CognitoAuthorizer
         GetMessages:
           Type: Api
           Properties:
             RestApiId: !Ref MainApi
             Path: /chat/rooms/{roomId}/messages
             Method: GET
+            # Auth:
+            #   Authorizer: CognitoAuthorizer
         GetMessage:
           Type: Api
           Properties:
             RestApiId: !Ref MainApi
             Path: /chat/rooms/{roomId}/messages/{messageId}
             Method: GET
+            # Auth:
+            #   Authorizer: CognitoAuthorizer
 
   ChatAIFunction:
     Type: AWS::Serverless::Function
@@ -392,6 +409,8 @@ Resources:
             RestApiId: !Ref MainApi
             Path: /chat/ai/generate
             Method: POST
+            # Auth:
+            #   Authorizer: CognitoAuthorizer
 
   ChatVoiceFunction:
     Type: AWS::Serverless::Function
@@ -420,6 +439,8 @@ Resources:
             RestApiId: !Ref MainApi
             Path: /chat/voice/synthesize
             Method: POST
+            # Auth:
+            #   Authorizer: CognitoAuthorizer
 
   #############################################
   # Vocabulary Lambda Functions
@@ -444,48 +465,64 @@ Resources:
             RestApiId: !Ref MainApi
             Path: /vocab/words
             Method: POST
+            # Auth:
+            #   Authorizer: CognitoAuthorizer
         BatchCreateWords:
           Type: Api
           Properties:
             RestApiId: !Ref MainApi
             Path: /vocab/words/batch
             Method: POST
+            # Auth:
+            #   Authorizer: CognitoAuthorizer
         BatchGetWords:
           Type: Api
           Properties:
             RestApiId: !Ref MainApi
             Path: /vocab/words/batch/get
             Method: POST
+            # Auth:
+            #   Authorizer: CognitoAuthorizer
         SearchWords:
           Type: Api
           Properties:
             RestApiId: !Ref MainApi
             Path: /vocab/words/search
             Method: GET
+            # Auth:
+            #   Authorizer: CognitoAuthorizer
         GetWords:
           Type: Api
           Properties:
             RestApiId: !Ref MainApi
             Path: /vocab/words
             Method: GET
+            # Auth:
+            #   Authorizer: CognitoAuthorizer
         GetWord:
           Type: Api
           Properties:
             RestApiId: !Ref MainApi
             Path: /vocab/words/{wordId}
             Method: GET
+            # Auth:
+            #   Authorizer: CognitoAuthorizer
         UpdateWord:
           Type: Api
           Properties:
             RestApiId: !Ref MainApi
             Path: /vocab/words/{wordId}
             Method: PUT
+            # Auth:
+            #   Authorizer: CognitoAuthorizer
         DeleteWord:
           Type: Api
           Properties:
             RestApiId: !Ref MainApi
             Path: /vocab/words/{wordId}
             Method: DELETE
+            # Auth:
+            #   Authorizer: CognitoAuthorizer
 
   UserWordFunction:
     Type: AWS::Serverless::Function
@@ -506,30 +543,40 @@ Resources:
             RestApiId: !Ref MainApi
             Path: /vocab/users/{userId}/wrong-answers
             Method: GET
+            # Auth:
+            #   Authorizer: CognitoAuthorizer
         GetUserWords:
           Type: Api
           Properties:
             RestApiId: !Ref MainApi
             Path: /vocab/users/{userId}/words
             Method: GET
+            # Auth:
+            #   Authorizer: CognitoAuthorizer
         GetUserWord:
           Type: Api
           Properties:
             RestApiId: !Ref MainApi
             Path: /vocab/users/{userId}/words/{wordId}
             Method: GET
+            # Auth:
+            #   Authorizer: CognitoAuthorizer
         UpdateUserWord:
           Type: Api
           Properties:
             RestApiId: !Ref MainApi
             Path: /vocab/users/{userId}/words/{wordId}
             Method: PUT
+            # Auth:
+            #   Authorizer: CognitoAuthorizer
         UpdateUserWordTag:
           Type: Api
           Properties:
             RestApiId: !Ref MainApi
             Path: /vocab/users/{userId}/words/{wordId}/tag
             Method: PUT
+            # Auth:
+            #   Authorizer: CognitoAuthorizer
 
   WordGroupFunction:
     Type: AWS::Serverless::Function
@@ -550,42 +597,56 @@ Resources:
             RestApiId: !Ref MainApi
             Path: /vocab/users/{userId}/groups
             Method: POST
+            # Auth:
+            #   Authorizer: CognitoAuthorizer
         GetGroups:
           Type: Api
           Properties:
             RestApiId: !Ref MainApi
             Path: /vocab/users/{userId}/groups
             Method: GET
+            # Auth:
+            #   Authorizer: CognitoAuthorizer
         GetGroupDetail:
           Type: Api
           Properties:
             RestApiId: !Ref MainApi
             Path: /vocab/users/{userId}/groups/{groupId}
             Method: GET
+            # Auth:
+            #   Authorizer: CognitoAuthorizer
         UpdateGroup:
           Type: Api
           Properties:
             RestApiId: !Ref MainApi
             Path: /vocab/users/{userId}/groups/{groupId}
             Method: PUT
+            # Auth:
+            #   Authorizer: CognitoAuthorizer
         DeleteGroup:
           Type: Api
           Properties:
             RestApiId: !Ref MainApi
             Path: /vocab/users/{userId}/groups/{groupId}
             Method: DELETE
+            # Auth:
+            #   Authorizer: CognitoAuthorizer
         AddWordToGroup:
           Type: Api
           Properties:
             RestApiId: !Ref MainApi
             Path: /vocab/users/{userId}/groups/{groupId}/words/{wordId}
             Method: POST
+            # Auth:
+            #   Authorizer: CognitoAuthorizer
         RemoveWordFromGroup:
           Type: Api
           Properties:
             RestApiId: !Ref MainApi
             Path: /vocab/users/{userId}/groups/{groupId}/words/{wordId}
             Method: DELETE
+            # Auth:
+            #   Authorizer: CognitoAuthorizer
 
   DailyStudyFunction:
     Type: AWS::Serverless::Function
@@ -606,12 +667,16 @@ Resources:
             RestApiId: !Ref MainApi
             Path: /vocab/daily/{userId}
             Method: GET
+            # Auth:
+            #   Authorizer: CognitoAuthorizer
         MarkWordLearned:
           Type: Api
           Properties:
             RestApiId: !Ref MainApi
             Path: /vocab/daily/{userId}/words/{wordId}/learned
             Method: POST
+            # Auth:
+            #   Authorizer: CognitoAuthorizer
 
   TestFunction:
     Type: AWS::Serverless::Function
@@ -637,24 +702,32 @@ Resources:
             RestApiId: !Ref MainApi
             Path: /vocab/test/{userId}/start
             Method: POST
+            # Auth:
+            #   Authorizer: CognitoAuthorizer
         SubmitAnswer:
           Type: Api
           Properties:
             RestApiId: !Ref MainApi
             Path: /vocab/test/{userId}/submit
             Method: POST
+            # Auth:
+            #   Authorizer: CognitoAuthorizer
         GetTestResults:
           Type: Api
           Properties:
             RestApiId: !Ref MainApi
             Path: /vocab/test/{userId}/results
             Method: GET
+            # Auth:
+            #   Authorizer: CognitoAuthorizer
         GetTestResultDetail:
           Type: Api
           Properties:
             RestApiId: !Ref MainApi
             Path: /vocab/test/{userId}/results/{testId}
             Method: GET
+            # Auth:
+            #   Authorizer: CognitoAuthorizer
 
   StatsFunction:
     Type: AWS::Serverless::Function
@@ -675,18 +748,24 @@ Resources:
             RestApiId: !Ref MainApi
             Path: /vocab/stats/{userId}
             Method: GET
+            # Auth:
+            #   Authorizer: CognitoAuthorizer
         GetDailyStats:
           Type: Api
           Properties:
             RestApiId: !Ref MainApi
             Path: /vocab/stats/{userId}/daily
             Method: GET
+            # Auth:
+            #   Authorizer: CognitoAuthorizer
         GetWeaknessAnalysis:
           Type: Api
           Properties:
             RestApiId: !Ref MainApi
             Path: /vocab/stats/{userId}/weakness
             Method: GET
+            # Auth:
+            #   Authorizer: CognitoAuthorizer
 
   VocabVoiceFunction:
     Type: AWS::Serverless::Function
@@ -715,6 +794,8 @@ Resources:
             RestApiId: !Ref MainApi
             Path: /vocab/voice/synthesize
             Method: POST
+            # Auth:
+            #   Authorizer: CognitoAuthorizer
 
   #############################################
   # DynamoDB Tables
