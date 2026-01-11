@@ -266,58 +266,6 @@ Resources:
       SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${WebSocketApi}/*/sendMessage
 
   #############################################
-  # Auth Lambda Function
-  #############################################
-
-  JwtAuthorizerFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      FunctionName: group2-englishstudy-jwt-authorizer
-      CodeUri: .
-      Handler: com.mzc.secondproject.serverless.common.auth.handler.JwtAuthorizerHandler::handleRequest
-      Description: JWT Token Authorizer
-      MemorySize: 256
-      Timeout: 10
-      SnapStart:
-        ApplyOn: PublishedVersions
-
-  #############################################
-  # User Lambda Functions
-  #############################################
-
-  UserFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      FunctionName: group2-englishstudy-user-handler
-      CodeUri: .
-      Handler: com.mzc.secondproject.serverless.domain.user.handler.UserHandler::handleRequest
-      Description: Handle user signup, login, profile
-      SnapStart:
-        ApplyOn: PublishedVersions
-      Policies:
-        - DynamoDBCrudPolicy:
-            TableName: !Ref UserTable
-      Events:
-        # 회원가입 - 인증 불필요
-        SignUp:
-          Type: Api
-          Properties:
-            RestApiId: !Ref MainApi
-            Path: /users/signup
-            Method: POST
-            Auth:
-              Authorizer: NONE
-        # 로그인 - 인증 불필요
-        Login:
-          Type: Api
-          Properties:
-            RestApiId: !Ref MainApi
-            Path: /users/login
-            Method: POST
-            Auth:
-              Authorizer: NONE
-
-  #############################################
   # Chatting Lambda Functions
   #############################################
 
