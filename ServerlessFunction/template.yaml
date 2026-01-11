@@ -803,6 +803,8 @@ Resources:
 
   UserTable:
     Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    # UpdateReplacePolicy: Retain
     Properties:
       TableName: group2-englishstudy-user
       BillingMode: PAY_PER_REQUEST
