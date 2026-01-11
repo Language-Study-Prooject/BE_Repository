@@ -7,6 +7,7 @@ import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyRequestEvent;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyResponseEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import software.amazon.awssdk.services.s3.endpoints.internal.Value;
 
 import java.util.Map;
 
@@ -19,16 +20,27 @@ public class UserHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
             APIGatewayProxyRequestEvent request,
             Context context
     ) {
-        // JwtAuthorizerHandler의 반환 값(IAM Policy)에서 principalId 꺼내기
-        Map<String, Object> authData = request.getRequestContext().getAuthorizer();
-        String user = "Unknown";
-        if (authData != null) {
-            user = (String) authData.get("principalId");
+        // Cognito Authorizer에서 claims 추출
+        Map<String, Object> claims = request.getRequestContext().getAuthorizer();
+
+        String userId = "Unknown";
+        String email = "Unknown";
+        String nickname = "Unknown";
+
+        if (claims != null) {
+            Map<String, String> claimsMap = (Map<String, String>) claims.get("claims");
+            if (claimsMap != null) {
+                userId  = claimsMap.get("sub");
+                email  = claimsMap.get("email");
+                nickname = claimsMap.get("nickname");
+            }
         }
+
+        logger.info("인증된 사용자 : userId={}, email={}, nickname={}", userId, email, nickname);
 
         return new APIGatewayProxyResponseEvent()
                 .withStatusCode(200)
-                .withBody(user + "님 환영합니다");
+                .withBody(nickname + " 환영합니다! (Email: " + email + ")");
     }
 
 }
