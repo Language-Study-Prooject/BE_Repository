@@ -19,6 +19,7 @@ public final class VocabKey {
     public static final String SUFFIX_REVIEW = "#REVIEW";
     public static final String SUFFIX_STATUS = "#STATUS";
     public static final String SUFFIX_GROUP = "#GROUP";
+    public static final String SUFFIX_BOOKMARKED = "#BOOKMARKED";
 
     // Special Keys
     public static final String DAILY_ALL = "DAILY#ALL";
@@ -66,6 +67,10 @@ public final class VocabKey {
 
     public static String userGroupPk(String userId) {
         return DynamoDbKey.USER + userId + SUFFIX_GROUP;
+    }
+
+    public static String userBookmarkedPk(String userId) {
+        return DynamoDbKey.USER + userId + SUFFIX_BOOKMARKED;
     }
 
     public static String testPk(String testId) {
