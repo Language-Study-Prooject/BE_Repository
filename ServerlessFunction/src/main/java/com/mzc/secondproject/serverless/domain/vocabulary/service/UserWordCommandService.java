@@ -98,6 +98,13 @@ public class UserWordCommandService {
 
         if (bookmarked != null) {
             userWord.setBookmarked(bookmarked);
+            if (bookmarked) {
+                userWord.setGsi3pk(VocabKey.userBookmarkedPk(userId));
+                userWord.setGsi3sk(VocabKey.wordSk(wordId));
+            } else {
+                userWord.setGsi3pk(null);
+                userWord.setGsi3sk(null);
+            }
         }
         if (favorite != null) {
             userWord.setFavorite(favorite);
