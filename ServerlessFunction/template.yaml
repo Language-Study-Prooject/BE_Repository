@@ -21,6 +21,84 @@ Globals:
 
 Resources:
   #############################################
+  # Cognito User Pool
+  #############################################
+
+  CognitoUserPool:
+    Type: AWS::Cognito::UserPool
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      UserPoolName: !Sub "${AWS::StackName}-userpool"
+      UsernameAttributes:
+        - email
+      AutoVerifiedAttributes:
+        - email
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 8
+          RequireLowercase: true
+          RequireNumbers: true
+          RequireSymbols: true
+          RequireUppercase: false
+      # Cognito에 저장할 사용자 정보 정의 ≈ 회원 테이블 컬럼
+      Schema:
+        - Name: email
+          AttributeDataType: String
+          Required: true
+          Mutable: true
+        - Name: nickname
+          AttributeDataType: String
+          Required: false
+          Mutable: true
+        - Name: level
+          AttributeDataType: String
+          Required: false
+          Mutable: true
+        - Name: profileUrl
+          AttributeDataType: String
+          Required: false
+          Mutable: true
+      LambdaConfig:
+        PreSignUp: !GetAtt PreSignUpFunction.Arn
+
+  # Cognito에게 Lambda 호출 권한 부여
+  PreSignUpPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref PreSignUpFunction
+      Principal: cognito-idp.amazonaws.com
+      SourceArn: !Sub arn:aws:cognito-idp:${AWS::Region}:${AWS::AccountId}:userpool/*
+
+  # TODO : 회원가입 시 기본값 자동 설정 handler 추가
+  # 사용자 custom 속성들 기본값 설정 Lambda 함수
+  PreSignUpFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-pre-signup"
+      CodeUri: .
+      Handler: com.mzc.secondproject.serverless.domain.user.handler.PreSignUpHandler::handleRequest
+      Description: Set default values for new users (nickname, level, picture)
+      MemorySize: 256
+      Timeout: 10
+      Environment:
+        Variables:
+          DEFAULT_PROFILE_URL: https://group2-englishstudy.s3.amazonaws.com/profile/default.png
+
+  CognitoUserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      ClientName: !Sub "${AWS::StackName}-client"
+      UserPoolId: !Ref CognitoUserPool
+      GenerateSecret: false
+      ExplicitAuthFlows:
+        - ALLOW_USER_SRP_AUTH
+        - ALLOW_REFRESH_TOKEN_AUTH
+        - ALLOW_USER_PASSWORD_AUTH
+      PreventUserExistenceErrors: ENABLED
+
+  #############################################
   # API Gateway (Unified)
   #############################################
 
