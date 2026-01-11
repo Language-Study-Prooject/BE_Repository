@@ -113,10 +113,10 @@ Resources:
         AllowOrigin: "'*'"
 
       Auth:
-        DefaultAuthorizer: JwtAuthorizer
+        DefaultAuthorizer: CognitoAuthorizer
         Authorizers:
-          JwtAuthorizer:
-            FunctionArn: !GetAtt JwtAuthorizerFunction.Arn
+          CognitoAuthorizer:
+            UserPoolArn: !GetAtt CognitoUserPool.Arn
             Identity:
               Header: Authorization
               ReauthorizeEvery: 300
