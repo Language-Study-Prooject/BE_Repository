@@ -37,10 +37,10 @@ public class TestHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
 
     private HandlerRouter initRouter() {
         return new HandlerRouter().addRoutes(
-                Route.post("/test/{userId}/start", this::startTest),
-                Route.post("/test/{userId}/submit", this::submitAnswer),
-                Route.get("/test/{userId}/results/{testId}", this::getTestResultDetail),
-                Route.get("/test/{userId}/results", this::getTestResults)
+                Route.postAuth("/test/start", this::startTest),
+                Route.postAuth("/test/submit", this::submitAnswer),
+                Route.getAuth("/test/results/{testId}", this::getTestResultDetail),
+                Route.getAuth("/test/results", this::getTestResults)
         );
     }
 
@@ -50,8 +50,7 @@ public class TestHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
         return router.route(request);
     }
 
-    private APIGatewayProxyResponseEvent startTest(APIGatewayProxyRequestEvent request) {
-        String userId = request.getPathParameters().get("userId");
+    private APIGatewayProxyResponseEvent startTest(APIGatewayProxyRequestEvent request, String userId) {
         StartTestRequest req = ResponseGenerator.gson().fromJson(request.getBody(), StartTestRequest.class);
         String testType = req != null && req.getTestType() != null ? req.getTestType() : "DAILY";
 
@@ -67,8 +66,7 @@ public class TestHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
         return ResponseGenerator.ok("Test started", response);
     }
 
-    private APIGatewayProxyResponseEvent submitAnswer(APIGatewayProxyRequestEvent request) {
-        String userId = request.getPathParameters().get("userId");
+    private APIGatewayProxyResponseEvent submitAnswer(APIGatewayProxyRequestEvent request, String userId) {
         SubmitTestRequest req = ResponseGenerator.gson().fromJson(request.getBody(), SubmitTestRequest.class);
 
         return BeanValidator.validateAndExecute(req, dto -> {
@@ -90,8 +88,7 @@ public class TestHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
         });
     }
 
-    private APIGatewayProxyResponseEvent getTestResults(APIGatewayProxyRequestEvent request) {
-        String userId = request.getPathParameters().get("userId");
+    private APIGatewayProxyResponseEvent getTestResults(APIGatewayProxyRequestEvent request, String userId) {
         Map<String, String> queryParams = request.getQueryStringParameters();
         String cursor = queryParams != null ? queryParams.get("cursor") : null;
 
@@ -110,13 +107,12 @@ public class TestHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
         return ResponseGenerator.ok("Test results retrieved", result);
     }
 
-    private APIGatewayProxyResponseEvent getTestResultDetail(APIGatewayProxyRequestEvent request) {
-        String userId = request.getPathParameters().get("userId");
+    private APIGatewayProxyResponseEvent getTestResultDetail(APIGatewayProxyRequestEvent request, String userId) {
         String testId = request.getPathParameters().get("testId");
 
         var optDetail = queryService.getTestResultDetail(userId, testId);
         if (optDetail.isEmpty()) {
-            return ResponseGenerator.fail(CommonErrorCode.RESOURCE_NOT_FOUND,"Test result not found");
+            return ResponseGenerator.fail(CommonErrorCode.RESOURCE_NOT_FOUND);
         }
 
         var detail = optDetail.get();

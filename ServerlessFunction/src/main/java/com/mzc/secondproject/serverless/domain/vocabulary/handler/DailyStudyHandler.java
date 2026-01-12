@@ -32,8 +32,8 @@ public class DailyStudyHandler implements RequestHandler<APIGatewayProxyRequestE
 
     private HandlerRouter initRouter() {
         return new HandlerRouter().addRoutes(
-                Route.post("/daily/{userId}/words/{wordId}/learned", this::markWordLearned),
-                Route.get("/daily/{userId}", this::getDailyWords)
+                Route.postAuth("/daily/words/{wordId}/learned", this::markWordLearned),
+                Route.getAuth("/daily", this::getDailyWords)
         );
     }
 
@@ -43,8 +43,7 @@ public class DailyStudyHandler implements RequestHandler<APIGatewayProxyRequestE
         return router.route(request);
     }
 
-    private APIGatewayProxyResponseEvent getDailyWords(APIGatewayProxyRequestEvent request) {
-        String userId = request.getPathParameters().get("userId");
+    private APIGatewayProxyResponseEvent getDailyWords(APIGatewayProxyRequestEvent request, String userId) {
         Map<String, String> queryParams = request.getQueryStringParameters();
 
         String date = queryParams != null ? queryParams.get("date") : null;
@@ -71,7 +70,7 @@ public class DailyStudyHandler implements RequestHandler<APIGatewayProxyRequestE
         var optDailyStudy = queryService.getDailyStudy(userId, date);
 
         if (optDailyStudy.isEmpty()) {
-            return ResponseGenerator.fail(VocabularyErrorCode.DAILY_STUDY_NOT_FOUND, "No daily study found for date: " + date);
+            return ResponseGenerator.fail(VocabularyErrorCode.DAILY_STUDY_NOT_FOUND);
         }
 
         var dailyStudy = optDailyStudy.get();
@@ -88,8 +87,7 @@ public class DailyStudyHandler implements RequestHandler<APIGatewayProxyRequestE
         return ResponseGenerator.ok("Daily study retrieved for " + date, response);
     }
 
-    private APIGatewayProxyResponseEvent markWordLearned(APIGatewayProxyRequestEvent request) {
-        String userId = request.getPathParameters().get("userId");
+    private APIGatewayProxyResponseEvent markWordLearned(APIGatewayProxyRequestEvent request, String userId) {
         String wordId = request.getPathParameters().get("wordId");
 
         Map<String, Object> progress = commandService.markWordLearned(userId, wordId);

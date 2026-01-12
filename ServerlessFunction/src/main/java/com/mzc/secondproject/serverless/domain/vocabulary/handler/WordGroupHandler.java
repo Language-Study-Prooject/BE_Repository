@@ -36,13 +36,13 @@ public class WordGroupHandler implements RequestHandler<APIGatewayProxyRequestEv
 
     private HandlerRouter initRouter() {
         return new HandlerRouter().addRoutes(
-                Route.post("/users/{userId}/groups", this::createGroup),
-                Route.get("/users/{userId}/groups", this::getGroups),
-                Route.get("/users/{userId}/groups/{groupId}", this::getGroupDetail),
-                Route.put("/users/{userId}/groups/{groupId}", this::updateGroup),
-                Route.delete("/users/{userId}/groups/{groupId}", this::deleteGroup),
-                Route.post("/users/{userId}/groups/{groupId}/words/{wordId}", this::addWordToGroup),
-                Route.delete("/users/{userId}/groups/{groupId}/words/{wordId}", this::removeWordFromGroup)
+                Route.postAuth("/groups", this::createGroup),
+                Route.getAuth("/groups", this::getGroups),
+                Route.getAuth("/groups/{groupId}", this::getGroupDetail),
+                Route.putAuth("/groups/{groupId}", this::updateGroup),
+                Route.deleteAuth("/groups/{groupId}", this::deleteGroup),
+                Route.postAuth("/groups/{groupId}/words/{wordId}", this::addWordToGroup),
+                Route.deleteAuth("/groups/{groupId}/words/{wordId}", this::removeWordFromGroup)
         );
     }
 
@@ -52,8 +52,7 @@ public class WordGroupHandler implements RequestHandler<APIGatewayProxyRequestEv
         return router.route(request);
     }
 
-    private APIGatewayProxyResponseEvent createGroup(APIGatewayProxyRequestEvent request) {
-        String userId = request.getPathParameters().get("userId");
+    private APIGatewayProxyResponseEvent createGroup(APIGatewayProxyRequestEvent request, String userId) {
         CreateWordGroupRequest req = ResponseGenerator.gson().fromJson(request.getBody(), CreateWordGroupRequest.class);
 
         return BeanValidator.validateAndExecute(req, dto -> {
@@ -62,8 +61,7 @@ public class WordGroupHandler implements RequestHandler<APIGatewayProxyRequestEv
         });
     }
 
-    private APIGatewayProxyResponseEvent getGroups(APIGatewayProxyRequestEvent request) {
-        String userId = request.getPathParameters().get("userId");
+    private APIGatewayProxyResponseEvent getGroups(APIGatewayProxyRequestEvent request, String userId) {
         Map<String, String> queryParams = request.getQueryStringParameters();
         String cursor = queryParams != null ? queryParams.get("cursor") : null;
 
@@ -79,13 +77,12 @@ public class WordGroupHandler implements RequestHandler<APIGatewayProxyRequestEv
         return ResponseGenerator.ok("Groups retrieved", response);
     }
 
-    private APIGatewayProxyResponseEvent getGroupDetail(APIGatewayProxyRequestEvent request) {
-        String userId = request.getPathParameters().get("userId");
+    private APIGatewayProxyResponseEvent getGroupDetail(APIGatewayProxyRequestEvent request, String userId) {
         String groupId = request.getPathParameters().get("groupId");
 
         var optDetail = queryService.getGroupDetail(userId, groupId);
         if (optDetail.isEmpty()) {
-            return ResponseGenerator.fail(CommonErrorCode.RESOURCE_NOT_FOUND,"Group not found");
+            return ResponseGenerator.fail(CommonErrorCode.RESOURCE_NOT_FOUND);
         }
 
         var detail = optDetail.get();
@@ -102,8 +99,7 @@ public class WordGroupHandler implements RequestHandler<APIGatewayProxyRequestEv
         return ResponseGenerator.ok("Group detail retrieved", response);
     }
 
-    private APIGatewayProxyResponseEvent updateGroup(APIGatewayProxyRequestEvent request) {
-        String userId = request.getPathParameters().get("userId");
+    private APIGatewayProxyResponseEvent updateGroup(APIGatewayProxyRequestEvent request, String userId) {
         String groupId = request.getPathParameters().get("groupId");
         CreateWordGroupRequest req = ResponseGenerator.gson().fromJson(request.getBody(), CreateWordGroupRequest.class);
 
@@ -113,24 +109,22 @@ public class WordGroupHandler implements RequestHandler<APIGatewayProxyRequestEv
                     req != null ? req.getDescription() : null);
             return ResponseGenerator.ok("Group updated", group);
         } catch (IllegalArgumentException e) {
-            return ResponseGenerator.fail(CommonErrorCode.RESOURCE_NOT_FOUND,e.getMessage());
+            return ResponseGenerator.fail(CommonErrorCode.RESOURCE_NOT_FOUND);
         }
     }
 
-    private APIGatewayProxyResponseEvent deleteGroup(APIGatewayProxyRequestEvent request) {
-        String userId = request.getPathParameters().get("userId");
+    private APIGatewayProxyResponseEvent deleteGroup(APIGatewayProxyRequestEvent request, String userId) {
         String groupId = request.getPathParameters().get("groupId");
 
         try {
             commandService.deleteGroup(userId, groupId);
             return ResponseGenerator.ok("Group deleted", null);
         } catch (IllegalArgumentException e) {
-            return ResponseGenerator.fail(CommonErrorCode.RESOURCE_NOT_FOUND,e.getMessage());
+            return ResponseGenerator.fail(CommonErrorCode.RESOURCE_NOT_FOUND);
         }
     }
 
-    private APIGatewayProxyResponseEvent addWordToGroup(APIGatewayProxyRequestEvent request) {
-        String userId = request.getPathParameters().get("userId");
+    private APIGatewayProxyResponseEvent addWordToGroup(APIGatewayProxyRequestEvent request, String userId) {
         String groupId = request.getPathParameters().get("groupId");
         String wordId = request.getPathParameters().get("wordId");
 
@@ -138,12 +132,11 @@ public class WordGroupHandler implements RequestHandler<APIGatewayProxyRequestEv
             WordGroup group = commandService.addWordToGroup(userId, groupId, wordId);
             return ResponseGenerator.ok("Word added to group", group);
         } catch (IllegalArgumentException e) {
-            return ResponseGenerator.fail(CommonErrorCode.RESOURCE_NOT_FOUND,e.getMessage());
+            return ResponseGenerator.fail(CommonErrorCode.RESOURCE_NOT_FOUND);
         }
     }
 
-    private APIGatewayProxyResponseEvent removeWordFromGroup(APIGatewayProxyRequestEvent request) {
-        String userId = request.getPathParameters().get("userId");
+    private APIGatewayProxyResponseEvent removeWordFromGroup(APIGatewayProxyRequestEvent request, String userId) {
         String groupId = request.getPathParameters().get("groupId");
         String wordId = request.getPathParameters().get("wordId");
 
@@ -151,7 +144,7 @@ public class WordGroupHandler implements RequestHandler<APIGatewayProxyRequestEv
             WordGroup group = commandService.removeWordFromGroup(userId, groupId, wordId);
             return ResponseGenerator.ok("Word removed from group", group);
         } catch (IllegalArgumentException e) {
-            return ResponseGenerator.fail(CommonErrorCode.RESOURCE_NOT_FOUND,e.getMessage());
+            return ResponseGenerator.fail(CommonErrorCode.RESOURCE_NOT_FOUND);
         }
     }
 
