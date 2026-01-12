@@ -3,6 +3,8 @@ package com.mzc.secondproject.serverless.domain.user.model;
 import lombok.*;
 import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.*;
 
+import java.time.Instant;
+
 @Data
 @Builder
 @NoArgsConstructor
@@ -21,6 +23,7 @@ public class User {
     private String email;
     private String nickname;
     private String level;
+    private String profileUrl;
     private String createdAt;
     private String updatedAt;
     private String lastLoginAt;
@@ -91,6 +94,26 @@ public class User {
                 .updatedAt(now)
                 .lastLoginAt(now)
                 .build();
+    }
+
+    public void updateLevel(String newLevel) {
+        this.level = newLevel;
+        this.gsi2pk = "LEVEL#" + newLevel;
+        this.updatedAt = Instant.now().toString();
+    }
+
+    public void updateNickname(String newNickname) {
+        this.nickname = newNickname;
+        this.updatedAt = Instant.now().toString();
+    }
+
+    public void updateProfileUrl(String newProfileUrl) {
+        this.profileUrl = newProfileUrl;
+        this.updatedAt = Instant.now().toString();
+    }
+
+    public void updateLastLoginAt() {
+        this.lastLoginAt = Instant.now().toString();
     }
 
 
