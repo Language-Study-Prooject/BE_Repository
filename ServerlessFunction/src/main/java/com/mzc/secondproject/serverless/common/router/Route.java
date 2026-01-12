@@ -2,6 +2,7 @@ package com.mzc.secondproject.serverless.common.router;
 
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyRequestEvent;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyResponseEvent;
+import com.mzc.secondproject.serverless.common.util.CognitoUtil;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -61,6 +62,54 @@ public record Route(
 
     public static Route patch(String pathPattern, Function<APIGatewayProxyRequestEvent, APIGatewayProxyResponseEvent> handler) {
         return new Route("PATCH", pathPattern, handler, extractPathParams(pathPattern), List.of());
+    }
+
+    // ============ Cognito 인증 핸들러 메서드 ============
+
+    /**
+     * Cognito 인증이 필요한 GET 라우트
+     * userId가 자동으로 추출되어 핸들러에 전달됩니다.
+     */
+    public static Route getAuth(String pathPattern, AuthenticatedHandler handler) {
+        return new Route("GET", pathPattern,
+                request -> handler.handle(request, CognitoUtil.extractUserId(request)),
+                extractPathParams(pathPattern), List.of());
+    }
+
+    /**
+     * Cognito 인증이 필요한 POST 라우트
+     */
+    public static Route postAuth(String pathPattern, AuthenticatedHandler handler) {
+        return new Route("POST", pathPattern,
+                request -> handler.handle(request, CognitoUtil.extractUserId(request)),
+                extractPathParams(pathPattern), List.of());
+    }
+
+    /**
+     * Cognito 인증이 필요한 PUT 라우트
+     */
+    public static Route putAuth(String pathPattern, AuthenticatedHandler handler) {
+        return new Route("PUT", pathPattern,
+                request -> handler.handle(request, CognitoUtil.extractUserId(request)),
+                extractPathParams(pathPattern), List.of());
+    }
+
+    /**
+     * Cognito 인증이 필요한 DELETE 라우트
+     */
+    public static Route deleteAuth(String pathPattern, AuthenticatedHandler handler) {
+        return new Route("DELETE", pathPattern,
+                request -> handler.handle(request, CognitoUtil.extractUserId(request)),
+                extractPathParams(pathPattern), List.of());
+    }
+
+    /**
+     * Cognito 인증이 필요한 PATCH 라우트
+     */
+    public static Route patchAuth(String pathPattern, AuthenticatedHandler handler) {
+        return new Route("PATCH", pathPattern,
+                request -> handler.handle(request, CognitoUtil.extractUserId(request)),
+                extractPathParams(pathPattern), List.of());
     }
 
     /**
