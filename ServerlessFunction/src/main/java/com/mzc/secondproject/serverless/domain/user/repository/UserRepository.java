@@ -8,7 +8,6 @@ import software.amazon.awssdk.enhanced.dynamodb.DynamoDbIndex;
 import software.amazon.awssdk.enhanced.dynamodb.DynamoDbTable;
 import software.amazon.awssdk.enhanced.dynamodb.Key;
 import software.amazon.awssdk.enhanced.dynamodb.TableSchema;
-import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbAttribute;
 import software.amazon.awssdk.enhanced.dynamodb.model.QueryConditional;
 
 import java.util.Optional;
@@ -25,13 +24,22 @@ public class UserRepository {
     }
 
     public User save(User user) {
+        logger.info("저장할 사용자 PartitionKey={}, SortKey={}", user.getPk(), user.getSk());
         table.putItem(user);
         return user;
     }
 
-    public Optional<User> findById(String userId) {
+    /**
+     * - PK: USER#{cognitoSub}
+     * - SK: METADATA
+     *
+     * @param cognitoSub Cognito User Pool의 sub (UUID)
+     * @return 사용자 정보 (Optional)
+     */
+    public Optional<User> findByCognitoSub(String cognitoSub) {
         Key key = Key.builder()
-                .partitionValue(userId)
+                .partitionValue("USER#" + cognitoSub)
+                .sortValue("METADATA")
                 .build();
 
         User user = table.getItem(key);
@@ -60,11 +68,17 @@ public class UserRepository {
         return findByEmail(email).isPresent();
     }
 
+    public User update(User user) {
+        table.updateItem(user);
+        return user;
+    }
 
-    public void delete(String userId) {
+    public void delete(String cognitoSub) {
         Key key = Key.builder()
-                .partitionValue(userId)
+                .partitionValue("USER#" + cognitoSub)
+                .sortValue("METADATA")
                 .build();
+        logger.info("삭제할 사용자: cognitoSub={}", cognitoSub);
         table.deleteItem(key);
     }
 
