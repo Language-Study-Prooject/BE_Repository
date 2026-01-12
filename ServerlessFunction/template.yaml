@@ -541,42 +541,42 @@ Resources:
           Type: Api
           Properties:
             RestApiId: !Ref MainApi
-            Path: /vocab/users/{userId}/wrong-answers
+            Path: /vocab/wrong-answers
             Method: GET
-            # Auth:
-            #   Authorizer: CognitoAuthorizer
+            Auth:
+              Authorizer: CognitoAuthorizer
         GetUserWords:
           Type: Api
           Properties:
             RestApiId: !Ref MainApi
-            Path: /vocab/users/{userId}/words
+            Path: /vocab/words
             Method: GET
-            # Auth:
-            #   Authorizer: CognitoAuthorizer
+            Auth:
+              Authorizer: CognitoAuthorizer
         GetUserWord:
           Type: Api
           Properties:
             RestApiId: !Ref MainApi
-            Path: /vocab/users/{userId}/words/{wordId}
+            Path: /vocab/words/{wordId}
             Method: GET
-            # Auth:
-            #   Authorizer: CognitoAuthorizer
+            Auth:
+              Authorizer: CognitoAuthorizer
         UpdateUserWord:
           Type: Api
           Properties:
             RestApiId: !Ref MainApi
-            Path: /vocab/users/{userId}/words/{wordId}
+            Path: /vocab/words/{wordId}
             Method: PUT
-            # Auth:
-            #   Authorizer: CognitoAuthorizer
+            Auth:
+              Authorizer: CognitoAuthorizer
         UpdateUserWordTag:
           Type: Api
           Properties:
             RestApiId: !Ref MainApi
-            Path: /vocab/users/{userId}/words/{wordId}/tag
+            Path: /vocab/words/{wordId}/tag
             Method: PUT
-            # Auth:
-            #   Authorizer: CognitoAuthorizer
+            Auth:
+              Authorizer: CognitoAuthorizer
 
   WordGroupFunction:
     Type: AWS::Serverless::Function
@@ -595,58 +595,58 @@ Resources:
           Type: Api
           Properties:
             RestApiId: !Ref MainApi
-            Path: /vocab/users/{userId}/groups
+            Path: /vocab/groups
             Method: POST
-            # Auth:
-            #   Authorizer: CognitoAuthorizer
+            Auth:
+              Authorizer: CognitoAuthorizer
         GetGroups:
           Type: Api
           Properties:
             RestApiId: !Ref MainApi
-            Path: /vocab/users/{userId}/groups
+            Path: /vocab/groups
             Method: GET
-            # Auth:
-            #   Authorizer: CognitoAuthorizer
+            Auth:
+              Authorizer: CognitoAuthorizer
         GetGroupDetail:
           Type: Api
           Properties:
             RestApiId: !Ref MainApi
-            Path: /vocab/users/{userId}/groups/{groupId}
+            Path: /vocab/groups/{groupId}
             Method: GET
-            # Auth:
-            #   Authorizer: CognitoAuthorizer
+            Auth:
+              Authorizer: CognitoAuthorizer
         UpdateGroup:
           Type: Api
           Properties:
             RestApiId: !Ref MainApi
-            Path: /vocab/users/{userId}/groups/{groupId}
+            Path: /vocab/groups/{groupId}
             Method: PUT
-            # Auth:
-            #   Authorizer: CognitoAuthorizer
+            Auth:
+              Authorizer: CognitoAuthorizer
         DeleteGroup:
           Type: Api
           Properties:
             RestApiId: !Ref MainApi
-            Path: /vocab/users/{userId}/groups/{groupId}
+            Path: /vocab/groups/{groupId}
             Method: DELETE
-            # Auth:
-            #   Authorizer: CognitoAuthorizer
+            Auth:
+              Authorizer: CognitoAuthorizer
         AddWordToGroup:
           Type: Api
           Properties:
             RestApiId: !Ref MainApi
-            Path: /vocab/users/{userId}/groups/{groupId}/words/{wordId}
+            Path: /vocab/groups/{groupId}/words/{wordId}
             Method: POST
-            # Auth:
-            #   Authorizer: CognitoAuthorizer
+            Auth:
+              Authorizer: CognitoAuthorizer
         RemoveWordFromGroup:
           Type: Api
           Properties:
             RestApiId: !Ref MainApi
-            Path: /vocab/users/{userId}/groups/{groupId}/words/{wordId}
+            Path: /vocab/groups/{groupId}/words/{wordId}
             Method: DELETE
-            # Auth:
-            #   Authorizer: CognitoAuthorizer
+            Auth:
+              Authorizer: CognitoAuthorizer
 
   DailyStudyFunction:
     Type: AWS::Serverless::Function
@@ -665,18 +665,18 @@ Resources:
           Type: Api
           Properties:
             RestApiId: !Ref MainApi
-            Path: /vocab/daily/{userId}
+            Path: /vocab/daily
             Method: GET
-            # Auth:
-            #   Authorizer: CognitoAuthorizer
+            Auth:
+              Authorizer: CognitoAuthorizer
         MarkWordLearned:
           Type: Api
           Properties:
             RestApiId: !Ref MainApi
-            Path: /vocab/daily/{userId}/words/{wordId}/learned
+            Path: /vocab/daily/words/{wordId}/learned
             Method: POST
-            # Auth:
-            #   Authorizer: CognitoAuthorizer
+            Auth:
+              Authorizer: CognitoAuthorizer
 
   TestFunction:
     Type: AWS::Serverless::Function
@@ -700,34 +700,34 @@ Resources:
           Type: Api
           Properties:
             RestApiId: !Ref MainApi
-            Path: /vocab/test/{userId}/start
+            Path: /vocab/test/start
             Method: POST
-            # Auth:
-            #   Authorizer: CognitoAuthorizer
+            Auth:
+              Authorizer: CognitoAuthorizer
         SubmitAnswer:
           Type: Api
           Properties:
             RestApiId: !Ref MainApi
-            Path: /vocab/test/{userId}/submit
+            Path: /vocab/test/submit
             Method: POST
-            # Auth:
-            #   Authorizer: CognitoAuthorizer
+            Auth:
+              Authorizer: CognitoAuthorizer
         GetTestResults:
           Type: Api
           Properties:
             RestApiId: !Ref MainApi
-            Path: /vocab/test/{userId}/results
+            Path: /vocab/test/results
             Method: GET
-            # Auth:
-            #   Authorizer: CognitoAuthorizer
+            Auth:
+              Authorizer: CognitoAuthorizer
         GetTestResultDetail:
           Type: Api
           Properties:
             RestApiId: !Ref MainApi
-            Path: /vocab/test/{userId}/results/{testId}
+            Path: /vocab/test/results/{testId}
             Method: GET
-            # Auth:
-            #   Authorizer: CognitoAuthorizer
+            Auth:
+              Authorizer: CognitoAuthorizer
 
   StatsFunction:
     Type: AWS::Serverless::Function
@@ -746,26 +746,26 @@ Resources:
           Type: Api
           Properties:
             RestApiId: !Ref MainApi
-            Path: /vocab/stats/{userId}
+            Path: /vocab/stats
             Method: GET
-            # Auth:
-            #   Authorizer: CognitoAuthorizer
+            Auth:
+              Authorizer: CognitoAuthorizer
         GetDailyStats:
           Type: Api
           Properties:
             RestApiId: !Ref MainApi
-            Path: /vocab/stats/{userId}/daily
+            Path: /vocab/stats/daily
             Method: GET
-            # Auth:
-            #   Authorizer: CognitoAuthorizer
+            Auth:
+              Authorizer: CognitoAuthorizer
         GetWeaknessAnalysis:
           Type: Api
           Properties:
             RestApiId: !Ref MainApi
-            Path: /vocab/stats/{userId}/weakness
+            Path: /vocab/stats/weakness
             Method: GET
-            # Auth:
-            #   Authorizer: CognitoAuthorizer
+            Auth:
+              Authorizer: CognitoAuthorizer
 
   VocabVoiceFunction:
     Type: AWS::Serverless::Function
