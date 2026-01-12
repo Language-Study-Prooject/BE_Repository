@@ -62,4 +62,37 @@ public class User {
         return gsi2sk;
     }
 
+
+    /**
+     * 신규 사용자 생성
+     *
+     * @param cognitoSub Cognito User Pool의 sub (UUID)
+     * @param email 이메일
+     * @param nickname 닉네임
+     * @param level 학습 레벨 (BEGINNER/INTERMEDIATE/ADVANCED)
+     * @param profileUrl 프로필 이미지 URL
+     * @return 새로운 User 객체 (DynamoDB 키 패턴 적용됨)
+     */
+    public static User createNew(String cognitoSub, String email, String nickname, String level, String profileUrl) {
+        String now = Instant.now().toString();
+        return User.builder()
+                .pk("USER#" + cognitoSub)
+                .sk("METADATA")
+                .gsi1pk("EMAIL#" + email)
+                .gsi1sk("USER#" + cognitoSub)
+                .gsi2pk("LEVEL#" + level)
+                .gsi2sk("USER#" + cognitoSub)
+                .cognitoSub(cognitoSub)
+                .email(email)
+                .nickname(nickname)
+                .level(level)
+                .profileUrl(profileUrl)
+                .createdAt(now)
+                .updatedAt(now)
+                .lastLoginAt(now)
+                .build();
+    }
+
+
+
 }
