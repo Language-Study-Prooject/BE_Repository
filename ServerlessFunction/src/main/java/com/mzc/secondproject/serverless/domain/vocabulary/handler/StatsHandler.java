@@ -28,9 +28,9 @@ public class StatsHandler implements RequestHandler<APIGatewayProxyRequestEvent,
 
     private HandlerRouter initRouter() {
         return new HandlerRouter().addRoutes(
-                Route.get("/stats/{userId}/weakness", this::getWeaknessAnalysis),
-                Route.get("/stats/{userId}/daily", this::getDailyStats),
-                Route.get("/stats/{userId}", this::getOverallStats)
+                Route.getAuth("/stats/weakness", this::getWeaknessAnalysis),
+                Route.getAuth("/stats/daily", this::getDailyStats),
+                Route.getAuth("/stats", this::getOverallStats)
         );
     }
 
@@ -40,15 +40,12 @@ public class StatsHandler implements RequestHandler<APIGatewayProxyRequestEvent,
         return router.route(request);
     }
 
-    private APIGatewayProxyResponseEvent getOverallStats(APIGatewayProxyRequestEvent request) {
-        String userId = request.getPathParameters().get("userId");
-
+    private APIGatewayProxyResponseEvent getOverallStats(APIGatewayProxyRequestEvent request, String userId) {
         Map<String, Object> stats = statsService.getOverallStats(userId);
         return ResponseGenerator.ok("Stats retrieved", stats);
     }
 
-    private APIGatewayProxyResponseEvent getDailyStats(APIGatewayProxyRequestEvent request) {
-        String userId = request.getPathParameters().get("userId");
+    private APIGatewayProxyResponseEvent getDailyStats(APIGatewayProxyRequestEvent request, String userId) {
         Map<String, String> queryParams = request.getQueryStringParameters();
         String cursor = queryParams != null ? queryParams.get("cursor") : null;
 
@@ -67,9 +64,7 @@ public class StatsHandler implements RequestHandler<APIGatewayProxyRequestEvent,
         return ResponseGenerator.ok("Daily stats retrieved", result);
     }
 
-    private APIGatewayProxyResponseEvent getWeaknessAnalysis(APIGatewayProxyRequestEvent request) {
-        String userId = request.getPathParameters().get("userId");
-
+    private APIGatewayProxyResponseEvent getWeaknessAnalysis(APIGatewayProxyRequestEvent request, String userId) {
         Map<String, Object> analysis = statsService.getWeaknessAnalysis(userId);
         return ResponseGenerator.ok("Weakness analysis completed", analysis);
     }

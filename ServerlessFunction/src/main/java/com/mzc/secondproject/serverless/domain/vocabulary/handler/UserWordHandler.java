@@ -38,11 +38,11 @@ public class UserWordHandler implements RequestHandler<APIGatewayProxyRequestEve
 
     private HandlerRouter initRouter() {
         return new HandlerRouter().addRoutes(
-                Route.get("/users/{userId}/wrong-answers", this::getWrongAnswers),
-                Route.get("/users/{userId}/words", this::getUserWords),
-                Route.get("/users/{userId}/words/{wordId}", this::getUserWord),
-                Route.put("/users/{userId}/words/{wordId}/tag", this::updateUserWordTag),
-                Route.put("/users/{userId}/words/{wordId}", this::updateUserWord)
+                Route.getAuth("/wrong-answers", this::getWrongAnswers),
+                Route.getAuth("/words", this::getUserWords),
+                Route.getAuth("/words/{wordId}", this::getUserWord),
+                Route.putAuth("/words/{wordId}/tag", this::updateUserWordTag),
+                Route.putAuth("/words/{wordId}", this::updateUserWord)
         );
     }
 
@@ -52,8 +52,7 @@ public class UserWordHandler implements RequestHandler<APIGatewayProxyRequestEve
         return router.route(request);
     }
 
-    private APIGatewayProxyResponseEvent getUserWords(APIGatewayProxyRequestEvent request) {
-        String userId = request.getPathParameters().get("userId");
+    private APIGatewayProxyResponseEvent getUserWords(APIGatewayProxyRequestEvent request, String userId) {
         Map<String, String> queryParams = request.getQueryStringParameters();
 
         String status = queryParams != null ? queryParams.get("status") : null;
@@ -76,8 +75,7 @@ public class UserWordHandler implements RequestHandler<APIGatewayProxyRequestEve
         return ResponseGenerator.ok("User words retrieved", response);
     }
 
-    private APIGatewayProxyResponseEvent getUserWord(APIGatewayProxyRequestEvent request) {
-        String userId = request.getPathParameters().get("userId");
+    private APIGatewayProxyResponseEvent getUserWord(APIGatewayProxyRequestEvent request, String userId) {
         String wordId = request.getPathParameters().get("wordId");
 
         Optional<UserWord> optUserWord = queryService.getUserWord(userId, wordId);
@@ -88,8 +86,7 @@ public class UserWordHandler implements RequestHandler<APIGatewayProxyRequestEve
         return ResponseGenerator.ok("UserWord retrieved", optUserWord.get());
     }
 
-    private APIGatewayProxyResponseEvent updateUserWord(APIGatewayProxyRequestEvent request) {
-        String userId = request.getPathParameters().get("userId");
+    private APIGatewayProxyResponseEvent updateUserWord(APIGatewayProxyRequestEvent request, String userId) {
         String wordId = request.getPathParameters().get("wordId");
         UpdateUserWordRequest req = ResponseGenerator.gson().fromJson(request.getBody(), UpdateUserWordRequest.class);
 
@@ -99,8 +96,7 @@ public class UserWordHandler implements RequestHandler<APIGatewayProxyRequestEve
         });
     }
 
-    private APIGatewayProxyResponseEvent updateUserWordTag(APIGatewayProxyRequestEvent request) {
-        String userId = request.getPathParameters().get("userId");
+    private APIGatewayProxyResponseEvent updateUserWordTag(APIGatewayProxyRequestEvent request, String userId) {
         String wordId = request.getPathParameters().get("wordId");
         UpdateUserWordTagRequest req = ResponseGenerator.gson().fromJson(request.getBody(), UpdateUserWordTagRequest.class);
 
@@ -108,8 +104,7 @@ public class UserWordHandler implements RequestHandler<APIGatewayProxyRequestEve
         return ResponseGenerator.ok("Tag updated", userWord);
     }
 
-    private APIGatewayProxyResponseEvent getWrongAnswers(APIGatewayProxyRequestEvent request) {
-        String userId = request.getPathParameters().get("userId");
+    private APIGatewayProxyResponseEvent getWrongAnswers(APIGatewayProxyRequestEvent request, String userId) {
         Map<String, String> queryParams = request.getQueryStringParameters();
         String cursor = queryParams != null ? queryParams.get("cursor") : null;
 
