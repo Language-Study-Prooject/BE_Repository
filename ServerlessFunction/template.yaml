@@ -287,48 +287,48 @@ Resources:
             RestApiId: !Ref MainApi
             Path: /chat/rooms
             Method: POST
-            # Auth:
-            #   Authorizer: CognitoAuthorizer
+            Auth:
+              Authorizer: CognitoAuthorizer
         GetRooms:
           Type: Api
           Properties:
             RestApiId: !Ref MainApi
             Path: /chat/rooms
             Method: GET
-            # Auth:
-            #   Authorizer: CognitoAuthorizer
+            Auth:
+              Authorizer: CognitoAuthorizer
         GetRoom:
           Type: Api
           Properties:
             RestApiId: !Ref MainApi
             Path: /chat/rooms/{roomId}
             Method: GET
-            # Auth:
-            #   Authorizer: CognitoAuthorizer
+            Auth:
+              Authorizer: CognitoAuthorizer
         DeleteRoom:
           Type: Api
           Properties:
             RestApiId: !Ref MainApi
             Path: /chat/rooms/{roomId}
             Method: DELETE
-            # Auth:
-            #   Authorizer: CognitoAuthorizer
+            Auth:
+              Authorizer: CognitoAuthorizer
         JoinRoom:
           Type: Api
           Properties:
             RestApiId: !Ref MainApi
             Path: /chat/rooms/{roomId}/join
             Method: POST
-            # Auth:
-            #   Authorizer: CognitoAuthorizer
+            Auth:
+              Authorizer: CognitoAuthorizer
         LeaveRoom:
           Type: Api
           Properties:
             RestApiId: !Ref MainApi
             Path: /chat/rooms/{roomId}/leave
             Method: POST
-            # Auth:
-            #   Authorizer: CognitoAuthorizer
+            Auth:
+              Authorizer: CognitoAuthorizer
 
   ChatMessageFunction:
     Type: AWS::Serverless::Function
@@ -363,24 +363,24 @@ Resources:
             RestApiId: !Ref MainApi
             Path: /chat/rooms/{roomId}/messages
             Method: POST
-            # Auth:
-            #   Authorizer: CognitoAuthorizer
+            Auth:
+              Authorizer: CognitoAuthorizer
         GetMessages:
           Type: Api
           Properties:
             RestApiId: !Ref MainApi
             Path: /chat/rooms/{roomId}/messages
             Method: GET
-            # Auth:
-            #   Authorizer: CognitoAuthorizer
+            Auth:
+              Authorizer: CognitoAuthorizer
         GetMessage:
           Type: Api
           Properties:
             RestApiId: !Ref MainApi
             Path: /chat/rooms/{roomId}/messages/{messageId}
             Method: GET
-            # Auth:
-            #   Authorizer: CognitoAuthorizer
+            Auth:
+              Authorizer: CognitoAuthorizer
 
   ChatAIFunction:
     Type: AWS::Serverless::Function
@@ -409,8 +409,8 @@ Resources:
             RestApiId: !Ref MainApi
             Path: /chat/ai/generate
             Method: POST
-            # Auth:
-            #   Authorizer: CognitoAuthorizer
+            Auth:
+              Authorizer: CognitoAuthorizer
 
   ChatVoiceFunction:
     Type: AWS::Serverless::Function
@@ -439,8 +439,8 @@ Resources:
             RestApiId: !Ref MainApi
             Path: /chat/voice/synthesize
             Method: POST
-            # Auth:
-            #   Authorizer: CognitoAuthorizer
+            Auth:
+              Authorizer: CognitoAuthorizer
 
   #############################################
   # Vocabulary Lambda Functions
