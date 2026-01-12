@@ -46,8 +46,8 @@ public class PreSignUpHandler implements RequestHandler<Map<String, Object>, Map
             }
         } catch (Exception e) {
             logger.error("PreSignUp 트리거에서 오류가 발생했습니다");
+            throw new RuntimeException("회원가입 처리 중 오류가 발생했습니다: " + e.getMessage());
         }
 
-        return input;
     }
 }
