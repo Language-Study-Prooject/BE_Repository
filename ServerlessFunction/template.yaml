@@ -16,6 +16,7 @@ Globals:
         VOCAB_TABLE_NAME: !Ref VocabTable
         CHAT_BUCKET_NAME: group2-englishstudy
         VOCAB_BUCKET_NAME: group2-englishstudy
+        PROFILE_BUCKET_NAME: group2-englishstudy
         AWS_REGION_NAME: !Ref AWS::Region
         ROOM_TOKEN_TTL_SECONDS: "300"
 
@@ -27,7 +28,7 @@ Resources:
   CognitoUserPool:
     Type: AWS::Cognito::UserPool
     DeletionPolicy: Retain
-    UpdateReplacePolicy: Retain
+    # UpdateReplacePolicy: Retain
     Properties:
       UserPoolName: !Sub "${AWS::StackName}-userpool"
       UsernameAttributes:
