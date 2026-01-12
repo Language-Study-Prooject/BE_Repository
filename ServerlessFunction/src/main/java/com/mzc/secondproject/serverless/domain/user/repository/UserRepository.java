@@ -47,7 +47,7 @@ public class UserRepository {
     }
 
     /**
-     * 이메일로 사용자 조회 (로그인, 중복 체크용)
+     * 이메일로 사용자 조회
      * GSI1 사용: GSI1PK = EMAIL#{email}
      */
     public Optional<User> findByEmail(String email) {
@@ -64,9 +64,6 @@ public class UserRepository {
                 .findFirst();
     }
 
-    public boolean existsByEmail(String email) {
-        return findByEmail(email).isPresent();
-    }
 
     public User update(User user) {
         table.updateItem(user);
