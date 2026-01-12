@@ -41,12 +41,12 @@ public class ChatRoomHandler implements RequestHandler<APIGatewayProxyRequestEve
 
     private HandlerRouter initRouter() {
         return new HandlerRouter().addRoutes(
-                Route.post("/rooms", this::createRoom),
-                Route.get("/rooms", this::getRooms),
-                Route.get("/rooms/{roomId}", this::getRoom),                    // roomId 자동 검증
-                Route.post("/rooms/{roomId}/join", this::joinRoom),             // roomId 자동 검증
-                Route.post("/rooms/{roomId}/leave", this::leaveRoom),           // roomId 자동 검증
-                Route.delete("/rooms/{roomId}", this::deleteRoom).requireQueryParams("userId")  // roomId + userId 검증
+                Route.postAuth("/rooms", this::createRoom),
+                Route.getAuth("/rooms", this::getRooms),
+                Route.getAuth("/rooms/{roomId}", this::getRoom),
+                Route.postAuth("/rooms/{roomId}/join", this::joinRoom),
+                Route.postAuth("/rooms/{roomId}/leave", this::leaveRoom),
+                Route.deleteAuth("/rooms/{roomId}", this::deleteRoom)
         );
     }
 
@@ -56,7 +56,7 @@ public class ChatRoomHandler implements RequestHandler<APIGatewayProxyRequestEve
         return router.route(request);
     }
 
-    private APIGatewayProxyResponseEvent createRoom(APIGatewayProxyRequestEvent request) {
+    private APIGatewayProxyResponseEvent createRoom(APIGatewayProxyRequestEvent request, String userId) {
         CreateRoomRequest req = ResponseGenerator.gson().fromJson(request.getBody(), CreateRoomRequest.class);
 
         return BeanValidator.validateAndExecute(req, dto -> {
@@ -65,18 +65,17 @@ public class ChatRoomHandler implements RequestHandler<APIGatewayProxyRequestEve
             Boolean isPrivate = dto.getIsPrivate() != null ? dto.getIsPrivate() : false;
 
             ChatRoom room = commandService.createRoom(
-                    dto.getName(), dto.getDescription(), level, maxMembers, isPrivate, dto.getPassword(), dto.getCreatedBy());
+                    dto.getName(), dto.getDescription(), level, maxMembers, isPrivate, dto.getPassword(), userId);
             room.setPassword(null);
 
             return ResponseGenerator.created("Room created", room);
         });
     }
 
-    private APIGatewayProxyResponseEvent getRooms(APIGatewayProxyRequestEvent request) {
+    private APIGatewayProxyResponseEvent getRooms(APIGatewayProxyRequestEvent request, String userId) {
         Map<String, String> queryParams = request.getQueryStringParameters();
 
         String level = queryParams != null ? queryParams.get("level") : null;
-        String userId = queryParams != null ? queryParams.get("userId") : null;
         String joined = queryParams != null ? queryParams.get("joined") : null;
         String cursor = queryParams != null ? queryParams.get("cursor") : null;
 
@@ -88,7 +87,7 @@ public class ChatRoomHandler implements RequestHandler<APIGatewayProxyRequestEve
         PaginatedResult<ChatRoom> roomPage = queryService.getRooms(level, limit, cursor);
         List<ChatRoom> rooms = roomPage.items();
 
-        if ("true".equals(joined) && userId != null) {
+        if ("true".equals(joined)) {
             rooms = queryService.filterByJoinedUser(rooms, userId);
         }
 
@@ -102,7 +101,7 @@ public class ChatRoomHandler implements RequestHandler<APIGatewayProxyRequestEve
         return ResponseGenerator.ok("Rooms retrieved", result);
     }
 
-    private APIGatewayProxyResponseEvent getRoom(APIGatewayProxyRequestEvent request) {
+    private APIGatewayProxyResponseEvent getRoom(APIGatewayProxyRequestEvent request, String userId) {
         String roomId = request.getPathParameters().get("roomId");
 
         Optional<ChatRoom> optRoom = queryService.getRoom(roomId);
@@ -116,34 +115,29 @@ public class ChatRoomHandler implements RequestHandler<APIGatewayProxyRequestEve
         return ResponseGenerator.ok("Room retrieved", room);
     }
 
-    private APIGatewayProxyResponseEvent joinRoom(APIGatewayProxyRequestEvent request) {
+    private APIGatewayProxyResponseEvent joinRoom(APIGatewayProxyRequestEvent request, String userId) {
         String roomId = request.getPathParameters().get("roomId");
         JoinRoomRequest req = ResponseGenerator.gson().fromJson(request.getBody(), JoinRoomRequest.class);
 
-        return BeanValidator.validateAndExecute(req, dto -> {
-            JoinRoomResponse response = commandService.joinRoom(roomId, dto.getUserId(), dto.getPassword());
-            response.getRoom().setPassword(null);
-            return ResponseGenerator.ok("Joined room", response);
-        });
+        String password = req != null ? req.getPassword() : null;
+        JoinRoomResponse response = commandService.joinRoom(roomId, userId, password);
+        response.getRoom().setPassword(null);
+        return ResponseGenerator.ok("Joined room", response);
     }
 
-    private APIGatewayProxyResponseEvent leaveRoom(APIGatewayProxyRequestEvent request) {
+    private APIGatewayProxyResponseEvent leaveRoom(APIGatewayProxyRequestEvent request, String userId) {
         String roomId = request.getPathParameters().get("roomId");
-        LeaveRoomRequest req = ResponseGenerator.gson().fromJson(request.getBody(), LeaveRoomRequest.class);
 
-        return BeanValidator.validateAndExecute(req, dto -> {
-            ChatRoomCommandService.LeaveResult result = commandService.leaveRoom(roomId, dto.getUserId());
-            if (result.deleted()) {
-                return ResponseGenerator.ok("Room deleted", null);
-            }
-            result.room().setPassword(null);
-            return ResponseGenerator.ok("Left room", result.room());
-        });
+        ChatRoomCommandService.LeaveResult result = commandService.leaveRoom(roomId, userId);
+        if (result.deleted()) {
+            return ResponseGenerator.ok("Room deleted", null);
+        }
+        result.room().setPassword(null);
+        return ResponseGenerator.ok("Left room", result.room());
     }
 
-    private APIGatewayProxyResponseEvent deleteRoom(APIGatewayProxyRequestEvent request) {
+    private APIGatewayProxyResponseEvent deleteRoom(APIGatewayProxyRequestEvent request, String userId) {
         String roomId = request.getPathParameters().get("roomId");
-        String userId = request.getQueryStringParameters().get("userId");
 
         commandService.deleteRoom(roomId, userId);
         return ResponseGenerator.ok("Room deleted", null);

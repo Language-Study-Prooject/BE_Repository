@@ -39,9 +39,9 @@ public class ChatMessageHandler implements RequestHandler<APIGatewayProxyRequest
 
     private HandlerRouter initRouter() {
         return new HandlerRouter().addRoutes(
-                Route.post("/rooms/{roomId}/messages", this::sendMessage),
-                Route.get("/rooms/{roomId}/messages/{messageId}", this::getMessage),
-                Route.get("/rooms/{roomId}/messages", this::getMessages)
+                Route.postAuth("/rooms/{roomId}/messages", this::sendMessage),
+                Route.getAuth("/rooms/{roomId}/messages/{messageId}", this::getMessage),
+                Route.getAuth("/rooms/{roomId}/messages", this::getMessages)
         );
     }
 
@@ -51,7 +51,7 @@ public class ChatMessageHandler implements RequestHandler<APIGatewayProxyRequest
         return router.route(request);
     }
 
-    private APIGatewayProxyResponseEvent sendMessage(APIGatewayProxyRequestEvent request) {
+    private APIGatewayProxyResponseEvent sendMessage(APIGatewayProxyRequestEvent request, String userId) {
         String roomId = request.getPathParameters().get("roomId");
         SendMessageRequest req = ResponseGenerator.gson().fromJson(request.getBody(), SendMessageRequest.class);
 
@@ -63,13 +63,13 @@ public class ChatMessageHandler implements RequestHandler<APIGatewayProxyRequest
             ChatMessage message = ChatMessage.builder()
                     .pk("ROOM#" + roomId)
                     .sk("MSG#" + now + "#" + messageId)
-                    .gsi1pk("USER#" + dto.getUserId())
+                    .gsi1pk("USER#" + userId)
                     .gsi1sk("MSG#" + now)
                     .gsi2pk("MSG#" + messageId)
                     .gsi2sk("ROOM#" + roomId)
                     .messageId(messageId)
                     .roomId(roomId)
-                    .userId(dto.getUserId())
+                    .userId(userId)
                     .content(dto.getContent())
                     .messageType(messageType)
                     .createdAt(now)
@@ -83,7 +83,7 @@ public class ChatMessageHandler implements RequestHandler<APIGatewayProxyRequest
         });
     }
 
-    private APIGatewayProxyResponseEvent getMessage(APIGatewayProxyRequestEvent request) {
+    private APIGatewayProxyResponseEvent getMessage(APIGatewayProxyRequestEvent request, String userId) {
         String roomId = request.getPathParameters().get("roomId");
         String messageId = request.getPathParameters().get("messageId");
 
@@ -94,7 +94,7 @@ public class ChatMessageHandler implements RequestHandler<APIGatewayProxyRequest
         return ResponseGenerator.ok("Message retrieved", message.get());
     }
 
-    private APIGatewayProxyResponseEvent getMessages(APIGatewayProxyRequestEvent request) {
+    private APIGatewayProxyResponseEvent getMessages(APIGatewayProxyRequestEvent request, String userId) {
         String roomId = request.getPathParameters().get("roomId");
         Map<String, String> queryParams = request.getQueryStringParameters();
 
