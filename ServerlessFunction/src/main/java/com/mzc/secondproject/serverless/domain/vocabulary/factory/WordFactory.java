@@ -1,5 +1,7 @@
 package com.mzc.secondproject.serverless.domain.vocabulary.factory;
 
+import com.mzc.secondproject.serverless.common.constants.DynamoDbKey;
+import com.mzc.secondproject.serverless.domain.vocabulary.constants.VocabKey;
 import com.mzc.secondproject.serverless.domain.vocabulary.model.Word;
 
 import java.time.Instant;
@@ -24,12 +26,12 @@ public class WordFactory {
 		String resolvedCategory = category != null ? category : DEFAULT_CATEGORY;
 
 		return Word.builder()
-				.pk("WORD#" + wordId)
-				.sk("METADATA")
-				.gsi1pk("LEVEL#" + resolvedLevel)
-				.gsi1sk("WORD#" + wordId)
-				.gsi2pk("CATEGORY#" + resolvedCategory)
-				.gsi2sk("WORD#" + wordId)
+				.pk(VocabKey.wordPk(wordId))
+				.sk(DynamoDbKey.METADATA)
+				.gsi1pk(VocabKey.levelPk(resolvedLevel))
+				.gsi1sk(VocabKey.wordSk(wordId))
+				.gsi2pk(VocabKey.categoryPk(resolvedCategory))
+				.gsi2sk(VocabKey.wordSk(wordId))
 				.wordId(wordId)
 				.english(english)
 				.korean(korean)
@@ -62,11 +64,11 @@ public class WordFactory {
 		}
 		if (level != null) {
 			word.setLevel(level);
-			word.setGsi1pk("LEVEL#" + level);
+			word.setGsi1pk(VocabKey.levelPk(level));
 		}
 		if (category != null) {
 			word.setCategory(category);
-			word.setGsi2pk("CATEGORY#" + category);
+			word.setGsi2pk(VocabKey.categoryPk(category));
 		}
 		return word;
 	}

@@ -23,11 +23,8 @@ public final class VocabKey {
 	private VocabKey() {
 	}
 	
-	// Key Builders
-	public static String userPk(String userId) {
-		return DynamoDbKey.USER + userId;
-	}
-	
+	// Key Builders (userPk는 DynamoDbKey.userPk() 사용)
+
 	public static String wordPk(String wordId) {
 		return WORD + wordId;
 	}
