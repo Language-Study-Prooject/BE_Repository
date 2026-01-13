@@ -1,5 +1,7 @@
 package com.mzc.secondproject.serverless.domain.vocabulary.dto.request;
 
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotEmpty;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -12,5 +14,8 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class CreateWordsBatchRequest {
-    private List<CreateWordRequest> words;
+	
+	@NotEmpty(message = "is required")
+	@Valid
+	private List<CreateWordRequest> words;
 }

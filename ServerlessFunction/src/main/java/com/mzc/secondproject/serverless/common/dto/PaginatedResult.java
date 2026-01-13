@@ -3,30 +3,17 @@ package com.mzc.secondproject.serverless.common.dto;
 import java.util.List;
 
 /**
- * 페이지네이션 결과를 담는 제네릭 클래스
- * 모든 Repository에서 공통으로 사용
+ * 페이지네이션 결과를 담는 제네릭 레코드
  *
- * @param <T> 결과 아이템 타입
+ * @param items      결과 아이템 목록
+ * @param nextCursor 다음 페이지 커서 (없으면 null)
  */
-public class PaginatedResult<T> {
-
-    private final List<T> items;
-    private final String nextCursor;
-
-    public PaginatedResult(List<T> items, String nextCursor) {
-        this.items = items;
-        this.nextCursor = nextCursor;
-    }
-
-    public List<T> getItems() {
-        return items;
-    }
-
-    public String getNextCursor() {
-        return nextCursor;
-    }
-
-    public boolean hasMore() {
-        return nextCursor != null;
-    }
+public record PaginatedResult<T>(
+		List<T> items,
+		String nextCursor
+) {
+	
+	public boolean hasMore() {
+		return nextCursor != null;
+	}
 }
