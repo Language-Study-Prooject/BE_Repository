@@ -39,10 +39,10 @@ public class UserWordHandler implements RequestHandler<APIGatewayProxyRequestEve
     private HandlerRouter initRouter() {
         return new HandlerRouter().addRoutes(
                 Route.getAuth("/wrong-answers", this::getWrongAnswers),
-                Route.getAuth("/words", this::getUserWords),
-                Route.getAuth("/words/{wordId}", this::getUserWord),
-                Route.putAuth("/words/{wordId}/tag", this::updateUserWordTag),
-                Route.putAuth("/words/{wordId}", this::updateUserWord)
+                Route.getAuth("/user-words", this::getUserWords),
+                Route.getAuth("/user-words/{wordId}", this::getUserWord),
+                Route.putAuth("/user-words/{wordId}/tag", this::updateUserWordTag),
+                Route.putAuth("/user-words/{wordId}", this::updateUserWord)
         );
     }
 
