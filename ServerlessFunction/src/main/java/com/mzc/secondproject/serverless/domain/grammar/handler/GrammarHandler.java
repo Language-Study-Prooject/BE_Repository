@@ -8,9 +8,12 @@ import com.mzc.secondproject.serverless.common.router.HandlerRouter;
 import com.mzc.secondproject.serverless.common.router.Route;
 import com.mzc.secondproject.serverless.common.util.ResponseGenerator;
 import com.mzc.secondproject.serverless.common.validation.BeanValidator;
+import com.mzc.secondproject.serverless.domain.grammar.dto.request.ConversationRequest;
 import com.mzc.secondproject.serverless.domain.grammar.dto.request.GrammarCheckRequest;
+import com.mzc.secondproject.serverless.domain.grammar.dto.response.ConversationResponse;
 import com.mzc.secondproject.serverless.domain.grammar.dto.response.GrammarCheckResponse;
 import com.mzc.secondproject.serverless.domain.grammar.service.GrammarCheckService;
+import com.mzc.secondproject.serverless.domain.grammar.service.GrammarConversationService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -22,16 +25,19 @@ public class GrammarHandler implements RequestHandler<APIGatewayProxyRequestEven
 	private static final Logger logger = LoggerFactory.getLogger(GrammarHandler.class);
 
 	private final GrammarCheckService grammarCheckService;
+	private final GrammarConversationService conversationService;
 	private final HandlerRouter router;
 
 	public GrammarHandler() {
 		this.grammarCheckService = new GrammarCheckService();
+		this.conversationService = new GrammarConversationService();
 		this.router = initRouter();
 	}
 
 	private HandlerRouter initRouter() {
 		return new HandlerRouter().addRoutes(
-				Route.postAuth("/grammar/check", this::checkGrammar)
+				Route.postAuth("/grammar/check", this::checkGrammar),
+				Route.postAuth("/grammar/conversation", this::conversation)
 		);
 	}
 
@@ -56,6 +62,22 @@ public class GrammarHandler implements RequestHandler<APIGatewayProxyRequestEven
 			response.put("feedback", result.getFeedback());
 
 			return ResponseGenerator.ok("Grammar checked successfully", response);
+		});
+	}
+
+	private APIGatewayProxyResponseEvent conversation(APIGatewayProxyRequestEvent request, String userId) {
+		ConversationRequest req = ResponseGenerator.gson().fromJson(request.getBody(), ConversationRequest.class);
+
+		return BeanValidator.validateAndExecute(req, dto -> {
+			ConversationResponse result = conversationService.chat(dto);
+
+			Map<String, Object> response = new HashMap<>();
+			response.put("sessionId", result.getSessionId());
+			response.put("grammarCheck", result.getGrammarCheck());
+			response.put("aiResponse", result.getAiResponse());
+			response.put("conversationTip", result.getConversationTip());
+
+			return ResponseGenerator.ok("Conversation generated successfully", response);
 		});
 	}
 }
