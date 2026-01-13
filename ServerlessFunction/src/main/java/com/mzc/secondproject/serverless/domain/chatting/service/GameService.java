@@ -32,12 +32,14 @@ public class GameService {
 	private final ConnectionRepository connectionRepository;
 	private final GameRoundRepository gameRoundRepository;
 	private final WordRepository wordRepository;
+	private final GameStatsService gameStatsService;
 
 	public GameService() {
 		this.chatRoomRepository = new ChatRoomRepository();
 		this.connectionRepository = new ConnectionRepository();
 		this.gameRoundRepository = new GameRoundRepository();
 		this.wordRepository = new WordRepository();
+		this.gameStatsService = new GameStatsService();
 	}
 
 	/**
@@ -354,6 +356,14 @@ public class GameService {
 	private CommandResult finishGame(ChatRoom room, String reason) {
 		room.setGameStatus(GameStatus.FINISHED.name());
 		chatRoomRepository.save(room);
+
+		// 게임 통계 업데이트 및 뱃지 체크
+		try {
+			var newBadges = gameStatsService.updateGameStats(room);
+			logger.info("Game stats updated: roomId={}, newBadges={}", room.getRoomId(), newBadges.size());
+		} catch (Exception e) {
+			logger.error("Failed to update game stats: roomId={}, error={}", room.getRoomId(), e.getMessage());
+		}
 
 		// 최종 점수 정렬
 		StringBuilder sb = new StringBuilder("🎮 게임 종료!\n\n📊 최종 순위:\n");
