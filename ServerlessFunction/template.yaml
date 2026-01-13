@@ -982,6 +982,39 @@ Resources:
             Auth:
               Authorizer: CognitoAuthorizer
 
+  #############################################
+  # Grammar Lambda Functions
+  #############################################
+
+  GrammarFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: group2-englishstudy-grammar-handler
+      CodeUri: .
+      Handler: com.mzc.secondproject.serverless.domain.grammar.handler.GrammarHandler::handleRequest
+      Description: Handle grammar check using Bedrock AI
+      Timeout: 60
+      MemorySize: 1024
+      SnapStart:
+        ApplyOn: PublishedVersions
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ChatTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - bedrock:InvokeModel
+              Resource: "*"
+      Events:
+        GrammarCheck:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /grammar/check
+            Method: POST
+            Auth:
+              Authorizer: CognitoAuthorizer
+
   # EventBridge Scheduler - 매일 자정 단어 학습 통계 집계
   ScheduledStatsFunction:
     Type: AWS::Serverless::Function
