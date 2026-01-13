@@ -1,6 +1,7 @@
 package com.mzc.secondproject.serverless.domain.chatting.service;
 
 import com.mzc.secondproject.serverless.common.dto.PaginatedResult;
+import com.mzc.secondproject.serverless.domain.chatting.exception.ChattingException;
 import com.mzc.secondproject.serverless.domain.chatting.model.ChatRoom;
 import com.mzc.secondproject.serverless.domain.chatting.repository.ChatRoomRepository;
 import org.mindrot.jbcrypt.BCrypt;
@@ -73,19 +74,19 @@ public class ChatRoomService {
     public ChatRoom joinRoom(String roomId, String userId, String password) {
         Optional<ChatRoom> optRoom = roomRepository.findById(roomId);
         if (optRoom.isEmpty()) {
-            throw new IllegalArgumentException("Room not found");
+            throw ChattingException.roomNotFound(roomId);
         }
 
         ChatRoom room = optRoom.get();
 
         if (room.getIsPrivate()) {
             if (password == null || room.getPassword() == null || !BCrypt.checkpw(password, room.getPassword())) {
-                throw new SecurityException("Invalid password");
+                throw ChattingException.roomInvalidPassword(roomId);
             }
         }
 
         if (room.getCurrentMembers() >= room.getMaxMembers()) {
-            throw new IllegalStateException("Room is full");
+            throw ChattingException.roomFull(roomId, room.getMaxMembers());
         }
 
         if (room.getMemberIds() != null && room.getMemberIds().contains(userId)) {
@@ -108,7 +109,7 @@ public class ChatRoomService {
     public LeaveResult leaveRoom(String roomId, String userId) {
         Optional<ChatRoom> optRoom = roomRepository.findById(roomId);
         if (optRoom.isEmpty()) {
-            throw new IllegalArgumentException("Room not found");
+            throw ChattingException.roomNotFound(roomId);
         }
 
         ChatRoom room = optRoom.get();
@@ -133,12 +134,12 @@ public class ChatRoomService {
     public void deleteRoom(String roomId, String userId) {
         Optional<ChatRoom> optRoom = roomRepository.findById(roomId);
         if (optRoom.isEmpty()) {
-            throw new IllegalArgumentException("Room not found");
+            throw ChattingException.roomNotFound(roomId);
         }
 
         ChatRoom room = optRoom.get();
         if (!userId.equals(room.getCreatedBy())) {
-            throw new SecurityException("Only the room owner can delete the room");
+            throw ChattingException.roomNotOwner(userId, roomId);
         }
 
         roomRepository.delete(roomId);

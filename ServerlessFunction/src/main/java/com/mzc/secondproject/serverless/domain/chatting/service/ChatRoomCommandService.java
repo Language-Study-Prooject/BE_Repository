@@ -1,6 +1,7 @@
 package com.mzc.secondproject.serverless.domain.chatting.service;
 
 import com.mzc.secondproject.serverless.domain.chatting.dto.response.JoinRoomResponse;
+import com.mzc.secondproject.serverless.domain.chatting.exception.ChattingException;
 import com.mzc.secondproject.serverless.domain.chatting.model.ChatRoom;
 import com.mzc.secondproject.serverless.domain.chatting.model.RoomToken;
 import com.mzc.secondproject.serverless.domain.chatting.repository.ChatRoomRepository;
@@ -62,19 +63,19 @@ public class ChatRoomCommandService {
     public JoinRoomResponse joinRoom(String roomId, String userId, String password) {
         Optional<ChatRoom> optRoom = roomRepository.findById(roomId);
         if (optRoom.isEmpty()) {
-            throw new IllegalArgumentException("Room not found");
+            throw ChattingException.roomNotFound(roomId);
         }
 
         ChatRoom room = optRoom.get();
 
         if (room.getIsPrivate()) {
             if (password == null || room.getPassword() == null || !BCrypt.checkpw(password, room.getPassword())) {
-                throw new SecurityException("Invalid password");
+                throw ChattingException.roomInvalidPassword(roomId);
             }
         }
 
         if (room.getCurrentMembers() >= room.getMaxMembers()) {
-            throw new IllegalStateException("Room is full");
+            throw ChattingException.roomFull(roomId, room.getMaxMembers());
         }
 
         boolean alreadyMember = room.getMemberIds() != null && room.getMemberIds().contains(userId);
@@ -103,7 +104,7 @@ public class ChatRoomCommandService {
     public LeaveResult leaveRoom(String roomId, String userId) {
         Optional<ChatRoom> optRoom = roomRepository.findById(roomId);
         if (optRoom.isEmpty()) {
-            throw new IllegalArgumentException("Room not found");
+            throw ChattingException.roomNotFound(roomId);
         }
 
         ChatRoom room = optRoom.get();
@@ -128,12 +129,12 @@ public class ChatRoomCommandService {
     public void deleteRoom(String roomId, String userId) {
         Optional<ChatRoom> optRoom = roomRepository.findById(roomId);
         if (optRoom.isEmpty()) {
-            throw new IllegalArgumentException("Room not found");
+            throw ChattingException.roomNotFound(roomId);
         }
 
         ChatRoom room = optRoom.get();
         if (!userId.equals(room.getCreatedBy())) {
-            throw new SecurityException("Only the room owner can delete the room");
+            throw ChattingException.roomNotOwner(userId, roomId);
         }
 
         roomRepository.delete(roomId);

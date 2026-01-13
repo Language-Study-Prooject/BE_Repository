@@ -12,6 +12,8 @@ import com.mzc.secondproject.serverless.domain.vocabulary.repository.WordReposit
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.mzc.secondproject.serverless.domain.vocabulary.exception.VocabularyException;
+
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -54,10 +56,10 @@ public class DailyStudyCommandService {
             dailyStudy = optDailyStudy.get();
         } else {
             if (level == null || level.isEmpty()) {
-                throw new IllegalArgumentException("level is required for first daily study (BEGINNER, INTERMEDIATE, ADVANCED)");
+                throw VocabularyException.invalidStudyLevel("level is required (BEGINNER, INTERMEDIATE, ADVANCED)");
             }
             if (!StudyLevel.isValid(level)) {
-                throw new IllegalArgumentException("Invalid level. Must be BEGINNER, INTERMEDIATE, or ADVANCED");
+                throw VocabularyException.invalidStudyLevel(level);
             }
             dailyStudy = createDailyStudy(userId, today, level);
         }
@@ -74,7 +76,7 @@ public class DailyStudyCommandService {
 
         Optional<DailyStudy> optDailyStudy = dailyStudyRepository.findByUserIdAndDate(userId, today);
         if (optDailyStudy.isEmpty()) {
-            throw new IllegalStateException("Daily study not found");
+            throw VocabularyException.dailyStudyNotFound(userId, today);
         }
 
         DailyStudy dailyStudy = optDailyStudy.get();

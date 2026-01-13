@@ -99,4 +99,25 @@ public class VocabularyException extends ServerlessException {
                 String.format("유효하지 않은 레벨입니다: '%s'", level))
                 .addDetail("invalidValue", level);
     }
+
+    // === 단어 그룹(WordGroup) 관련 팩토리 메서드 ===
+
+    public static VocabularyException groupNotFound(String groupId) {
+        return (VocabularyException) new VocabularyException(VocabularyErrorCode.GROUP_NOT_FOUND,
+                String.format("단어 그룹을 찾을 수 없습니다 (ID: %s)", groupId))
+                .addDetail("groupId", groupId);
+    }
+
+    public static VocabularyException groupAlreadyExists(String groupName) {
+        return (VocabularyException) new VocabularyException(VocabularyErrorCode.GROUP_ALREADY_EXISTS,
+                String.format("이미 존재하는 그룹입니다: '%s'", groupName))
+                .addDetail("groupName", groupName);
+    }
+
+    // === 테스트(Test) 관련 팩토리 메서드 ===
+
+    public static VocabularyException noWordsToTest() {
+        return new VocabularyException(VocabularyErrorCode.NO_WORDS_TO_TEST,
+                "테스트할 단어가 없습니다. 먼저 일일 학습을 시작해주세요.");
+    }
 }
