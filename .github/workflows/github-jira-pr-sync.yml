@@ -1,0 +1,151 @@
+# GitHub PR → Jira 동기화
+name: Github-Jira PR Sync
+
+on:
+  pull_request:
+    types: [opened, closed, reopened]
+
+env:
+  JIRA_PROJECT_KEY: MESP
+
+jobs:
+  # GitHub PR 생성 → Jira 티켓 생성
+  create-jira-from-pr:
+    runs-on: ubuntu-latest
+    if: github.event.action == 'opened'
+
+    steps:
+      - name: Determine Issue Type from PR Title
+        id: issue-type
+        run: |
+          TITLE='${{ github.event.pull_request.title }}'
+          
+          # PR 제목 기반 Jira 타입 매핑
+          if echo "$TITLE" | grep -qiE "^\[EPIC\]"; then
+            echo "type=Epic" >> $GITHUB_OUTPUT
+          elif echo "$TITLE" | grep -qiE "^\[STORY\]"; then
+            echo "type=Story" >> $GITHUB_OUTPUT
+          elif echo "$TITLE" | grep -qiE "^(fix:|hotfix:)"; then
+            echo "type=Bug" >> $GITHUB_OUTPUT
+          else
+            # feat:, improve:, refactor:, release:, [TASK] 등 → Task
+            echo "type=Task" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create Jira Issue
+        id: create-jira
+        run: |
+          RESPONSE=$(curl -s -X POST \
+            -H "Authorization: Basic $(echo -n '${{ secrets.JIRA_USER_EMAIL }}:${{ secrets.JIRA_API_TOKEN }}' | base64)" \
+            -H "Content-Type: application/json" \
+            "${{ secrets.JIRA_BASE_URL }}/rest/api/3/issue" \
+            -d '{
+              "fields": {
+                "project": {"key": "${{ env.JIRA_PROJECT_KEY }}"},
+                "summary": "[PR-#${{ github.event.pull_request.number }}] ${{ github.event.pull_request.title }}",
+                "description": {
+                  "type": "doc",
+                  "version": 1,
+                  "content": [
+                    {"type": "paragraph", "content": [{"type": "text", "text": "GitHub PR: ${{ github.event.pull_request.html_url }}"}]},
+                    {"type": "paragraph", "content": [{"type": "text", "text": "Author: ${{ github.event.pull_request.user.login }}"}]},
+                    {"type": "paragraph", "content": [{"type": "text", "text": "Branch: ${{ github.head_ref }} → ${{ github.base_ref }}"}]}
+                  ]
+                },
+                "issuetype": {"name": "${{ steps.issue-type.outputs.type }}"}
+              }
+            }')
+          
+          JIRA_KEY=$(echo "$RESPONSE" | jq -r '.key // empty')
+          echo "jira_key=$JIRA_KEY" >> $GITHUB_OUTPUT
+
+      - name: Update PR with Jira Link
+        if: steps.create-jira.outputs.jira_key != ''
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const jiraKey = '${{ steps.create-jira.outputs.jira_key }}';
+            const jiraUrl = '${{ secrets.JIRA_BASE_URL }}/browse/' + jiraKey;
+            const currentBody = context.payload.pull_request.body || '';
+            const newBody = `\n---\n**Jira:** [${jiraKey}](${jiraUrl})\n---\n` + currentBody;
+            
+            await github.rest.pulls.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.payload.pull_request.number,
+              body: newBody
+            });
+            
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.pull_request.number,
+              body: `Jira 티켓 생성: [${jiraKey}](${jiraUrl})`
+            });
+
+  # PR 머지 → Jira 티켓 Done
+  close-jira-on-pr-merge:
+    runs-on: ubuntu-latest
+    if: github.event.action == 'closed' && github.event.pull_request.merged == true
+
+    steps:
+      - name: Extract Jira Key and Transition to Done
+        run: |
+          BODY='${{ github.event.pull_request.body }}'
+          JIRA_KEY=$(echo "$BODY" | grep -oE '${{ env.JIRA_PROJECT_KEY }}-[0-9]+' | head -1)
+          
+          [ -z "$JIRA_KEY" ] && exit 0
+          
+          TRANSITIONS=$(curl -s -X GET \
+            -H "Authorization: Basic $(echo -n '${{ secrets.JIRA_USER_EMAIL }}:${{ secrets.JIRA_API_TOKEN }}' | base64)" \
+            "${{ secrets.JIRA_BASE_URL }}/rest/api/3/issue/${JIRA_KEY}/transitions")
+          
+          DONE_ID=$(echo "$TRANSITIONS" | jq -r '.transitions[] | select(.name | test("Done|완료|Closed|종료"; "i")) | .id' | head -1)
+          
+          [ -z "$DONE_ID" ] && exit 0
+          
+          curl -s -X POST \
+            -H "Authorization: Basic $(echo -n '${{ secrets.JIRA_USER_EMAIL }}:${{ secrets.JIRA_API_TOKEN }}' | base64)" \
+            -H "Content-Type: application/json" \
+            "${{ secrets.JIRA_BASE_URL }}/rest/api/3/issue/${JIRA_KEY}/transitions" \
+            -d "{\"transition\": {\"id\": \"$DONE_ID\"}}"
+          
+          # Add merge comment to Jira
+          curl -s -X POST \
+            -H "Authorization: Basic $(echo -n '${{ secrets.JIRA_USER_EMAIL }}:${{ secrets.JIRA_API_TOKEN }}' | base64)" \
+            -H "Content-Type: application/json" \
+            "${{ secrets.JIRA_BASE_URL }}/rest/api/3/issue/${JIRA_KEY}/comment" \
+            -d '{
+              "body": {
+                "type": "doc",
+                "version": 1,
+                "content": [{"type": "paragraph", "content": [{"type": "text", "text": "PR #${{ github.event.pull_request.number }} merged to ${{ github.base_ref }}"}]}]
+              }
+            }'
+
+  # PR 재오픈 → Jira 상태 복구
+  reopen-jira-on-pr-reopen:
+    runs-on: ubuntu-latest
+    if: github.event.action == 'reopened'
+
+    steps:
+      - name: Extract Jira Key and Transition to In Progress
+        run: |
+          BODY='${{ github.event.pull_request.body }}'
+          JIRA_KEY=$(echo "$BODY" | grep -oE '${{ env.JIRA_PROJECT_KEY }}-[0-9]+' | head -1)
+          
+          [ -z "$JIRA_KEY" ] && exit 0
+          
+          TRANSITIONS=$(curl -s -X GET \
+            -H "Authorization: Basic $(echo -n '${{ secrets.JIRA_USER_EMAIL }}:${{ secrets.JIRA_API_TOKEN }}' | base64)" \
+            "${{ secrets.JIRA_BASE_URL }}/rest/api/3/issue/${JIRA_KEY}/transitions")
+          
+          PROGRESS_ID=$(echo "$TRANSITIONS" | jq -r '.transitions[] | select(.name | test("In Progress|진행|Open|To Do"; "i")) | .id' | head -1)
+          
+          [ -z "$PROGRESS_ID" ] && exit 0
+          
+          curl -s -X POST \
+            -H "Authorization: Basic $(echo -n '${{ secrets.JIRA_USER_EMAIL }}:${{ secrets.JIRA_API_TOKEN }}' | base64)" \
+            -H "Content-Type: application/json" \
+            "${{ secrets.JIRA_BASE_URL }}/rest/api/3/issue/${JIRA_KEY}/transitions" \
+            -d "{\"transition\": {\"id\": \"$PROGRESS_ID\"}}"
