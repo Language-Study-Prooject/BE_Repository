@@ -881,6 +881,30 @@ Resources:
             Auth:
               Authorizer: CognitoAuthorizer
 
+  # EventBridge Scheduler - 매일 자정 단어 학습 통계 집계
+  ScheduledStatsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: group2-englishstudy-scheduled-stats
+      CodeUri: .
+      Handler: com.mzc.secondproject.serverless.domain.stats.handler.ScheduledStatsHandler::handleRequest
+      Description: Daily scheduled job for word learning stats aggregation
+      Timeout: 300
+      MemorySize: 1024
+      SnapStart:
+        ApplyOn: PublishedVersions
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref VocabTable
+      Events:
+        DailySchedule:
+          Type: Schedule
+          Properties:
+            Schedule: cron(0 15 * * ? *)  # UTC 15:00 = KST 00:00 (자정)
+            Name: daily-stats-aggregation
+            Description: Daily word learning stats aggregation
+            Enabled: true
+
   #############################################
   # DynamoDB Tables
   #############################################
