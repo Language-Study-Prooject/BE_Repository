@@ -27,6 +27,14 @@ public enum VocabularyErrorCode implements DomainErrorCode {
     // 카테고리/레벨 관련 에러
     INVALID_CATEGORY("CATEGORY_001", "유효하지 않은 카테고리입니다", 400),
     INVALID_LEVEL("LEVEL_001", "유효하지 않은 레벨입니다", 400),
+
+    // 단어 그룹 관련 에러
+    GROUP_NOT_FOUND("GROUP_001", "단어 그룹을 찾을 수 없습니다", 404),
+    GROUP_ALREADY_EXISTS("GROUP_002", "이미 존재하는 그룹입니다", 409),
+
+    // 테스트 관련 에러
+    TEST_NOT_FOUND("TEST_001", "테스트 정보를 찾을 수 없습니다", 404),
+    NO_WORDS_TO_TEST("TEST_002", "테스트할 단어가 없습니다", 400),
     ;
 
     private static final String DOMAIN = "VOCABULARY";
