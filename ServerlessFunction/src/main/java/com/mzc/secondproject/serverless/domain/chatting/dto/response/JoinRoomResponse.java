@@ -15,7 +15,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class JoinRoomResponse {
-    private ChatRoom room;
-    private String roomToken;
-    private Long tokenExpiresAt;
+	private ChatRoom room;
+	private String roomToken;
+	private Long tokenExpiresAt;
 }

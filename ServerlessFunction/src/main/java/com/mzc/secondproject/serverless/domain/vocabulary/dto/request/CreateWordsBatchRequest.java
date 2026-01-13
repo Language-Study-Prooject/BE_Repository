@@ -14,8 +14,8 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class CreateWordsBatchRequest {
-
-    @NotEmpty(message = "is required")
-    @Valid
-    private List<CreateWordRequest> words;
+	
+	@NotEmpty(message = "is required")
+	@Valid
+	private List<CreateWordRequest> words;
 }
