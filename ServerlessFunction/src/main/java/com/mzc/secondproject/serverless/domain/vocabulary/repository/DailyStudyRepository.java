@@ -77,6 +77,7 @@ public class DailyStudyRepository {
 
     /**
      * 학습 완료 단어 추가 (UpdateExpression 사용 - N+1 방지)
+     * List 타입에 대해 list_append 사용
      */
     public void addLearnedWord(String userId, String date, String wordId) {
         Map<String, AttributeValue> key = new HashMap<>();
@@ -84,13 +85,18 @@ public class DailyStudyRepository {
         key.put("SK", AttributeValue.builder().s("DATE#" + date).build());
 
         Map<String, AttributeValue> expressionValues = new HashMap<>();
-        expressionValues.put(":wordId", AttributeValue.builder().ss(wordId).build());
+        expressionValues.put(":newWord", AttributeValue.builder().l(
+                AttributeValue.builder().s(wordId).build()
+        ).build());
+        expressionValues.put(":emptyList", AttributeValue.builder().l(java.util.Collections.emptyList()).build());
         expressionValues.put(":one", AttributeValue.builder().n("1").build());
+        expressionValues.put(":zero", AttributeValue.builder().n("0").build());
 
         UpdateItemRequest updateRequest = UpdateItemRequest.builder()
                 .tableName(TABLE_NAME)
                 .key(key)
-                .updateExpression("ADD learnedWordIds :wordId, learnedCount :one")
+                .updateExpression("SET learnedWordIds = list_append(if_not_exists(learnedWordIds, :emptyList), :newWord), " +
+                        "learnedCount = if_not_exists(learnedCount, :zero) + :one")
                 .expressionAttributeValues(expressionValues)
                 .build();
 
