@@ -14,6 +14,7 @@ public final class WebSocketConfig {
 	// 캐시된 값 (Cold Start 최적화)
 	private static final long CONNECTION_TTL_SECONDS = parseConnectionTtl();
 	private static final String WEBSOCKET_ENDPOINT = System.getenv(ENV_WEBSOCKET_ENDPOINT);
+	
 	private WebSocketConfig() {
 		// 인스턴스화 방지
 	}

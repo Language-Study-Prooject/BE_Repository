@@ -14,6 +14,7 @@ public final class StatsKey {
 	public static final String STATS_WEEKLY = "WEEKLY#";
 	public static final String STATS_MONTHLY = "MONTHLY#";
 	public static final String STATS_TOTAL = "TOTAL";
+	
 	private StatsKey() {
 	}
 	

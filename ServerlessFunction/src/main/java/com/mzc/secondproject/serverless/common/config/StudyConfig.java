@@ -20,6 +20,7 @@ public final class StudyConfig {
 	// 정답/오답 카운트 초기값
 	public static final int INITIAL_CORRECT_COUNT = 0;
 	public static final int INITIAL_INCORRECT_COUNT = 0;
+	
 	private StudyConfig() {
 	}
 }
