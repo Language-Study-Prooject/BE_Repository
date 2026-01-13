@@ -47,6 +47,7 @@ public class ChatRoom {
 	private Integer roundTimeLimit;     // 라운드 제한 시간 (초)
 	private List<String> drawerOrder;   // 출제 순서 (userId 목록)
 	private Map<String, Integer> scores; // 사용자별 점수
+	private Map<String, Integer> streaks; // 사용자별 연속 정답 수
 	private Boolean hintUsed;           // 현재 라운드 힌트 사용 여부
 	private List<String> correctGuessers; // 현재 라운드 정답자 목록
 	
