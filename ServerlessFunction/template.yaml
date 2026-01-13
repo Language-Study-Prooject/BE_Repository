@@ -1014,6 +1014,14 @@ Resources:
             Method: POST
             Auth:
               Authorizer: CognitoAuthorizer
+        GrammarConversation:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /grammar/conversation
+            Method: POST
+            Auth:
+              Authorizer: CognitoAuthorizer
 
   # EventBridge Scheduler - 매일 자정 단어 학습 통계 집계
   ScheduledStatsFunction:
