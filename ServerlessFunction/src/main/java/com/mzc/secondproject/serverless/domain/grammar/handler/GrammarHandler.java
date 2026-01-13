@@ -74,6 +74,7 @@ public class GrammarHandler implements RequestHandler<APIGatewayProxyRequestEven
 
 	private APIGatewayProxyResponseEvent conversation(APIGatewayProxyRequestEvent request, String userId) {
 		ConversationRequest req = ResponseGenerator.gson().fromJson(request.getBody(), ConversationRequest.class);
+		req.setUserId(userId);  // JWT에서 추출한 userId 설정
 
 		return BeanValidator.validateAndExecute(req, dto -> {
 			ConversationResponse result = conversationService.chat(dto);
