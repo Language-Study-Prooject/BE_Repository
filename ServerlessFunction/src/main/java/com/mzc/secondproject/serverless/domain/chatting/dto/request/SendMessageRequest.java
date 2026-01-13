@@ -14,9 +14,6 @@ import lombok.NoArgsConstructor;
 public class SendMessageRequest {
 
     @NotBlank(message = "is required")
-    private String userId;
-
-    @NotBlank(message = "is required")
     @Size(max = 1000, message = "must be at most 1000 characters")
     private String content;
 
