@@ -2,6 +2,7 @@ package com.mzc.secondproject.serverless.domain.grammar.factory;
 
 import com.google.gson.*;
 import com.mzc.secondproject.serverless.common.config.AwsClients;
+import com.mzc.secondproject.serverless.domain.grammar.dto.response.ConversationResponse;
 import com.mzc.secondproject.serverless.domain.grammar.dto.response.GrammarCheckResponse;
 import com.mzc.secondproject.serverless.domain.grammar.dto.response.GrammarError;
 import com.mzc.secondproject.serverless.domain.grammar.enums.GrammarErrorType;
@@ -203,5 +204,172 @@ public class BedrockGrammarCheckFactory implements GrammarCheckFactory {
 			return null;
 		}
 		return element.getAsInt();
+	}
+
+	public ConversationResponse generateConversation(String sessionId, String message, GrammarLevel level, String conversationHistory) {
+		logger.info("Generating conversation: sessionId={}, level={}", sessionId, level.name());
+
+		long startTime = System.currentTimeMillis();
+
+		try {
+			String systemPrompt = buildConversationSystemPrompt(level);
+			String userPrompt = buildConversationUserPrompt(message, conversationHistory);
+
+			JsonObject requestBody = buildRequestBody(userPrompt, systemPrompt);
+
+			InvokeModelRequest request = InvokeModelRequest.builder()
+					.modelId(MODEL_ID)
+					.contentType("application/json")
+					.accept("application/json")
+					.body(SdkBytes.fromUtf8String(gson.toJson(requestBody)))
+					.build();
+
+			InvokeModelResponse response = AwsClients.bedrock().invokeModel(request);
+
+			String responseBody = response.body().asUtf8String();
+			JsonObject jsonResponse = gson.fromJson(responseBody, JsonObject.class);
+
+			String content = jsonResponse.getAsJsonArray("content")
+					.get(0).getAsJsonObject()
+					.get("text").getAsString();
+
+			long processingTime = System.currentTimeMillis() - startTime;
+			logger.info("Conversation generated in {}ms", processingTime);
+
+			return parseConversationResponse(sessionId, message, content);
+
+		} catch (GrammarException e) {
+			throw e;
+		} catch (Exception e) {
+			logger.error("Error generating conversation", e);
+			throw GrammarException.bedrockApiError(e);
+		}
+	}
+
+	private String buildConversationSystemPrompt(GrammarLevel level) {
+		String basePrompt = """
+				You are a friendly English conversation partner who also helps with grammar.
+				When the user sends a message:
+				1. First, check their grammar and provide corrections if needed
+				2. Then respond naturally to continue the conversation
+				3. Provide a helpful learning tip
+
+				You MUST respond in the following JSON format only, with no additional text:
+				{
+				  "grammarCheck": {
+				    "correctedSentence": "the corrected sentence",
+				    "score": 85,
+				    "isCorrect": false,
+				    "errors": [
+				      {
+				        "type": "VERB_TENSE",
+				        "original": "goed",
+				        "corrected": "went",
+				        "explanation": "explanation here"
+				      }
+				    ],
+				    "feedback": "brief grammar feedback"
+				  },
+				  "aiResponse": "Your natural conversational response here",
+				  "conversationTip": "A helpful tip for the learner"
+				}
+
+				Error types: VERB_TENSE, SUBJECT_VERB_AGREEMENT, ARTICLE, PREPOSITION, WORD_ORDER, PLURAL_SINGULAR, PRONOUN, SPELLING, PUNCTUATION, WORD_CHOICE, SENTENCE_STRUCTURE, OTHER
+				""";
+
+		return switch (level) {
+			case BEGINNER -> basePrompt + """
+
+					For BEGINNER level:
+					- Use simple vocabulary in your response
+					- Keep sentences short
+					- Include Korean translations for difficult words in parentheses
+					- Be very encouraging
+					- Provide basic grammar tips
+					""";
+			case INTERMEDIATE -> basePrompt + """
+
+					For INTERMEDIATE level:
+					- Use natural everyday English
+					- Introduce new vocabulary naturally
+					- Provide practical grammar tips
+					""";
+			case ADVANCED -> basePrompt + """
+
+					For ADVANCED level:
+					- Use sophisticated vocabulary and idioms
+					- Challenge the learner
+					- Provide advanced grammar and style tips
+					""";
+		};
+	}
+
+	private String buildConversationUserPrompt(String message, String conversationHistory) {
+		StringBuilder prompt = new StringBuilder();
+
+		if (conversationHistory != null && !conversationHistory.isEmpty()) {
+			prompt.append("Previous conversation:\n");
+			prompt.append(conversationHistory);
+			prompt.append("\n\n");
+		}
+
+		prompt.append("User's message: \"").append(message).append("\"");
+
+		return prompt.toString();
+	}
+
+	private ConversationResponse parseConversationResponse(String sessionId, String originalMessage, String aiResponse) {
+		try {
+			String jsonContent = extractJson(aiResponse);
+			JsonObject json = gson.fromJson(jsonContent, JsonObject.class);
+
+			JsonObject grammarCheckObj = json.getAsJsonObject("grammarCheck");
+			GrammarCheckResponse grammarCheck = parseGrammarCheckFromJson(originalMessage, grammarCheckObj);
+
+			String conversationResponse = json.get("aiResponse").getAsString();
+			String tip = json.get("conversationTip").getAsString();
+
+			return ConversationResponse.builder()
+					.sessionId(sessionId)
+					.grammarCheck(grammarCheck)
+					.aiResponse(conversationResponse)
+					.conversationTip(tip)
+					.build();
+
+		} catch (Exception e) {
+			logger.error("Failed to parse conversation response: {}", aiResponse, e);
+			throw GrammarException.bedrockResponseParseError(aiResponse);
+		}
+	}
+
+	private GrammarCheckResponse parseGrammarCheckFromJson(String originalSentence, JsonObject json) {
+		String correctedSentence = json.get("correctedSentence").getAsString();
+		int score = json.get("score").getAsInt();
+		boolean isCorrect = json.get("isCorrect").getAsBoolean();
+		String feedback = json.get("feedback").getAsString();
+
+		List<GrammarError> errors = new ArrayList<>();
+		JsonArray errorsArray = json.getAsJsonArray("errors");
+		if (errorsArray != null) {
+			for (JsonElement element : errorsArray) {
+				JsonObject errorObj = element.getAsJsonObject();
+				GrammarError error = GrammarError.builder()
+						.type(parseErrorType(errorObj.get("type").getAsString()))
+						.original(errorObj.get("original").getAsString())
+						.corrected(errorObj.get("corrected").getAsString())
+						.explanation(errorObj.get("explanation").getAsString())
+						.build();
+				errors.add(error);
+			}
+		}
+
+		return GrammarCheckResponse.builder()
+				.originalSentence(originalSentence)
+				.correctedSentence(correctedSentence)
+				.score(score)
+				.errors(errors)
+				.feedback(feedback)
+				.isCorrect(isCorrect)
+				.build();
 	}
 }
