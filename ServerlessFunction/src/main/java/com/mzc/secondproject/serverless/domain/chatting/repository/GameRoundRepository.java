@@ -4,11 +4,13 @@ import com.mzc.secondproject.serverless.common.config.AwsClients;
 import com.mzc.secondproject.serverless.domain.chatting.model.GameRound;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import software.amazon.awssdk.enhanced.dynamodb.DynamoDbEnhancedClient;
 import software.amazon.awssdk.enhanced.dynamodb.DynamoDbTable;
 import software.amazon.awssdk.enhanced.dynamodb.Key;
 import software.amazon.awssdk.enhanced.dynamodb.TableSchema;
 import software.amazon.awssdk.enhanced.dynamodb.model.QueryConditional;
 import software.amazon.awssdk.enhanced.dynamodb.model.QueryEnhancedRequest;
+import software.amazon.awssdk.enhanced.dynamodb.model.WriteBatch;
 
 import java.util.List;
 import java.util.Optional;
@@ -21,11 +23,14 @@ public class GameRoundRepository {
 
 	private static final Logger logger = LoggerFactory.getLogger(GameRoundRepository.class);
 	private static final String TABLE_NAME = System.getenv("CHAT_TABLE_NAME");
+	private static final int BATCH_SIZE = 25;  // DynamoDB BatchWriteItem 최대 25개
 
+	private final DynamoDbEnhancedClient enhancedClient;
 	private final DynamoDbTable<GameRound> table;
 
 	public GameRoundRepository() {
-		this.table = AwsClients.dynamoDbEnhanced().table(TABLE_NAME, TableSchema.fromBean(GameRound.class));
+		this.enhancedClient = AwsClients.dynamoDbEnhanced();
+		this.table = enhancedClient.table(TABLE_NAME, TableSchema.fromBean(GameRound.class));
 	}
 
 	public GameRound save(GameRound gameRound) {
@@ -63,17 +68,34 @@ public class GameRoundRepository {
 	}
 
 	/**
-	 * 특정 게임의 모든 라운드 삭제
+	 * 특정 게임의 모든 라운드 삭제 (BatchWriteItem 사용)
 	 */
 	public void deleteByRoomId(String roomId) {
 		List<GameRound> rounds = findByRoomId(roomId);
+		if (rounds.isEmpty()) {
+			return;
+		}
+
+		// BatchWriteItem은 최대 25개까지 지원하므로 분할 처리
+		for (int i = 0; i < rounds.size(); i += BATCH_SIZE) {
+			List<GameRound> batch = rounds.subList(i, Math.min(i + BATCH_SIZE, rounds.size()));
+			batchDeleteRounds(batch);
+		}
+		logger.info("Deleted {} rounds for roomId={}", rounds.size(), roomId);
+	}
+
+	private void batchDeleteRounds(List<GameRound> rounds) {
+		WriteBatch.Builder<GameRound> writeBatchBuilder = WriteBatch.builder(GameRound.class)
+				.mappedTableResource(table);
+
 		for (GameRound round : rounds) {
 			Key key = Key.builder()
 					.partitionValue(round.getPk())
 					.sortValue(round.getSk())
 					.build();
-			table.deleteItem(key);
+			writeBatchBuilder.addDeleteItem(key);
 		}
-		logger.info("Deleted {} rounds for roomId={}", rounds.size(), roomId);
+
+		enhancedClient.batchWriteItem(r -> r.writeBatches(writeBatchBuilder.build()));
 	}
 }

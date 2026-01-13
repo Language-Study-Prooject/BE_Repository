@@ -36,6 +36,7 @@ public class GameRound {
 
 	private Boolean hintUsed;       // 힌트 사용 여부
 	private String createdAt;
+	private Long ttl;               // 자동 만료 (7일 후)
 
 	@DynamoDbPartitionKey
 	@DynamoDbAttribute("PK")

@@ -97,7 +97,8 @@ public class GameService {
 
 		chatRoomRepository.save(room);
 
-		// 첫 라운드 기록 생성
+		// 첫 라운드 기록 생성 (7일 후 자동 삭제)
+		long ttlSeconds = Instant.now().plusSeconds(7 * 24 * 60 * 60).getEpochSecond();
 		GameRound firstRound = GameRound.builder()
 				.pk("ROOM#" + roomId + "#GAME")
 				.sk("ROUND#1")
@@ -113,6 +114,7 @@ public class GameService {
 				.guessTimes(new HashMap<>())
 				.roundScores(new HashMap<>())
 				.createdAt(Instant.now().toString())
+				.ttl(ttlSeconds)
 				.build();
 
 		gameRoundRepository.save(firstRound);
@@ -321,7 +323,8 @@ public class GameService {
 
 		chatRoomRepository.save(room);
 
-		// 다음 라운드 기록 생성
+		// 다음 라운드 기록 생성 (7일 후 자동 삭제)
+		long nextTtlSeconds = Instant.now().plusSeconds(7 * 24 * 60 * 60).getEpochSecond();
 		GameRound nextRoundRecord = GameRound.builder()
 				.pk("ROOM#" + roomId + "#GAME")
 				.sk("ROUND#" + nextRound)
@@ -337,6 +340,7 @@ public class GameService {
 				.guessTimes(new HashMap<>())
 				.roundScores(new HashMap<>())
 				.createdAt(Instant.now().toString())
+				.ttl(nextTtlSeconds)
 				.build();
 
 		gameRoundRepository.save(nextRoundRecord);
