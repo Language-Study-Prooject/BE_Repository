@@ -178,10 +178,31 @@ public class WebSocketMessageHandler implements RequestHandler<Map<String, Objec
 	 * 정답 처리
 	 */
 	private Map<String, Object> handleCorrectAnswer(MessagePayload payload, GameService.AnswerCheckResult result) {
+		List<Connection> connections = connectionRepository.findByRoomId(payload.roomId);
+
+		// 1. 정답 알림 메시지 브로드캐스트
+		broadcastCorrectAnswerMessage(payload, result, connections);
+
+		// 2. 점수 업데이트 메시지 브로드캐스트
+		broadcastScoreUpdate(payload.roomId, result.scores(), connections);
+
+		logger.info("Correct answer: roomId={}, userId={}, score={}", payload.roomId, payload.userId, result.score());
+
+		// 전원 정답 시 라운드 종료 처리
+		if (result.allCorrect()) {
+			handleAllCorrect(payload.roomId);
+		}
+
+		return createResponse(200, "Correct answer");
+	}
+
+	/**
+	 * 정답 알림 메시지 브로드캐스트
+	 */
+	private void broadcastCorrectAnswerMessage(MessagePayload payload, GameService.AnswerCheckResult result, List<Connection> connections) {
 		String messageId = UUID.randomUUID().toString();
 		String now = Instant.now().toString();
 
-		// 정답 알림 메시지 생성
 		String message = String.format("🎉 %s님이 정답을 맞췄습니다! (+%d점)", payload.userId, result.score());
 
 		ChatMessage correctMessage = ChatMessage.builder()
@@ -199,25 +220,52 @@ public class WebSocketMessageHandler implements RequestHandler<Map<String, Objec
 				.createdAt(now)
 				.build();
 
-		// 브로드캐스트
-		List<Connection> connections = connectionRepository.findByRoomId(payload.roomId);
 		String broadcastPayload = gson.toJson(correctMessage);
 		List<String> failedConnections = broadcaster.broadcast(connections, broadcastPayload);
+		cleanupFailedConnections(failedConnections);
+	}
 
-		// 실패한 연결 정리
+	/**
+	 * 점수 업데이트 메시지 브로드캐스트
+	 */
+	private void broadcastScoreUpdate(String roomId, Map<String, Integer> scores, List<Connection> connections) {
+		if (scores == null || scores.isEmpty()) {
+			return;
+		}
+
+		String messageId = UUID.randomUUID().toString();
+		String now = Instant.now().toString();
+
+		// 점수 현황 문자열 생성
+		StringBuilder sb = new StringBuilder("📊 현재 점수:\n");
+		scores.entrySet().stream()
+				.sorted((a, b) -> b.getValue().compareTo(a.getValue()))
+				.forEach(entry -> sb.append(String.format("  %s: %d점\n", entry.getKey(), entry.getValue())));
+
+		Map<String, Object> scoreUpdateMessage = new HashMap<>();
+		scoreUpdateMessage.put("messageId", messageId);
+		scoreUpdateMessage.put("roomId", roomId);
+		scoreUpdateMessage.put("userId", "SYSTEM");
+		scoreUpdateMessage.put("content", sb.toString());
+		scoreUpdateMessage.put("messageType", MessageType.SCORE_UPDATE.getCode());
+		scoreUpdateMessage.put("createdAt", now);
+		scoreUpdateMessage.put("scores", scores);
+
+		String broadcastPayload = gson.toJson(scoreUpdateMessage);
+		List<String> failedConnections = broadcaster.broadcast(connections, broadcastPayload);
+		cleanupFailedConnections(failedConnections);
+
+		logger.info("Score update broadcasted: roomId={}", roomId);
+	}
+
+	/**
+	 * 실패한 연결 정리
+	 */
+	private void cleanupFailedConnections(List<String> failedConnections) {
 		for (String failedConnectionId : failedConnections) {
 			connectionRepository.delete(failedConnectionId);
 			logger.info("Deleted stale connection: {}", failedConnectionId);
 		}
-
-		logger.info("Correct answer: roomId={}, userId={}, score={}", payload.roomId, payload.userId, result.score());
-
-		// 전원 정답 시 라운드 종료 처리
-		if (result.allCorrect()) {
-			handleAllCorrect(payload.roomId);
-		}
-
-		return createResponse(200, "Correct answer");
 	}
 
 	/**
