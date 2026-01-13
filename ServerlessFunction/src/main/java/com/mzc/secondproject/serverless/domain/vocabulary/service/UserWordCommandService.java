@@ -123,6 +123,47 @@ public class UserWordCommandService {
         return userWord;
     }
 
+    /**
+     * 단어 상태 수동 변경
+     */
+    public UserWord updateWordStatus(String userId, String wordId, String newStatus) {
+        if (!WordStatus.isValid(newStatus)) {
+            throw new IllegalArgumentException("Invalid status: " + newStatus);
+        }
+
+        Optional<UserWord> optUserWord = userWordRepository.findByUserIdAndWordId(userId, wordId);
+        UserWord userWord;
+        String now = Instant.now().toString();
+
+        if (optUserWord.isEmpty()) {
+            userWord = UserWord.builder()
+                    .pk(VocabKey.userPk(userId))
+                    .sk(VocabKey.wordSk(wordId))
+                    .gsi1pk(VocabKey.userReviewPk(userId))
+                    .gsi2pk(VocabKey.userStatusPk(userId))
+                    .userId(userId)
+                    .wordId(wordId)
+                    .interval(StudyConfig.INITIAL_INTERVAL_DAYS)
+                    .easeFactor(StudyConfig.DEFAULT_EASE_FACTOR)
+                    .repetitions(StudyConfig.INITIAL_REPETITIONS)
+                    .correctCount(StudyConfig.INITIAL_CORRECT_COUNT)
+                    .incorrectCount(StudyConfig.INITIAL_INCORRECT_COUNT)
+                    .createdAt(now)
+                    .build();
+        } else {
+            userWord = optUserWord.get();
+        }
+
+        userWord.setStatus(newStatus.toUpperCase());
+        userWord.setGsi2sk(VocabKey.statusSk(newStatus.toUpperCase()));
+        userWord.setUpdatedAt(now);
+
+        userWordRepository.save(userWord);
+
+        logger.info("Updated word status: userId={}, wordId={}, status={}", userId, wordId, newStatus);
+        return userWord;
+    }
+
     private void applySpacedRepetition(UserWord userWord, boolean isCorrect) {
         SpacedRepetitionContext context = new SpacedRepetitionContext(
                 userWord.getRepetitions(),

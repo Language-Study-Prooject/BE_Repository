@@ -9,6 +9,7 @@ import com.mzc.secondproject.serverless.domain.vocabulary.model.Word;
 import com.mzc.secondproject.serverless.domain.vocabulary.repository.DailyStudyRepository;
 import com.mzc.secondproject.serverless.domain.vocabulary.repository.UserWordRepository;
 import com.mzc.secondproject.serverless.domain.vocabulary.repository.WordRepository;
+import com.mzc.secondproject.serverless.domain.stats.repository.UserStatsRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -39,11 +40,13 @@ public class DailyStudyCommandService {
     private final DailyStudyRepository dailyStudyRepository;
     private final UserWordRepository userWordRepository;
     private final WordRepository wordRepository;
+    private final UserStatsRepository userStatsRepository;
 
     public DailyStudyCommandService() {
         this.dailyStudyRepository = new DailyStudyRepository();
         this.userWordRepository = new UserWordRepository();
         this.wordRepository = new WordRepository();
+        this.userStatsRepository = new UserStatsRepository();
     }
 
     public DailyStudyResult getDailyWords(String userId, String level) {
@@ -81,11 +84,23 @@ public class DailyStudyCommandService {
 
         DailyStudy dailyStudy = optDailyStudy.get();
 
+        // 이미 학습한 단어면 스킵
         if (dailyStudy.getLearnedWordIds() != null && dailyStudy.getLearnedWordIds().contains(wordId)) {
             return calculateProgress(dailyStudy);
         }
 
+        // 새 단어인지 복습 단어인지 확인
+        boolean isNewWord = dailyStudy.getNewWordIds() != null && dailyStudy.getNewWordIds().contains(wordId);
+        boolean isReviewWord = dailyStudy.getReviewWordIds() != null && dailyStudy.getReviewWordIds().contains(wordId);
+
         dailyStudyRepository.addLearnedWord(userId, today, wordId);
+
+        // Write-through: 통계 즉시 업데이트
+        if (isNewWord) {
+            userStatsRepository.incrementWordsLearned(userId, 1, 0);
+        } else if (isReviewWord) {
+            userStatsRepository.incrementWordsLearned(userId, 0, 1);
+        }
 
         DailyStudy updatedDailyStudy = dailyStudyRepository.findByUserIdAndDate(userId, today).orElse(dailyStudy);
 
@@ -94,7 +109,8 @@ public class DailyStudyCommandService {
             dailyStudyRepository.save(updatedDailyStudy);
         }
 
-        logger.info("Marked word as learned: userId={}, wordId={}", userId, wordId);
+        logger.info("Marked word as learned: userId={}, wordId={}, isNew={}, isReview={}",
+                userId, wordId, isNewWord, isReviewWord);
         return calculateProgress(updatedDailyStudy);
     }
 

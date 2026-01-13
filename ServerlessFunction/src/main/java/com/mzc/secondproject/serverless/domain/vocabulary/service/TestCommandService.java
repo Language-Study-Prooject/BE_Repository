@@ -160,6 +160,7 @@ public class TestCommandService {
                 .correctAnswers(correctCount)
                 .incorrectAnswers(incorrectCount)
                 .successRate(successRate)
+                .testedWordIds(wordIds)
                 .incorrectWordIds(incorrectWordIds)
                 .startedAt(startedAt)
                 .completedAt(now)
