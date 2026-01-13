@@ -94,11 +94,7 @@ public class ChatRoomCommandService {
 		// 토큰 발급
 		RoomToken token = roomTokenService.generateToken(roomId, userId);
 		
-		return JoinRoomResponse.builder()
-				.room(room)
-				.roomToken(token.getToken())
-				.tokenExpiresAt(token.getTtl())
-				.build();
+		return JoinRoomResponse.of(room, token.getToken(), token.getTtl());
 	}
 	
 	public LeaveResult leaveRoom(String roomId, String userId) {
