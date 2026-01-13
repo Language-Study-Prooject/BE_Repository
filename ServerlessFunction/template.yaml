@@ -339,6 +339,9 @@ Resources:
       Description: Handle catch-mind game operations
       SnapStart:
         ApplyOn: PublishedVersions
+      Environment:
+        Variables:
+          WEBSOCKET_ENDPOINT: !Sub "https://${WebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/dev"
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref ChatTable
@@ -346,7 +349,7 @@ Resources:
             - Effect: Allow
               Action:
                 - execute-api:ManageConnections
-              Resource: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ChatWebSocketApi}/*"
+              Resource: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${WebSocketApi}/*"
       Events:
         StartGame:
           Type: Api
