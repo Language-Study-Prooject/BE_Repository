@@ -465,64 +465,64 @@ Resources:
             RestApiId: !Ref MainApi
             Path: /vocab/words
             Method: POST
-            # Auth:
-            #   Authorizer: CognitoAuthorizer
+            Auth:
+              Authorizer: NONE
         BatchCreateWords:
           Type: Api
           Properties:
             RestApiId: !Ref MainApi
             Path: /vocab/words/batch
             Method: POST
-            # Auth:
-            #   Authorizer: CognitoAuthorizer
+            Auth:
+              Authorizer: NONE
         BatchGetWords:
           Type: Api
           Properties:
             RestApiId: !Ref MainApi
             Path: /vocab/words/batch/get
             Method: POST
-            # Auth:
-            #   Authorizer: CognitoAuthorizer
+            Auth:
+              Authorizer: NONE
         SearchWords:
           Type: Api
           Properties:
             RestApiId: !Ref MainApi
             Path: /vocab/words/search
             Method: GET
-            # Auth:
-            #   Authorizer: CognitoAuthorizer
+            Auth:
+              Authorizer: NONE
         GetWords:
           Type: Api
           Properties:
             RestApiId: !Ref MainApi
             Path: /vocab/words
             Method: GET
-            # Auth:
-            #   Authorizer: CognitoAuthorizer
+            Auth:
+              Authorizer: NONE
         GetWord:
           Type: Api
           Properties:
             RestApiId: !Ref MainApi
             Path: /vocab/words/{wordId}
             Method: GET
-            # Auth:
-            #   Authorizer: CognitoAuthorizer
+            Auth:
+              Authorizer: NONE
         UpdateWord:
           Type: Api
           Properties:
             RestApiId: !Ref MainApi
             Path: /vocab/words/{wordId}
             Method: PUT
-            # Auth:
-            #   Authorizer: CognitoAuthorizer
+            Auth:
+              Authorizer: NONE
         DeleteWord:
           Type: Api
           Properties:
             RestApiId: !Ref MainApi
             Path: /vocab/words/{wordId}
             Method: DELETE
-            # Auth:
-            #   Authorizer: CognitoAuthorizer
+            Auth:
+              Authorizer: NONE
 
   UserWordFunction:
     Type: AWS::Serverless::Function
@@ -794,8 +794,8 @@ Resources:
             RestApiId: !Ref MainApi
             Path: /vocab/voice/synthesize
             Method: POST
-            # Auth:
-            #   Authorizer: CognitoAuthorizer
+            Auth:
+              Authorizer: NONE
 
   #############################################
   # DynamoDB Tables
