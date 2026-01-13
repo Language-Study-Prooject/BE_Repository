@@ -39,11 +39,13 @@ public class TestCommandService {
     private final TestResultRepository testResultRepository;
     private final DailyStudyRepository dailyStudyRepository;
     private final WordRepository wordRepository;
+    private final UserWordCommandService userWordCommandService;
 
     public TestCommandService() {
         this.testResultRepository = new TestResultRepository();
         this.dailyStudyRepository = new DailyStudyRepository();
         this.wordRepository = new WordRepository();
+        this.userWordCommandService = new UserWordCommandService();
     }
 
     public StartTestResult startTest(String userId, String testType) {
@@ -164,11 +166,31 @@ public class TestCommandService {
 
         testResultRepository.save(testResult);
 
+        // 오답 단어 자동 북마크
+        bookmarkIncorrectWords(userId, incorrectWordIds);
+
         publishTestResultToSns(userId, results);
 
         logger.info("Test submitted: userId={}, testId={}, successRate={}%", userId, testId, successRate);
 
         return new SubmitTestResult(testId, testType, totalQuestions, correctCount, incorrectCount, successRate, results);
+    }
+
+    private void bookmarkIncorrectWords(String userId, List<String> incorrectWordIds) {
+        if (incorrectWordIds == null || incorrectWordIds.isEmpty()) {
+            return;
+        }
+
+        int bookmarkedCount = 0;
+        for (String wordId : incorrectWordIds) {
+            try {
+                userWordCommandService.updateUserWordTag(userId, wordId, true, null, null);
+                bookmarkedCount++;
+            } catch (Exception e) {
+                logger.warn("Failed to bookmark word: userId={}, wordId={}", userId, wordId, e);
+            }
+        }
+        logger.info("Auto-bookmarked {} incorrect words for user: {}", bookmarkedCount, userId);
     }
 
     private List<String> getDistractorsForLevel(String level, List<String> excludeWordIds) {
