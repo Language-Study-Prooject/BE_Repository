@@ -4,9 +4,14 @@ import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.lambda.runtime.RequestHandler;
 import com.amazonaws.services.lambda.runtime.events.DynamodbEvent;
 import com.amazonaws.services.lambda.runtime.events.models.dynamodb.AttributeValue;
+import com.mzc.secondproject.serverless.domain.stats.model.UserStats;
 import com.mzc.secondproject.serverless.domain.stats.repository.UserStatsRepository;
+import com.mzc.secondproject.serverless.domain.badge.model.UserBadge;
+import com.mzc.secondproject.serverless.domain.badge.service.BadgeService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.util.List;
 
 import java.time.LocalDate;
 import java.util.Map;
@@ -21,9 +26,11 @@ public class StatsStreamHandler implements RequestHandler<DynamodbEvent, Void> {
     private static final Logger logger = LoggerFactory.getLogger(StatsStreamHandler.class);
 
     private final UserStatsRepository userStatsRepository;
+    private final BadgeService badgeService;
 
     public StatsStreamHandler() {
         this.userStatsRepository = new UserStatsRepository();
+        this.badgeService = new BadgeService();
     }
 
     @Override
@@ -88,6 +95,32 @@ public class StatsStreamHandler implements RequestHandler<DynamodbEvent, Void> {
         updateStudyStreak(userId);
 
         logger.info("Stats updated for user: {}", userId);
+
+        // 뱃지 체크 및 부여
+        checkAndAwardBadges(userId, correctAnswers, incorrectAnswers);
+    }
+
+    private void checkAndAwardBadges(String userId, int correctAnswers, int incorrectAnswers) {
+        try {
+            Optional<UserStats> totalStats = userStatsRepository.findTotalStats(userId);
+            if (totalStats.isEmpty()) {
+                return;
+            }
+
+            // 만점 뱃지 체크 (이번 테스트가 만점인 경우)
+            if (incorrectAnswers == 0 && correctAnswers > 0) {
+                badgeService.awardBadge(userId, "PERFECT_SCORE");
+                logger.info("Perfect score badge awarded to user: {}", userId);
+            }
+
+            // 기타 뱃지 체크
+            List<UserBadge> newBadges = badgeService.checkAndAwardBadges(userId, totalStats.get());
+            if (!newBadges.isEmpty()) {
+                logger.info("Awarded {} new badges to user: {}", newBadges.size(), userId);
+            }
+        } catch (Exception e) {
+            logger.error("Failed to check badges for user: {}", userId, e);
+        }
     }
 
     private void updateStudyStreak(String userId) {
