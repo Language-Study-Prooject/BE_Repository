@@ -12,8 +12,10 @@ import com.mzc.secondproject.serverless.domain.grammar.dto.request.ConversationR
 import com.mzc.secondproject.serverless.domain.grammar.dto.request.GrammarCheckRequest;
 import com.mzc.secondproject.serverless.domain.grammar.dto.response.ConversationResponse;
 import com.mzc.secondproject.serverless.domain.grammar.dto.response.GrammarCheckResponse;
+import com.mzc.secondproject.serverless.domain.grammar.model.GrammarSession;
 import com.mzc.secondproject.serverless.domain.grammar.service.GrammarCheckService;
 import com.mzc.secondproject.serverless.domain.grammar.service.GrammarConversationService;
+import com.mzc.secondproject.serverless.domain.grammar.service.GrammarSessionQueryService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -26,18 +28,23 @@ public class GrammarHandler implements RequestHandler<APIGatewayProxyRequestEven
 
 	private final GrammarCheckService grammarCheckService;
 	private final GrammarConversationService conversationService;
+	private final GrammarSessionQueryService sessionQueryService;
 	private final HandlerRouter router;
 
 	public GrammarHandler() {
 		this.grammarCheckService = new GrammarCheckService();
 		this.conversationService = new GrammarConversationService();
+		this.sessionQueryService = new GrammarSessionQueryService();
 		this.router = initRouter();
 	}
 
 	private HandlerRouter initRouter() {
 		return new HandlerRouter().addRoutes(
 				Route.postAuth("/grammar/check", this::checkGrammar),
-				Route.postAuth("/grammar/conversation", this::conversation)
+				Route.postAuth("/grammar/conversation", this::conversation),
+				Route.getAuth("/grammar/sessions", this::getSessions),
+				Route.getAuth("/grammar/sessions/{sessionId}", this::getSessionDetail),
+				Route.deleteAuth("/grammar/sessions/{sessionId}", this::deleteSession)
 		);
 	}
 
@@ -79,5 +86,50 @@ public class GrammarHandler implements RequestHandler<APIGatewayProxyRequestEven
 
 			return ResponseGenerator.ok("Conversation generated successfully", response);
 		});
+	}
+
+	private APIGatewayProxyResponseEvent getSessions(APIGatewayProxyRequestEvent request, String userId) {
+		Map<String, String> queryParams = request.getQueryStringParameters();
+		String cursor = queryParams != null ? queryParams.get("cursor") : null;
+
+		int limit = 10;
+		if (queryParams != null && queryParams.get("limit") != null) {
+			limit = Math.min(Integer.parseInt(queryParams.get("limit")), 50);
+		}
+
+		var result = sessionQueryService.getSessions(userId, limit, cursor);
+
+		Map<String, Object> response = new HashMap<>();
+		response.put("sessions", result.items());
+		response.put("nextCursor", result.nextCursor());
+		response.put("hasMore", result.hasMore());
+
+		return ResponseGenerator.ok("Sessions retrieved successfully", response);
+	}
+
+	private APIGatewayProxyResponseEvent getSessionDetail(APIGatewayProxyRequestEvent request, String userId) {
+		String sessionId = request.getPathParameters().get("sessionId");
+
+		Map<String, String> queryParams = request.getQueryStringParameters();
+		int messageLimit = 50;
+		if (queryParams != null && queryParams.get("messageLimit") != null) {
+			messageLimit = Math.min(Integer.parseInt(queryParams.get("messageLimit")), 100);
+		}
+
+		var detail = sessionQueryService.getSessionDetail(userId, sessionId, messageLimit);
+
+		Map<String, Object> response = new HashMap<>();
+		response.put("session", detail.session());
+		response.put("messages", detail.messages());
+
+		return ResponseGenerator.ok("Session detail retrieved successfully", response);
+	}
+
+	private APIGatewayProxyResponseEvent deleteSession(APIGatewayProxyRequestEvent request, String userId) {
+		String sessionId = request.getPathParameters().get("sessionId");
+
+		sessionQueryService.deleteSession(userId, sessionId);
+
+		return ResponseGenerator.ok("Session deleted successfully", null);
 	}
 }
