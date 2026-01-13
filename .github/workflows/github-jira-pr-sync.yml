@@ -2,8 +2,11 @@
 name: PR-Jira Sync
 
 on:
-  pull_request:
+  pull_request_target:
     types: [opened]
+    branches:
+      - develop
+      - main
 
 permissions:
   issues: write

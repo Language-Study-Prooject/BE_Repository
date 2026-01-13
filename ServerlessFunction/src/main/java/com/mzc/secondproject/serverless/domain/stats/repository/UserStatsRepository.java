@@ -254,6 +254,51 @@ public class UserStatsRepository {
 	}
 	
 	/**
+	 * 게임 통계 Atomic 업데이트
+	 */
+	public void incrementGameStats(String userId, int gamesPlayed, int gamesWon,
+			int correctGuesses, int totalScore, int quickGuesses, int perfectDraws) {
+		String pk = StatsKey.userStatsPk(userId);
+		String sk = StatsKey.statsTotalSk();
+		String now = Instant.now().toString();
+
+		Map<String, AttributeValue> key = new HashMap<>();
+		key.put("PK", AttributeValue.builder().s(pk).build());
+		key.put("SK", AttributeValue.builder().s(sk).build());
+
+		Map<String, AttributeValue> values = new HashMap<>();
+		values.put(":gamesPlayed", AttributeValue.builder().n(String.valueOf(gamesPlayed)).build());
+		values.put(":gamesWon", AttributeValue.builder().n(String.valueOf(gamesWon)).build());
+		values.put(":correctGuesses", AttributeValue.builder().n(String.valueOf(correctGuesses)).build());
+		values.put(":totalScore", AttributeValue.builder().n(String.valueOf(totalScore)).build());
+		values.put(":quickGuesses", AttributeValue.builder().n(String.valueOf(quickGuesses)).build());
+		values.put(":perfectDraws", AttributeValue.builder().n(String.valueOf(perfectDraws)).build());
+		values.put(":zero", AttributeValue.builder().n("0").build());
+		values.put(":now", AttributeValue.builder().s(now).build());
+
+		String updateExpression = "SET " +
+				"gamesPlayed = if_not_exists(gamesPlayed, :zero) + :gamesPlayed, " +
+				"gamesWon = if_not_exists(gamesWon, :zero) + :gamesWon, " +
+				"correctGuesses = if_not_exists(correctGuesses, :zero) + :correctGuesses, " +
+				"totalGameScore = if_not_exists(totalGameScore, :zero) + :totalScore, " +
+				"quickGuesses = if_not_exists(quickGuesses, :zero) + :quickGuesses, " +
+				"perfectDraws = if_not_exists(perfectDraws, :zero) + :perfectDraws, " +
+				"updatedAt = :now, " +
+				"createdAt = if_not_exists(createdAt, :now)";
+
+		UpdateItemRequest request = UpdateItemRequest.builder()
+				.tableName(TABLE_NAME)
+				.key(key)
+				.updateExpression(updateExpression)
+				.expressionAttributeValues(values)
+				.build();
+
+		AwsClients.dynamoDb().updateItem(request);
+		logger.info("Incremented game stats: userId={}, gamesPlayed={}, gamesWon={}, correctGuesses={}",
+				userId, gamesPlayed, gamesWon, correctGuesses);
+	}
+
+	/**
 	 * 현재 연도-주차 반환 (예: 2026-W02)
 	 */
 	private String getYearWeek() {

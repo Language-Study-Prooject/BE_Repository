@@ -18,6 +18,7 @@ Chatting Server는 영어 회화 학습 플랫폼의 실시간 채팅 기능을 
 | AI 응답       | AWS Bedrock 기반 AI 메시지 생성           |
 | TTS (음성 합성) | AWS Polly 기반 음성 변환                 |
 | 비밀방         | BCrypt 암호화 비밀번호 지원                 |
+| 캐치마인드 게임   | 실시간 그림 맞추기 게임                      |
 
 ### 1.3 기술 스택
 
@@ -618,7 +619,201 @@ flowchart LR
 }
 ```
 
-### 4.7 WebSocket 엔드포인트
+---
+
+## 캐치마인드 게임 API
+
+### 4.7 게임 시작
+
+#### POST /chat/rooms/{roomId}/game/start
+
+게임을 시작합니다. 방장만 게임을 시작할 수 있습니다.
+
+**Request Header**
+- `Authorization`: Bearer {token}
+
+**Response (200 OK)**
+
+```json
+{
+  "success": true,
+  "message": "Game started successfully",
+  "data": {
+    "roomId": "550e8400-e29b-41d4-a716-446655440000",
+    "gameId": "game-uuid-here",
+    "status": "IN_PROGRESS",
+    "currentWord": "apple",
+    "drawerId": "user123",
+    "startedAt": "2026-01-09T10:00:00Z"
+  }
+}
+```
+
+### 4.8 게임 중지
+
+#### POST /chat/rooms/{roomId}/game/stop
+
+진행 중인 게임을 중지합니다. 방장만 중지할 수 있습니다.
+
+**Request Header**
+- `Authorization`: Bearer {token}
+
+**Response (200 OK)**
+
+```json
+{
+  "success": true,
+  "message": "Game stopped successfully",
+  "data": {
+    "roomId": "550e8400-e29b-41d4-a716-446655440000",
+    "gameId": "game-uuid-here",
+    "status": "STOPPED",
+    "finalScores": {
+      "user123": 30,
+      "user456": 20,
+      "user789": 10
+    }
+  }
+}
+```
+
+### 4.9 게임 상태 조회
+
+#### GET /chat/rooms/{roomId}/game/status
+
+현재 게임 상태를 조회합니다.
+
+**Request Header**
+- `Authorization`: Bearer {token}
+
+**Response (200 OK)**
+
+```json
+{
+  "success": true,
+  "message": "Game status retrieved",
+  "data": {
+    "roomId": "550e8400-e29b-41d4-a716-446655440000",
+    "gameId": "game-uuid-here",
+    "status": "IN_PROGRESS",
+    "currentRound": 3,
+    "totalRounds": 5,
+    "drawerId": "user123",
+    "timeRemaining": 45,
+    "scores": {
+      "user123": 30,
+      "user456": 20,
+      "user789": 10
+    }
+  }
+}
+```
+
+**게임 상태 (status)**
+- `WAITING`: 게임 대기 중
+- `IN_PROGRESS`: 게임 진행 중
+- `ROUND_END`: 라운드 종료
+- `GAME_END`: 게임 종료
+- `STOPPED`: 강제 중지
+
+### 4.10 점수 조회
+
+#### GET /chat/rooms/{roomId}/game/scores
+
+현재 게임의 점수를 조회합니다.
+
+**Request Header**
+- `Authorization`: Bearer {token}
+
+**Response (200 OK)**
+
+```json
+{
+  "success": true,
+  "message": "Scores retrieved",
+  "data": {
+    "roomId": "550e8400-e29b-41d4-a716-446655440000",
+    "gameId": "game-uuid-here",
+    "scores": [
+      {
+        "userId": "user123",
+        "nickname": "Player1",
+        "score": 30,
+        "rank": 1
+      },
+      {
+        "userId": "user456",
+        "nickname": "Player2",
+        "score": 20,
+        "rank": 2
+      },
+      {
+        "userId": "user789",
+        "nickname": "Player3",
+        "score": 10,
+        "rank": 3
+      }
+    ]
+  }
+}
+```
+
+### 캐치마인드 게임 규칙
+
+| 항목 | 설명 |
+|-----|-----|
+| 최소 인원 | 2명 |
+| 라운드당 시간 | 60초 |
+| 정답 점수 | 10점 (맞춘 사람) |
+| 출제자 점수 | 5점 (누군가 맞추면) |
+| 단어 카테고리 | 동물, 음식, 사물, 직업 등 |
+
+### WebSocket 게임 이벤트
+
+게임 진행 중 WebSocket을 통해 실시간 이벤트가 전송됩니다.
+
+**게임 시작 이벤트**
+```json
+{
+  "type": "GAME_START",
+  "gameId": "game-uuid",
+  "drawerId": "user123",
+  "round": 1
+}
+```
+
+**정답 이벤트**
+```json
+{
+  "type": "CORRECT_ANSWER",
+  "userId": "user456",
+  "word": "apple",
+  "score": 10
+}
+```
+
+**라운드 종료 이벤트**
+```json
+{
+  "type": "ROUND_END",
+  "round": 1,
+  "answer": "apple",
+  "scores": {...}
+}
+```
+
+**게임 종료 이벤트**
+```json
+{
+  "type": "GAME_END",
+  "winner": "user123",
+  "finalScores": {...}
+}
+```
+
+---
+
+### 4.11 WebSocket 엔드포인트
 
 #### $connect
 
