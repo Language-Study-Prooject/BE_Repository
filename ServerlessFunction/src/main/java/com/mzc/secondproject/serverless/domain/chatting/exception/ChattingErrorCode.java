@@ -14,6 +14,8 @@ public enum ChattingErrorCode implements DomainErrorCode {
     ROOM_ALREADY_EXISTS("ROOM_002", "이미 존재하는 채팅방입니다", 409),
     ROOM_FULL("ROOM_003", "채팅방 인원이 가득 찼습니다", 400),
     ROOM_CLOSED("ROOM_004", "종료된 채팅방입니다", 400),
+    ROOM_INVALID_PASSWORD("ROOM_005", "비밀번호가 일치하지 않습니다", 401),
+    ROOM_NOT_OWNER("ROOM_006", "방장 권한이 필요합니다", 403),
 
     // 메시지 관련 에러
     MESSAGE_NOT_FOUND("MSG_001", "메시지를 찾을 수 없습니다", 404),

@@ -1,6 +1,7 @@
 package com.mzc.secondproject.serverless.domain.vocabulary.service;
 
 import com.mzc.secondproject.serverless.common.dto.PaginatedResult;
+import com.mzc.secondproject.serverless.domain.vocabulary.exception.VocabularyException;
 import com.mzc.secondproject.serverless.domain.vocabulary.dto.request.SubmitTestRequest;
 import com.mzc.secondproject.serverless.common.config.AwsClients;
 import com.mzc.secondproject.serverless.common.util.ResponseGenerator;
@@ -53,7 +54,7 @@ public class TestCommandService {
 
         Optional<DailyStudy> optDailyStudy = dailyStudyRepository.findByUserIdAndDate(userId, today);
         if (optDailyStudy.isEmpty()) {
-            throw new IllegalStateException("No daily study found for today");
+            throw VocabularyException.dailyStudyNotFound(userId, today);
         }
 
         DailyStudy dailyStudy = optDailyStudy.get();
@@ -62,7 +63,7 @@ public class TestCommandService {
         if (dailyStudy.getReviewWordIds() != null) allWordIds.addAll(dailyStudy.getReviewWordIds());
 
         if (allWordIds.isEmpty()) {
-            throw new IllegalStateException("No words to test");
+            throw VocabularyException.noWordsToTest();
         }
 
         List<Word> words = wordRepository.findByIds(allWordIds);

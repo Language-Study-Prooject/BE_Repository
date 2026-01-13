@@ -1,5 +1,6 @@
 package com.mzc.secondproject.serverless.domain.vocabulary.service;
 
+import com.mzc.secondproject.serverless.domain.vocabulary.exception.VocabularyException;
 import com.mzc.secondproject.serverless.domain.vocabulary.model.WordGroup;
 import com.mzc.secondproject.serverless.domain.vocabulary.repository.WordGroupRepository;
 import org.slf4j.Logger;
@@ -50,7 +51,7 @@ public class WordGroupCommandService {
     public WordGroup updateGroup(String userId, String groupId, String groupName, String description) {
         Optional<WordGroup> optGroup = wordGroupRepository.findByUserIdAndGroupId(userId, groupId);
         if (optGroup.isEmpty()) {
-            throw new IllegalArgumentException("Word group not found");
+            throw VocabularyException.groupNotFound(groupId);
         }
 
         WordGroup group = optGroup.get();
@@ -71,7 +72,7 @@ public class WordGroupCommandService {
     public void deleteGroup(String userId, String groupId) {
         Optional<WordGroup> optGroup = wordGroupRepository.findByUserIdAndGroupId(userId, groupId);
         if (optGroup.isEmpty()) {
-            throw new IllegalArgumentException("Word group not found");
+            throw VocabularyException.groupNotFound(groupId);
         }
 
         wordGroupRepository.delete(userId, groupId);
@@ -81,7 +82,7 @@ public class WordGroupCommandService {
     public WordGroup addWordToGroup(String userId, String groupId, String wordId) {
         Optional<WordGroup> optGroup = wordGroupRepository.findByUserIdAndGroupId(userId, groupId);
         if (optGroup.isEmpty()) {
-            throw new IllegalArgumentException("Word group not found");
+            throw VocabularyException.groupNotFound(groupId);
         }
 
         WordGroup group = optGroup.get();
@@ -105,7 +106,7 @@ public class WordGroupCommandService {
     public WordGroup removeWordFromGroup(String userId, String groupId, String wordId) {
         Optional<WordGroup> optGroup = wordGroupRepository.findByUserIdAndGroupId(userId, groupId);
         if (optGroup.isEmpty()) {
-            throw new IllegalArgumentException("Word group not found");
+            throw VocabularyException.groupNotFound(groupId);
         }
 
         WordGroup group = optGroup.get();

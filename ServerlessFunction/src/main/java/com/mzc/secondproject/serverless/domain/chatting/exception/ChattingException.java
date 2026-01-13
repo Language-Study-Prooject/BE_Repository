@@ -52,6 +52,19 @@ public class ChattingException extends ServerlessException {
                 .addDetail("roomId", roomId);
     }
 
+    public static ChattingException roomInvalidPassword(String roomId) {
+        return (ChattingException) new ChattingException(ChattingErrorCode.ROOM_INVALID_PASSWORD,
+                "비밀번호가 일치하지 않습니다")
+                .addDetail("roomId", roomId);
+    }
+
+    public static ChattingException roomNotOwner(String userId, String roomId) {
+        return (ChattingException) new ChattingException(ChattingErrorCode.ROOM_NOT_OWNER,
+                String.format("방장 권한이 필요합니다 (userId: %s, roomId: %s)", userId, roomId))
+                .addDetail("userId", userId)
+                .addDetail("roomId", roomId);
+    }
+
     // === 메시지(Message) 관련 팩토리 메서드 ===
 
     public static ChattingException messageNotFound(String messageId) {
