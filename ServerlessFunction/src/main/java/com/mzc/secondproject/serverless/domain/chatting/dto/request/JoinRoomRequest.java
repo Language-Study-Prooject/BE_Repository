@@ -10,6 +10,6 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class JoinRoomRequest {
-
-    private String password;
+	
+	private String password;
 }

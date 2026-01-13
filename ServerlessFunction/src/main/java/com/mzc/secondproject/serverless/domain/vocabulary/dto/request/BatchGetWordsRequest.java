@@ -13,7 +13,7 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class BatchGetWordsRequest {
-
-    @NotEmpty(message = "is required")
-    private List<String> wordIds;
+	
+	@NotEmpty(message = "is required")
+	private List<String> wordIds;
 }

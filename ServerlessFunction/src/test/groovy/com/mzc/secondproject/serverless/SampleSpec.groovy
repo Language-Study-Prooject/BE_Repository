@@ -1,7 +1,6 @@
 package com.mzc.secondproject.serverless
 
 import spock.lang.Specification
-import spock.lang.Subject
 
 /**
  * Spock 테스트 환경 설정 확인을 위한 샘플 테스트

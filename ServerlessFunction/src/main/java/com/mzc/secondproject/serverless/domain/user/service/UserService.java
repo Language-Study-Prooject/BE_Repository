@@ -5,8 +5,8 @@ import org.slf4j.LoggerFactory;
 
 
 public class UserService {
-
-    private static final Logger logger = LoggerFactory.getLogger(UserService.class);
-
-
+	
+	private static final Logger logger = LoggerFactory.getLogger(UserService.class);
+	
+	
 }

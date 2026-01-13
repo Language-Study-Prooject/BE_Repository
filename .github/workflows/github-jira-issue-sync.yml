@@ -3,9 +3,9 @@ name: Issue-Jira Sync
 
 on:
   issues:
-    types: [opened, closed, reopened]
+    types: [ opened, closed, reopened ]
   issue_comment:
-    types: [created]
+    types: [ created ]
 
 env:
   JIRA_PROJECT_KEY: MESP
