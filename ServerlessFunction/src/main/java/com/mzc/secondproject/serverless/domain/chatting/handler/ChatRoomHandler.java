@@ -120,7 +120,7 @@ public class ChatRoomHandler implements RequestHandler<APIGatewayProxyRequestEve
 		
 		String password = req != null ? req.getPassword() : null;
 		JoinRoomResponse response = commandService.joinRoom(roomId, userId, password);
-		response.getRoom().setPassword(null);
+		response.room().setPassword(null);
 		return ResponseGenerator.ok("Joined room", response);
 	}
 	
