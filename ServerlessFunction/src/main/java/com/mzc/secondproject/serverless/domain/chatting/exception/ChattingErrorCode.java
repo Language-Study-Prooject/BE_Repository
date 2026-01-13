@@ -33,6 +33,13 @@ public enum ChattingErrorCode implements DomainErrorCode {
 	// 연결 관련 에러
 	CONNECTION_FAILED("CONN_001", "연결에 실패했습니다", 500),
 	CONNECTION_TIMEOUT("CONN_002", "연결 시간이 초과되었습니다", 408),
+
+	// 게임 관련 에러
+	GAME_START_FAILED("GAME_001", "게임 시작에 실패했습니다", 400),
+	GAME_STOP_FAILED("GAME_002", "게임 중단에 실패했습니다", 400),
+	GAME_NOT_IN_PROGRESS("GAME_003", "진행 중인 게임이 없습니다", 400),
+	GAME_ALREADY_IN_PROGRESS("GAME_004", "이미 게임이 진행 중입니다", 409),
+	NOT_GAME_STARTER("GAME_005", "게임 시작자만 중단할 수 있습니다", 403),
 	;
 	
 	private static final String DOMAIN = "CHATTING";
