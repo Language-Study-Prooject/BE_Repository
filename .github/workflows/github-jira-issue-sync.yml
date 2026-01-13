@@ -34,31 +34,49 @@ jobs:
 
       - name: Create Jira Issue
         id: create-jira
+        env:
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+          ISSUE_URL: ${{ github.event.issue.html_url }}
+          ISSUE_AUTHOR: ${{ github.event.issue.user.login }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          ISSUE_TYPE: ${{ steps.issue-type.outputs.type }}
+          JIRA_AUTH: ${{ secrets.JIRA_USER_EMAIL }}:${{ secrets.JIRA_API_TOKEN }}
         run: |
-          set +e
-          RESPONSE=$(curl -s -X POST \
-            -H "Authorization: Basic $(echo -n '${{ secrets.JIRA_USER_EMAIL }}:${{ secrets.JIRA_API_TOKEN }}' | base64)" \
-            -H "Content-Type: application/json" \
-            "${{ secrets.JIRA_BASE_URL }}/rest/api/3/issue" \
-            -d '{
-              "fields": {
-                "project": {"key": "${{ env.JIRA_PROJECT_KEY }}"},
-                "summary": "[GH-#${{ github.event.issue.number }}] ${{ github.event.issue.title }}",
-                "description": {
-                  "type": "doc",
-                  "version": 1,
-                  "content": [
-                    {"type": "paragraph", "content": [{"type": "text", "text": "GitHub Issue: ${{ github.event.issue.html_url }}"}]},
-                    {"type": "paragraph", "content": [{"type": "text", "text": "Author: ${{ github.event.issue.user.login }}"}]}
+          PAYLOAD=$(jq -n \
+            --arg project "$JIRA_PROJECT_KEY" \
+            --arg summary "[GH-#$ISSUE_NUMBER] $ISSUE_TITLE" \
+            --arg issue_url "GitHub Issue: $ISSUE_URL" \
+            --arg author "Author: $ISSUE_AUTHOR" \
+            --arg type "$ISSUE_TYPE" \
+            '{
+              fields: {
+                project: {key: $project},
+                summary: $summary,
+                description: {
+                  type: "doc",
+                  version: 1,
+                  content: [
+                    {type: "paragraph", content: [{type: "text", text: $issue_url}]},
+                    {type: "paragraph", content: [{type: "text", text: $author}]}
                   ]
                 },
-                "issuetype": {"name": "${{ steps.issue-type.outputs.type }}"}
+                issuetype: {name: $type}
               }
             }')
+          
+          RESPONSE=$(curl -s -X POST \
+            -H "Authorization: Basic $(echo -n "$JIRA_AUTH" | base64)" \
+            -H "Content-Type: application/json" \
+            "${{ secrets.JIRA_BASE_URL }}/rest/api/3/issue" \
+            -d "$PAYLOAD")
 
           echo "API 응답값: $RESPONSE"
           
           JIRA_KEY=$(echo "$RESPONSE" | jq -r '.key // empty')
+          if [ -z "$JIRA_KEY" ]; then
+            echo "Jira 티켓 생성 실패"
+            exit 1
+          fi
           echo "jira_key=$JIRA_KEY" >> $GITHUB_OUTPUT
 
       - name: Update GitHub Issue with Jira Link
