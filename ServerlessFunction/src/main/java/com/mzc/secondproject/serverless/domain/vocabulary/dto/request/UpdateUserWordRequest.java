@@ -11,7 +11,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class UpdateUserWordRequest {
-
-    @NotNull(message = "is required")
-    private Boolean isCorrect;
+	
+	@NotNull(message = "is required")
+	private Boolean isCorrect;
 }

@@ -131,12 +131,12 @@ if (!StudyLevel.isValid(level)) {
 
 ### 1.2 하드코딩된 값들
 
-| 위치 | 하드코딩 값 | 권장 |
-|------|-----------|------|
-| `UserWordService.java` | `"USER#"`, `"WORD#"`, `"DATE#"` | DynamoDbKeyPrefix 클래스 |
-| `DailyStudyService.java` | `NEW_WORDS_COUNT = 50` | Config 클래스 |
-| `ChatRoomHandler.java` | `"beginner"`, `6`, `false` | ChatRoomDefaults 클래스 |
-| `UserWordRepository.java` | `limit * 3` | 상수로 추출 |
+| 위치                        | 하드코딩 값                          | 권장                    |
+|---------------------------|---------------------------------|-----------------------|
+| `UserWordService.java`    | `"USER#"`, `"WORD#"`, `"DATE#"` | DynamoDbKeyPrefix 클래스 |
+| `DailyStudyService.java`  | `NEW_WORDS_COUNT = 50`          | Config 클래스            |
+| `ChatRoomHandler.java`    | `"beginner"`, `6`, `false`      | ChatRoomDefaults 클래스  |
+| `UserWordRepository.java` | `limit * 3`                     | 상수로 추출                |
 
 **개선안**: 상수 클래스 생성
 
@@ -233,6 +233,7 @@ flowchart LR
 #### CQRS (Command Query Responsibility Segregation)
 
 **잘 적용됨**:
+
 - `UserWordCommandService` / `UserWordQueryService`
 - `WordCommandService` / `WordQueryService`
 - `TestCommandService` / `TestQueryService`
@@ -531,6 +532,7 @@ public class WordCache {
 ```
 
 **예상 효과**:
+
 - DynamoDB RCU 30-40% 감소
 - 응답 시간 50-70% 단축
 
@@ -848,29 +850,29 @@ public UserWord updateUserWord(String userId, String wordId, boolean isCorrect) 
 
 ### 5.1 높음 우선순위 (즉시 적용)
 
-| 항목 | 영향도 | 예상 소요 |
-|------|--------|----------|
-| Enum 도입 (StudyLevel, Difficulty, WordStatus) | 높음 | 4시간 |
-| N+1 쿼리 최적화 (BatchGetItem, HashSet) | 높음 | 2시간 |
-| 커스텀 예외 클래스 | 중간 | 1시간 |
+| 항목                                           | 영향도 | 예상 소요 |
+|----------------------------------------------|-----|-------|
+| Enum 도입 (StudyLevel, Difficulty, WordStatus) | 높음  | 4시간   |
+| N+1 쿼리 최적화 (BatchGetItem, HashSet)           | 높음  | 2시간   |
+| 커스텀 예외 클래스                                   | 중간  | 1시간   |
 
 ### 5.2 중간 우선순위 (중기 개선)
 
-| 항목 | 영향도 | 예상 소요 |
-|------|--------|----------|
-| Factory Pattern (UserWord, Word) | 중간 | 2시간 |
-| Word 캐싱 (Guava LoadingCache) | 높음 | 3시간 |
-| 메서드 추출 (StatsService, TestService) | 중간 | 3시간 |
-| ServiceContainer Singleton | 중간 | 2시간 |
+| 항목                                 | 영향도 | 예상 소요 |
+|------------------------------------|-----|-------|
+| Factory Pattern (UserWord, Word)   | 중간  | 2시간   |
+| Word 캐싱 (Guava LoadingCache)       | 높음  | 3시간   |
+| 메서드 추출 (StatsService, TestService) | 중간  | 3시간   |
+| ServiceContainer Singleton         | 중간  | 2시간   |
 
 ### 5.3 낮음 우선순위 (장기 개선)
 
-| 항목 | 영향도 | 예상 소요 |
-|------|--------|----------|
-| State Pattern (WordLearningState) | 낮음 | 5시간 |
-| Specification Pattern (쿼리 추상화) | 낮음 | 4시간 |
-| 구조화 로깅 | 낮음 | 2시간 |
-| RequestValidator 확대 적용 | 낮음 | 2시간 |
+| 항목                                | 영향도 | 예상 소요 |
+|-----------------------------------|-----|-------|
+| State Pattern (WordLearningState) | 낮음  | 5시간   |
+| Specification Pattern (쿼리 추상화)    | 낮음  | 4시간   |
+| 구조화 로깅                            | 낮음  | 2시간   |
+| RequestValidator 확대 적용            | 낮음  | 2시간   |
 
 ---
 
@@ -895,12 +897,12 @@ flowchart LR
     Before --> After
 ```
 
-| 지표 | 현재 | 개선 후 | 감소율 |
-|------|------|--------|--------|
-| DynamoDB RCU | 100 | 40-50 | 50-60% |
-| 평균 응답 시간 | 200ms | 80-100ms | 50-60% |
-| 콜드 스타트 시간 | 3s | 2-2.5s | 20-30% |
-| 코드 라인 수 (중복) | 500+ | 200- | 60%+ |
+| 지표           | 현재    | 개선 후     | 감소율    |
+|--------------|-------|----------|--------|
+| DynamoDB RCU | 100   | 40-50    | 50-60% |
+| 평균 응답 시간     | 200ms | 80-100ms | 50-60% |
+| 콜드 스타트 시간    | 3s    | 2-2.5s   | 20-30% |
+| 코드 라인 수 (중복) | 500+  | 200-     | 60%+   |
 
 ---
 

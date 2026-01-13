@@ -22,29 +22,29 @@ import java.util.List;
 @AllArgsConstructor
 @DynamoDbBean
 public class WordGroup {
-
-    private String pk;          // USER#{userId}#GROUP
-    private String sk;          // GROUP#{groupId}
-
-    private String groupId;
-    private String userId;
-    private String groupName;   // TOEIC, TOEFL, 내 단어장 등
-    private String description;
-    private List<String> wordIds;
-    private Integer wordCount;
-
-    private String createdAt;
-    private String updatedAt;
-
-    @DynamoDbPartitionKey
-    @DynamoDbAttribute("PK")
-    public String getPk() {
-        return pk;
-    }
-
-    @DynamoDbSortKey
-    @DynamoDbAttribute("SK")
-    public String getSk() {
-        return sk;
-    }
+	
+	private String pk;          // USER#{userId}#GROUP
+	private String sk;          // GROUP#{groupId}
+	
+	private String groupId;
+	private String userId;
+	private String groupName;   // TOEIC, TOEFL, 내 단어장 등
+	private String description;
+	private List<String> wordIds;
+	private Integer wordCount;
+	
+	private String createdAt;
+	private String updatedAt;
+	
+	@DynamoDbPartitionKey
+	@DynamoDbAttribute("PK")
+	public String getPk() {
+		return pk;
+	}
+	
+	@DynamoDbSortKey
+	@DynamoDbAttribute("SK")
+	public String getSk() {
+		return sk;
+	}
 }

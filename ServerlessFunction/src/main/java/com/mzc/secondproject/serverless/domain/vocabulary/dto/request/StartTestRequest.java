@@ -10,6 +10,6 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class StartTestRequest {
-    @Builder.Default
-    private String testType = "DAILY";
+	@Builder.Default
+	private String testType = "DAILY";
 }

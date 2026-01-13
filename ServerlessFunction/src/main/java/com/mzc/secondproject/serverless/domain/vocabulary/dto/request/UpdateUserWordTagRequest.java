@@ -10,7 +10,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class UpdateUserWordTagRequest {
-    private Boolean bookmarked;
-    private Boolean favorite;
-    private String difficulty;
+	private Boolean bookmarked;
+	private Boolean favorite;
+	private String difficulty;
 }

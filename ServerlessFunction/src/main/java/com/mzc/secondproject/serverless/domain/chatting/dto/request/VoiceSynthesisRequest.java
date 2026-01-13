@@ -11,13 +11,13 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class VoiceSynthesisRequest {
-
-    @NotBlank(message = "is required")
-    private String messageId;
-
-    @NotBlank(message = "is required")
-    private String roomId;
-
-    @Builder.Default
-    private String voice = "FEMALE";
+	
+	@NotBlank(message = "is required")
+	private String messageId;
+	
+	@NotBlank(message = "is required")
+	private String roomId;
+	
+	@Builder.Default
+	private String voice = "FEMALE";
 }

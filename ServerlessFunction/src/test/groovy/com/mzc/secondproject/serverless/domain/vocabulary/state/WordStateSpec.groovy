@@ -43,7 +43,7 @@ class WordStateSpec extends Specification {
         then: "LEARNING 상태로 전이"
         nextState instanceof LearningState
 
-        and: "오답 카운트 증가, easeFactor 감소"
+                and : "오답 카운트 증가, easeFactor 감소"
         context.getIncorrectCount() == 1
         context.getEaseFactor() < initialEaseFactor
     }
@@ -170,15 +170,15 @@ class WordStateSpec extends Specification {
         state.class == expectedType
 
         where:
-        stateName    | expectedType
-        "NEW"        | NewState
-        "LEARNING"   | LearningState
-        "REVIEWING"  | ReviewingState
-        "MASTERED"   | MasteredState
-        "new"        | NewState
-        "learning"   | LearningState
-        null         | NewState
-        "INVALID"    | NewState
+        stateName   | expectedType
+        "NEW"       | NewState
+        "LEARNING"  | LearningState
+        "REVIEWING" | ReviewingState
+        "MASTERED"  | MasteredState
+        "new"       | NewState
+        "learning"  | LearningState
+        null        | NewState
+        "INVALID"   | NewState
     }
 
     // ==================== Interval Calculation Tests ====================

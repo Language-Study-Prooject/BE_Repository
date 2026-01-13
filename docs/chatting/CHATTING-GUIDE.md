@@ -4,31 +4,32 @@
 
 ### 1.1 목적
 
-Chatting Server는 영어 회화 학습 플랫폼의 실시간 채팅 기능을 담당하는 서버리스 마이크로서비스이다. 사용자들이 영어 난이도별 채팅방에 참여하여 실시간으로 대화하고, AI 응답 및 TTS 기능을 활용할 수 있다.
+Chatting Server는 영어 회화 학습 플랫폼의 실시간 채팅 기능을 담당하는 서버리스 마이크로서비스이다. 사용자들이 영어 난이도별 채팅방에 참여하여 실시간으로 대화하고, AI 응답 및 TTS 기능을 활용할 수
+있다.
 
 ### 1.2 주요 기능
 
-| 기능 | 설명 |
-|------|------|
-| 채팅방 관리 | 생성, 조회, 입장, 퇴장, 삭제 |
-| 실시간 메시징 | WebSocket 기반 양방향 통신 |
-| 토큰 인증 | REST → WebSocket 전환 시 RoomToken 검증 |
-| 난이도별 필터링 | BEGINNER, INTERMEDIATE, ADVANCED |
-| AI 응답 | AWS Bedrock 기반 AI 메시지 생성 |
-| TTS (음성 합성) | AWS Polly 기반 음성 변환 |
-| 비밀방 | BCrypt 암호화 비밀번호 지원 |
+| 기능          | 설명                                 |
+|-------------|------------------------------------|
+| 채팅방 관리      | 생성, 조회, 입장, 퇴장, 삭제                 |
+| 실시간 메시징     | WebSocket 기반 양방향 통신                |
+| 토큰 인증       | REST → WebSocket 전환 시 RoomToken 검증 |
+| 난이도별 필터링    | BEGINNER, INTERMEDIATE, ADVANCED   |
+| AI 응답       | AWS Bedrock 기반 AI 메시지 생성           |
+| TTS (음성 합성) | AWS Polly 기반 음성 변환                 |
+| 비밀방         | BCrypt 암호화 비밀번호 지원                 |
 
 ### 1.3 기술 스택
 
-| 구분 | 기술 |
-|------|------|
-| Platform | AWS Lambda (Serverless) |
-| Language | Java 21 (Eclipse Temurin) |
-| Database | AWS DynamoDB (Single Table Design) |
-| Real-time | API Gateway WebSocket |
-| AI | AWS Bedrock (Claude/Llama) |
-| TTS | AWS Polly |
-| Storage | AWS S3 (음성 캐시) |
+| 구분        | 기술                                 |
+|-----------|------------------------------------|
+| Platform  | AWS Lambda (Serverless)            |
+| Language  | Java 21 (Eclipse Temurin)          |
+| Database  | AWS DynamoDB (Single Table Design) |
+| Real-time | API Gateway WebSocket              |
+| AI        | AWS Bedrock (Claude/Llama)         |
+| TTS       | AWS Polly                          |
+| Storage   | AWS S3 (음성 캐시)                     |
 
 ---
 
@@ -353,71 +354,71 @@ erDiagram
 
 #### ChatRoom (채팅방)
 
-| 필드 | 타입 | 필수 | 설명 |
-|------|------|------|------|
-| PK | String | Y | ROOM#{roomId} |
-| SK | String | Y | METADATA |
-| GSI1PK | String | Y | ROOMS (전체 조회용) |
-| GSI1SK | String | Y | {level}#{createdAt} (정렬) |
-| roomId | String | Y | UUID |
-| name | String | Y | 채팅방 이름 |
-| description | String | N | 설명 |
-| level | String | Y | beginner, intermediate, advanced |
-| currentMembers | Integer | Y | 현재 참여 인원 |
-| maxMembers | Integer | Y | 최대 인원 (기본: 6) |
-| isPrivate | Boolean | Y | 비밀방 여부 |
-| password | String | N | BCrypt 해시 비밀번호 |
-| createdBy | String | Y | 방장 userId |
-| memberIds | List | Y | 참여자 userId 목록 |
-| createdAt | String | Y | ISO 8601 형식 |
-| lastMessageAt | String | Y | 마지막 메시지 시각 |
+| 필드             | 타입      | 필수 | 설명                               |
+|----------------|---------|----|----------------------------------|
+| PK             | String  | Y  | ROOM#{roomId}                    |
+| SK             | String  | Y  | METADATA                         |
+| GSI1PK         | String  | Y  | ROOMS (전체 조회용)                   |
+| GSI1SK         | String  | Y  | {level}#{createdAt} (정렬)         |
+| roomId         | String  | Y  | UUID                             |
+| name           | String  | Y  | 채팅방 이름                           |
+| description    | String  | N  | 설명                               |
+| level          | String  | Y  | beginner, intermediate, advanced |
+| currentMembers | Integer | Y  | 현재 참여 인원                         |
+| maxMembers     | Integer | Y  | 최대 인원 (기본: 6)                    |
+| isPrivate      | Boolean | Y  | 비밀방 여부                           |
+| password       | String  | N  | BCrypt 해시 비밀번호                   |
+| createdBy      | String  | Y  | 방장 userId                        |
+| memberIds      | List    | Y  | 참여자 userId 목록                    |
+| createdAt      | String  | Y  | ISO 8601 형식                      |
+| lastMessageAt  | String  | Y  | 마지막 메시지 시각                       |
 
 #### ChatMessage (채팅 메시지)
 
-| 필드 | 타입 | 필수 | 설명 |
-|------|------|------|------|
-| PK | String | Y | ROOM#{roomId} |
-| SK | String | Y | MSG#{timestamp}#{messageId} |
-| GSI1PK | String | Y | USER#{userId} |
-| GSI1SK | String | Y | MSG#{timestamp} |
-| GSI2PK | String | Y | MSG#{messageId} |
-| GSI2SK | String | Y | ROOM#{roomId} |
-| messageId | String | Y | UUID |
-| roomId | String | Y | 채팅방 ID |
-| userId | String | Y | 발신자 ID |
-| content | String | Y | 메시지 내용 |
-| messageType | String | Y | TEXT, IMAGE, VOICE, AI_RESPONSE |
-| maleVoiceKey | String | N | S3 음성 파일 키 (남성) |
-| femaleVoiceKey | String | N | S3 음성 파일 키 (여성) |
-| createdAt | String | Y | ISO 8601 형식 |
+| 필드             | 타입     | 필수 | 설명                              |
+|----------------|--------|----|---------------------------------|
+| PK             | String | Y  | ROOM#{roomId}                   |
+| SK             | String | Y  | MSG#{timestamp}#{messageId}     |
+| GSI1PK         | String | Y  | USER#{userId}                   |
+| GSI1SK         | String | Y  | MSG#{timestamp}                 |
+| GSI2PK         | String | Y  | MSG#{messageId}                 |
+| GSI2SK         | String | Y  | ROOM#{roomId}                   |
+| messageId      | String | Y  | UUID                            |
+| roomId         | String | Y  | 채팅방 ID                          |
+| userId         | String | Y  | 발신자 ID                          |
+| content        | String | Y  | 메시지 내용                          |
+| messageType    | String | Y  | TEXT, IMAGE, VOICE, AI_RESPONSE |
+| maleVoiceKey   | String | N  | S3 음성 파일 키 (남성)                 |
+| femaleVoiceKey | String | N  | S3 음성 파일 키 (여성)                 |
+| createdAt      | String | Y  | ISO 8601 형식                     |
 
 #### Connection (WebSocket 연결)
 
-| 필드 | 타입 | 필수 | 설명 |
-|------|------|------|------|
-| PK | String | Y | CONN#{connectionId} |
-| SK | String | Y | METADATA |
-| GSI1PK | String | Y | ROOM#{roomId} |
-| GSI1SK | String | Y | CONN#{connectionId} |
-| GSI2PK | String | Y | USER#{userId} |
-| GSI2SK | String | Y | CONN#{connectionId} |
-| connectionId | String | Y | API Gateway Connection ID |
-| userId | String | Y | 사용자 ID |
-| roomId | String | Y | 채팅방 ID |
-| connectedAt | String | Y | 연결 시각 |
-| ttl | Long | Y | DynamoDB TTL (10분 후 자동 삭제) |
+| 필드           | 타입     | 필수 | 설명                         |
+|--------------|--------|----|----------------------------|
+| PK           | String | Y  | CONN#{connectionId}        |
+| SK           | String | Y  | METADATA                   |
+| GSI1PK       | String | Y  | ROOM#{roomId}              |
+| GSI1SK       | String | Y  | CONN#{connectionId}        |
+| GSI2PK       | String | Y  | USER#{userId}              |
+| GSI2SK       | String | Y  | CONN#{connectionId}        |
+| connectionId | String | Y  | API Gateway Connection ID  |
+| userId       | String | Y  | 사용자 ID                     |
+| roomId       | String | Y  | 채팅방 ID                     |
+| connectedAt  | String | Y  | 연결 시각                      |
+| ttl          | Long   | Y  | DynamoDB TTL (10분 후 자동 삭제) |
 
 #### RoomToken (입장 토큰)
 
-| 필드 | 타입 | 필수 | 설명 |
-|------|------|------|------|
-| PK | String | Y | TOKEN#{token} |
-| SK | String | Y | METADATA |
-| token | String | Y | UUID 토큰 |
-| roomId | String | Y | 채팅방 ID |
-| userId | String | Y | 사용자 ID |
-| createdAt | String | Y | 발급 시각 |
-| ttl | Long | Y | DynamoDB TTL (5분 후 자동 삭제) |
+| 필드        | 타입     | 필수 | 설명                        |
+|-----------|--------|----|---------------------------|
+| PK        | String | Y  | TOKEN#{token}             |
+| SK        | String | Y  | METADATA                  |
+| token     | String | Y  | UUID 토큰                   |
+| roomId    | String | Y  | 채팅방 ID                    |
+| userId    | String | Y  | 사용자 ID                    |
+| createdAt | String | Y  | 발급 시각                     |
+| ttl       | Long   | Y  | DynamoDB TTL (5분 후 자동 삭제) |
 
 ### 3.3 GSI (Global Secondary Index) 설계
 
@@ -489,13 +490,13 @@ flowchart LR
 
 **Query Parameters**
 
-| 파라미터 | 타입 | 필수 | 설명 |
-|---------|------|------|------|
-| level | String | N | 난이도 필터 (beginner, intermediate, advanced) |
-| userId | String | N | 사용자 ID (joined 필터 시 필수) |
-| joined | String | N | "true"면 가입된 방만 조회 |
-| cursor | String | N | 페이징 커서 |
-| limit | Integer | N | 페이지 크기 (기본: 10, 최대: 20) |
+| 파라미터   | 타입      | 필수 | 설명                                        |
+|--------|---------|----|-------------------------------------------|
+| level  | String  | N  | 난이도 필터 (beginner, intermediate, advanced) |
+| userId | String  | N  | 사용자 ID (joined 필터 시 필수)                   |
+| joined | String  | N  | "true"면 가입된 방만 조회                         |
+| cursor | String  | N  | 페이징 커서                                    |
+| limit  | Integer | N  | 페이지 크기 (기본: 10, 최대: 20)                   |
 
 **Response (200 OK)**
 
@@ -623,9 +624,9 @@ flowchart LR
 
 **Query Parameter**
 
-| 파라미터 | 타입 | 필수 | 설명 |
-|---------|------|------|------|
-| roomToken | String | Y | joinRoom에서 발급받은 토큰 |
+| 파라미터      | 타입     | 필수 | 설명                 |
+|-----------|--------|----|--------------------|
+| roomToken | String | Y  | joinRoom에서 발급받은 토큰 |
 
 **연결 URL 예시**
 
@@ -690,13 +691,13 @@ stateDiagram-v2
 
 ### 5.3 접근 제어
 
-| 기능 | 조건 |
-|------|------|
-| 방 생성 | 모든 사용자 |
-| 방 조회 | 모든 사용자 |
-| 방 입장 | 비밀방인 경우 비밀번호 필요 |
-| 방 퇴장 | 참여 멤버만 |
-| 방 삭제 | 방장(createdBy)만 |
+| 기능           | 조건               |
+|--------------|------------------|
+| 방 생성         | 모든 사용자           |
+| 방 조회         | 모든 사용자           |
+| 방 입장         | 비밀방인 경우 비밀번호 필요  |
+| 방 퇴장         | 참여 멤버만           |
+| 방 삭제         | 방장(createdBy)만   |
 | WebSocket 연결 | 유효한 roomToken 필요 |
 
 ### 5.4 비밀번호 처리
@@ -714,13 +715,13 @@ flowchart LR
 
 ### 5.5 제한 사항
 
-| 항목 | 제한 |
-|------|------|
-| 최대 참여 인원 | 기본 6명, 최대 설정 가능 |
-| 방 목록 페이지 크기 | 최대 20 |
-| RoomToken 유효 시간 | 5분 (300초) |
-| Connection TTL | 10분 (600초) |
-| 비밀번호 | BCrypt 해시 |
+| 항목              | 제한              |
+|-----------------|-----------------|
+| 최대 참여 인원        | 기본 6명, 최대 설정 가능 |
+| 방 목록 페이지 크기     | 최대 20           |
+| RoomToken 유효 시간 | 5분 (300초)       |
+| Connection TTL  | 10분 (600초)      |
+| 비밀번호            | BCrypt 해시       |
 
 ---
 
@@ -728,14 +729,14 @@ flowchart LR
 
 ### 6.1 HTTP 에러
 
-| HTTP Code | 설명 | 예시 |
-|-----------|------|------|
-| 400 | 잘못된 요청 | 필수 파라미터 누락 |
-| 401 | 인증 실패 | 유효하지 않은 토큰 |
-| 403 | 권한 없음 | 비밀번호 불일치, 방장 아님 |
-| 404 | 리소스 없음 | 존재하지 않는 방 |
-| 409 | 충돌 | 정원 초과 |
-| 500 | 서버 오류 | 내부 오류 |
+| HTTP Code | 설명     | 예시              |
+|-----------|--------|-----------------|
+| 400       | 잘못된 요청 | 필수 파라미터 누락      |
+| 401       | 인증 실패  | 유효하지 않은 토큰      |
+| 403       | 권한 없음  | 비밀번호 불일치, 방장 아님 |
+| 404       | 리소스 없음 | 존재하지 않는 방       |
+| 409       | 충돌     | 정원 초과           |
+| 500       | 서버 오류  | 내부 오류           |
 
 ### 6.2 에러 응답 형식
 

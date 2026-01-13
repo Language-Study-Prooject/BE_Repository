@@ -12,11 +12,11 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class CreateWordGroupRequest {
-
-    @NotBlank(message = "is required")
-    @Size(min = 1, max = 50, message = "must be between 1 and 50 characters")
-    private String groupName;
-
-    @Size(max = 200, message = "must be at most 200 characters")
-    private String description;
+	
+	@NotBlank(message = "is required")
+	@Size(min = 1, max = 50, message = "must be between 1 and 50 characters")
+	private String groupName;
+	
+	@Size(max = 200, message = "must be at most 200 characters")
+	private String description;
 }

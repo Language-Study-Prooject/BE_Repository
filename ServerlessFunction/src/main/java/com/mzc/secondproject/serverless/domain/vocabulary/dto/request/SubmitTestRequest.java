@@ -15,27 +15,27 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class SubmitTestRequest {
-
-    @NotBlank(message = "is required")
-    private String testId;
-
-    @Builder.Default
-    private String testType = "DAILY";
-
-    @NotEmpty(message = "is required")
-    @Valid
-    private List<TestAnswer> answers;
-
-    private String startedAt;
-
-    @Data
-    @Builder
-    @NoArgsConstructor
-    @AllArgsConstructor
-    public static class TestAnswer {
-        @NotBlank(message = "is required")
-        private String wordId;
-
-        private String answer;  // 빈 값 허용 (오답 처리)
-    }
+	
+	@NotBlank(message = "is required")
+	private String testId;
+	
+	@Builder.Default
+	private String testType = "DAILY";
+	
+	@NotEmpty(message = "is required")
+	@Valid
+	private List<TestAnswer> answers;
+	
+	private String startedAt;
+	
+	@Data
+	@Builder
+	@NoArgsConstructor
+	@AllArgsConstructor
+	public static class TestAnswer {
+		@NotBlank(message = "is required")
+		private String wordId;
+		
+		private String answer;  // 빈 값 허용 (오답 처리)
+	}
 }
