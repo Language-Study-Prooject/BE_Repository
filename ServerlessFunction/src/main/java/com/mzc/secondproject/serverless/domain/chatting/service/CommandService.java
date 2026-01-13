@@ -22,10 +22,12 @@ public class CommandService {
 
 	private final ConnectionRepository connectionRepository;
 	private final ChatRoomRepository chatRoomRepository;
+	private final GameService gameService;
 
 	public CommandService() {
 		this.connectionRepository = new ConnectionRepository();
 		this.chatRoomRepository = new ChatRoomRepository();
+		this.gameService = new GameService();
 	}
 
 	/**
@@ -79,54 +81,30 @@ public class CommandService {
 	 * /start - 게임 시작
 	 */
 	private CommandResult handleStartCommand(String roomId, String userId) {
-		List<Connection> connections = connectionRepository.findByRoomId(roomId);
+		GameService.GameStartResult result = gameService.startGame(roomId, userId);
 
-		if (connections.size() < 2) {
-			return CommandResult.error("최소 2명 이상 접속해야 게임을 시작할 수 있습니다. (현재: " + connections.size() + "명)");
+		if (!result.success()) {
+			return CommandResult.error(result.error());
 		}
 
-		Optional<ChatRoom> optRoom = chatRoomRepository.findById(roomId);
-		if (optRoom.isEmpty()) {
-			return CommandResult.error("채팅방을 찾을 수 없습니다.");
-		}
+		String message = String.format("""
+				🎮 게임 시작!
+				총 %d 라운드
 
-		ChatRoom room = optRoom.get();
+				라운드 1 시작!
+				출제자: %s
+				""",
+				result.room().getTotalRounds(),
+				result.room().getCurrentDrawerId());
 
-		// 이미 게임 중인지 확인
-		if (room.getGameStatus() != null && !"NONE".equals(room.getGameStatus()) && !"FINISHED".equals(room.getGameStatus())) {
-			return CommandResult.error("이미 게임이 진행 중입니다.");
-		}
-
-		// TODO: GameService.startGame() 호출 (Story #223에서 구현)
-		return CommandResult.success(MessageType.GAME_START, "게임이 곧 시작됩니다! 준비하세요.");
+		return CommandResult.success(MessageType.GAME_START, message, result);
 	}
 
 	/**
 	 * /stop - 게임 중단
 	 */
 	private CommandResult handleStopCommand(String roomId, String userId) {
-		Optional<ChatRoom> optRoom = chatRoomRepository.findById(roomId);
-		if (optRoom.isEmpty()) {
-			return CommandResult.error("채팅방을 찾을 수 없습니다.");
-		}
-
-		ChatRoom room = optRoom.get();
-
-		// 게임 진행 중인지 확인
-		if (room.getGameStatus() == null || "NONE".equals(room.getGameStatus()) || "FINISHED".equals(room.getGameStatus())) {
-			return CommandResult.error("진행 중인 게임이 없습니다.");
-		}
-
-		// 권한 확인: 게임 시작한 사람 또는 방장
-		boolean isOwner = userId.equals(room.getCreatedBy());
-		boolean isGameStarter = userId.equals(room.getGameStartedBy());
-
-		if (!isOwner && !isGameStarter) {
-			return CommandResult.error("게임을 중단할 권한이 없습니다. (방장 또는 게임 시작자만 가능)");
-		}
-
-		// TODO: GameService.stopGame() 호출 (Story #223에서 구현)
-		return CommandResult.success(MessageType.GAME_END, "게임이 중단되었습니다.");
+		return gameService.stopGame(roomId, userId);
 	}
 
 	/**
@@ -161,59 +139,14 @@ public class CommandService {
 	 * /skip - 라운드 스킵 (출제자만)
 	 */
 	private CommandResult handleSkipCommand(String roomId, String userId) {
-		Optional<ChatRoom> optRoom = chatRoomRepository.findById(roomId);
-		if (optRoom.isEmpty()) {
-			return CommandResult.error("채팅방을 찾을 수 없습니다.");
-		}
-
-		ChatRoom room = optRoom.get();
-
-		if (!"PLAYING".equals(room.getGameStatus())) {
-			return CommandResult.error("게임이 진행 중이 아닙니다.");
-		}
-
-		if (!userId.equals(room.getCurrentDrawerId())) {
-			return CommandResult.error("출제자만 라운드를 스킵할 수 있습니다.");
-		}
-
-		// TODO: GameService.skipRound() 호출 (Story #223에서 구현)
-		return CommandResult.success(MessageType.ROUND_END, "라운드가 스킵되었습니다. 정답: " + room.getCurrentWord());
+		return gameService.skipRound(roomId, userId);
 	}
 
 	/**
 	 * /hint - 힌트 제공 (출제자만)
 	 */
 	private CommandResult handleHintCommand(String roomId, String userId) {
-		Optional<ChatRoom> optRoom = chatRoomRepository.findById(roomId);
-		if (optRoom.isEmpty()) {
-			return CommandResult.error("채팅방을 찾을 수 없습니다.");
-		}
-
-		ChatRoom room = optRoom.get();
-
-		if (!"PLAYING".equals(room.getGameStatus())) {
-			return CommandResult.error("게임이 진행 중이 아닙니다.");
-		}
-
-		if (!userId.equals(room.getCurrentDrawerId())) {
-			return CommandResult.error("출제자만 힌트를 제공할 수 있습니다.");
-		}
-
-		// 힌트 사용 여부 체크
-		if (Boolean.TRUE.equals(room.getHintUsed())) {
-			return CommandResult.error("이번 라운드에서 이미 힌트를 사용했습니다.");
-		}
-
-		String currentWord = room.getCurrentWord();
-		if (currentWord == null || currentWord.isEmpty()) {
-			return CommandResult.error("제시어가 설정되지 않았습니다.");
-		}
-
-		// 첫 글자 힌트
-		String hint = currentWord.charAt(0) + "○".repeat(currentWord.length() - 1);
-
-		// TODO: hintUsed 플래그 업데이트 (Story #223에서 구현)
-		return CommandResult.success(MessageType.HINT, "💡 힌트: " + hint);
+		return gameService.provideHint(roomId, userId);
 	}
 
 	/**
