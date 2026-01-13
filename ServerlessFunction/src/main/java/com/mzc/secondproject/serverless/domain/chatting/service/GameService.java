@@ -80,6 +80,7 @@ public class GameService {
 		room.setTotalRounds(DEFAULT_TOTAL_ROUNDS);
 		room.setDrawerOrder(drawerOrder);
 		room.setScores(new HashMap<>());
+		room.setStreaks(new HashMap<>());
 		room.setRoundTimeLimit(DEFAULT_ROUND_TIME_LIMIT);
 
 		// 첫 라운드 설정
@@ -173,7 +174,15 @@ public class GameService {
 
 		// 정답 처리
 		long elapsedTime = System.currentTimeMillis() - room.getRoundStartTime();
-		int score = calculateScore(room, elapsedTime, userId);
+
+		// 연속 정답 업데이트 (점수 계산 전에)
+		if (room.getStreaks() == null) {
+			room.setStreaks(new HashMap<>());
+		}
+		int currentStreak = room.getStreaks().getOrDefault(userId, 0) + 1;
+		room.getStreaks().put(userId, currentStreak);
+
+		int score = calculateScore(room, elapsedTime, userId, currentStreak);
 
 		// 정답자 목록에 추가
 		if (room.getCorrectGuessers() == null) {
@@ -269,6 +278,9 @@ public class GameService {
 		String roomId = room.getRoomId();
 		Integer currentRound = room.getCurrentRound();
 		String answer = room.getCurrentWord();
+
+		// 정답 못 맞춘 사용자 연속 정답 초기화
+		resetStreaksForNonGuessers(room);
 
 		// 라운드 기록 종료
 		gameRoundRepository.findByRoomIdAndRound(roomId, currentRound)
@@ -394,17 +406,25 @@ public class GameService {
 
 	/**
 	 * 점수 계산
+	 * @param room 채팅방
+	 * @param elapsedTimeMs 경과 시간 (밀리초)
+	 * @param userId 사용자 ID
+	 * @param streak 연속 정답 수
+	 * @return 계산된 점수
 	 */
-	private int calculateScore(ChatRoom room, long elapsedTimeMs, String userId) {
+	private int calculateScore(ChatRoom room, long elapsedTimeMs, String userId, int streak) {
 		int baseScore = 10;
 
-		// 시간 보너스 (빨리 맞출수록 높은 점수)
+		// 시간 보너스 (빨리 맞출수록 높은 점수): (제한시간 - 경과시간) * 0.5
 		int elapsedSeconds = (int) (elapsedTimeMs / 1000);
 		int timeLimit = room.getRoundTimeLimit() != null ? room.getRoundTimeLimit() : DEFAULT_ROUND_TIME_LIMIT;
-		int timeBonus = Math.max(0, (timeLimit - elapsedSeconds) / 2);
+		int timeBonus = Math.max(0, (int) ((timeLimit - elapsedSeconds) * 0.5));
 
-		// 연속 정답 보너스 (추후 구현)
-		int streakBonus = 0;
+		// 연속 정답 보너스: 연속정답수 * 2
+		int streakBonus = streak * 2;
+
+		logger.info("Score calculation: base={}, timeBonus={}, streakBonus={}, total={}",
+				baseScore, timeBonus, streakBonus, baseScore + timeBonus + streakBonus);
 
 		return baseScore + timeBonus + streakBonus;
 	}
@@ -432,6 +452,26 @@ public class GameService {
 
 					gameRoundRepository.save(round);
 				});
+	}
+
+	/**
+	 * 정답 못 맞춘 사용자 연속 정답 초기화
+	 */
+	private void resetStreaksForNonGuessers(ChatRoom room) {
+		if (room.getStreaks() == null || room.getStreaks().isEmpty()) {
+			return;
+		}
+
+		List<String> correctGuessers = room.getCorrectGuessers() != null
+				? room.getCorrectGuessers()
+				: List.of();
+
+		// 정답 못 맞춘 사용자의 연속 정답 초기화
+		room.getStreaks().keySet().stream()
+				.filter(userId -> !correctGuessers.contains(userId))
+				.forEach(userId -> room.getStreaks().put(userId, 0));
+
+		logger.info("Reset streaks for non-guessers: correctGuessers={}", correctGuessers);
 	}
 
 	// ========== Result DTOs ==========
