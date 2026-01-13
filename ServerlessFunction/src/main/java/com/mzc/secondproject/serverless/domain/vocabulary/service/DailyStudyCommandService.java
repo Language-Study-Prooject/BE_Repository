@@ -9,7 +9,9 @@ import com.mzc.secondproject.serverless.domain.vocabulary.model.Word;
 import com.mzc.secondproject.serverless.domain.vocabulary.repository.DailyStudyRepository;
 import com.mzc.secondproject.serverless.domain.vocabulary.repository.UserWordRepository;
 import com.mzc.secondproject.serverless.domain.vocabulary.repository.WordRepository;
+import com.mzc.secondproject.serverless.domain.stats.model.UserStats;
 import com.mzc.secondproject.serverless.domain.stats.repository.UserStatsRepository;
+import com.mzc.secondproject.serverless.domain.badge.service.BadgeService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -41,12 +43,14 @@ public class DailyStudyCommandService {
     private final UserWordRepository userWordRepository;
     private final WordRepository wordRepository;
     private final UserStatsRepository userStatsRepository;
+    private final BadgeService badgeService;
 
     public DailyStudyCommandService() {
         this.dailyStudyRepository = new DailyStudyRepository();
         this.userWordRepository = new UserWordRepository();
         this.wordRepository = new WordRepository();
         this.userStatsRepository = new UserStatsRepository();
+        this.badgeService = new BadgeService();
     }
 
     public DailyStudyResult getDailyWords(String userId, String level) {
@@ -101,6 +105,9 @@ public class DailyStudyCommandService {
         } else if (isReviewWord) {
             userStatsRepository.incrementWordsLearned(userId, 0, 1);
         }
+
+        // 단어 학습량 뱃지 체크
+        checkWordsBadge(userId);
 
         DailyStudy updatedDailyStudy = dailyStudyRepository.findByUserIdAndDate(userId, today).orElse(dailyStudy);
 
@@ -190,6 +197,17 @@ public class DailyStudyCommandService {
         progress.put("isCompleted", dailyStudy.getIsCompleted());
 
         return progress;
+    }
+
+    private void checkWordsBadge(String userId) {
+        try {
+            Optional<UserStats> totalStats = userStatsRepository.findTotalStats(userId);
+            if (totalStats.isPresent()) {
+                badgeService.checkAndAwardBadges(userId, totalStats.get());
+            }
+        } catch (Exception e) {
+            logger.warn("Failed to check badges for user: {}", userId, e);
+        }
     }
 
     public record DailyStudyResult(DailyStudy dailyStudy, List<Word> newWords, List<Word> reviewWords, Map<String, Object> progress) {}
