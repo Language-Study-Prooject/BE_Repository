@@ -6,7 +6,19 @@ public enum MessageType {
 	TEXT("text", "텍스트"),
 	IMAGE("image", "이미지"),
 	VOICE("voice", "음성"),
-	AI_RESPONSE("ai_response", "AI 응답");
+	AI_RESPONSE("ai_response", "AI 응답"),
+
+	// 게임 관련 메시지 타입
+	GAME_START("game_start", "게임 시작"),
+	GAME_END("game_end", "게임 종료"),
+	ROUND_START("round_start", "라운드 시작"),
+	ROUND_END("round_end", "라운드 종료"),
+	DRAWING("drawing", "그림 데이터"),
+	DRAWING_CLEAR("drawing_clear", "그림 초기화"),
+	CORRECT_ANSWER("correct_answer", "정답"),
+	SCORE_UPDATE("score_update", "점수 업데이트"),
+	SYSTEM_COMMAND("system_command", "시스템 명령"),
+	HINT("hint", "힌트");
 	
 	private final String code;
 	private final String displayName;
