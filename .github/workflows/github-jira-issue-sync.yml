@@ -35,6 +35,7 @@ jobs:
       - name: Create Jira Issue
         id: create-jira
         run: |
+          set +e
           RESPONSE=$(curl -s -X POST \
             -H "Authorization: Basic $(echo -n '${{ secrets.JIRA_USER_EMAIL }}:${{ secrets.JIRA_API_TOKEN }}' | base64)" \
             -H "Content-Type: application/json" \
@@ -54,6 +55,8 @@ jobs:
                 "issuetype": {"name": "${{ steps.issue-type.outputs.type }}"}
               }
             }')
+
+          echo "API 응답값: $RESPONSE"
           
           JIRA_KEY=$(echo "$RESPONSE" | jq -r '.key // empty')
           echo "jira_key=$JIRA_KEY" >> $GITHUB_OUTPUT
