@@ -436,36 +436,6 @@ Resources:
             Auth:
               Authorizer: CognitoAuthorizer
 
-  ChatAIFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      FunctionName: group2-englishstudy-chat-ai-handler
-      CodeUri: .
-      Handler: com.mzc.secondproject.serverless.domain.chatting.handler.ChatAIHandler::handleRequest
-      Description: Generate AI responses using Bedrock
-      Timeout: 60
-      MemorySize: 1024
-      SnapStart:
-        ApplyOn: PublishedVersions
-      Policies:
-        - DynamoDBCrudPolicy:
-            TableName: !Ref ChatTable
-        - Statement:
-            - Effect: Allow
-              Action:
-                - bedrock:InvokeModel
-                - bedrock:InvokeModelWithResponseStream
-              Resource: "*"
-      Events:
-        GenerateAI:
-          Type: Api
-          Properties:
-            RestApiId: !Ref MainApi
-            Path: /chat/ai/generate
-            Method: POST
-            Auth:
-              Authorizer: CognitoAuthorizer
-
   ChatVoiceFunction:
     Type: AWS::Serverless::Function
     Properties:
