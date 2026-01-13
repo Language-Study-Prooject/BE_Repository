@@ -34,12 +34,25 @@ public class GameService {
 	private final WordRepository wordRepository;
 	private final GameStatsService gameStatsService;
 
+	/**
+	 * 기본 생성자 (Lambda에서 사용)
+	 */
 	public GameService() {
-		this.chatRoomRepository = new ChatRoomRepository();
-		this.connectionRepository = new ConnectionRepository();
-		this.gameRoundRepository = new GameRoundRepository();
-		this.wordRepository = new WordRepository();
-		this.gameStatsService = new GameStatsService();
+		this(new ChatRoomRepository(), new ConnectionRepository(),
+				new GameRoundRepository(), new WordRepository(), new GameStatsService());
+	}
+
+	/**
+	 * 의존성 주입 생성자 (테스트 용이성)
+	 */
+	public GameService(ChatRoomRepository chatRoomRepository, ConnectionRepository connectionRepository,
+	                   GameRoundRepository gameRoundRepository, WordRepository wordRepository,
+	                   GameStatsService gameStatsService) {
+		this.chatRoomRepository = chatRoomRepository;
+		this.connectionRepository = connectionRepository;
+		this.gameRoundRepository = gameRoundRepository;
+		this.wordRepository = wordRepository;
+		this.gameStatsService = gameStatsService;
 	}
 
 	/**
