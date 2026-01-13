@@ -330,6 +330,60 @@ Resources:
             Auth:
               Authorizer: CognitoAuthorizer
 
+  GameFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: group2-englishstudy-game-handler
+      CodeUri: .
+      Handler: com.mzc.secondproject.serverless.domain.chatting.handler.GameHandler::handleRequest
+      Description: Handle catch-mind game operations
+      SnapStart:
+        ApplyOn: PublishedVersions
+      Environment:
+        Variables:
+          WEBSOCKET_ENDPOINT: !Sub "https://${WebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/dev"
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ChatTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - execute-api:ManageConnections
+              Resource: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${WebSocketApi}/*"
+      Events:
+        StartGame:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /chat/rooms/{roomId}/game/start
+            Method: POST
+            Auth:
+              Authorizer: CognitoAuthorizer
+        StopGame:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /chat/rooms/{roomId}/game/stop
+            Method: POST
+            Auth:
+              Authorizer: CognitoAuthorizer
+        GetGameStatus:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /chat/rooms/{roomId}/game/status
+            Method: GET
+            Auth:
+              Authorizer: CognitoAuthorizer
+        GetScores:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /chat/rooms/{roomId}/game/scores
+            Method: GET
+            Auth:
+              Authorizer: CognitoAuthorizer
+
   ChatMessageFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -379,36 +433,6 @@ Resources:
             RestApiId: !Ref MainApi
             Path: /chat/rooms/{roomId}/messages/{messageId}
             Method: GET
-            Auth:
-              Authorizer: CognitoAuthorizer
-
-  ChatAIFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      FunctionName: group2-englishstudy-chat-ai-handler
-      CodeUri: .
-      Handler: com.mzc.secondproject.serverless.domain.chatting.handler.ChatAIHandler::handleRequest
-      Description: Generate AI responses using Bedrock
-      Timeout: 60
-      MemorySize: 1024
-      SnapStart:
-        ApplyOn: PublishedVersions
-      Policies:
-        - DynamoDBCrudPolicy:
-            TableName: !Ref ChatTable
-        - Statement:
-            - Effect: Allow
-              Action:
-                - bedrock:InvokeModel
-                - bedrock:InvokeModelWithResponseStream
-              Resource: "*"
-      Events:
-        GenerateAI:
-          Type: Api
-          Properties:
-            RestApiId: !Ref MainApi
-            Path: /chat/ai/generate
-            Method: POST
             Auth:
               Authorizer: CognitoAuthorizer
 
@@ -925,6 +949,77 @@ Resources:
             RestApiId: !Ref MainApi
             Path: /badges/earned
             Method: GET
+            Auth:
+              Authorizer: CognitoAuthorizer
+
+  #############################################
+  # Grammar Lambda Functions
+  #############################################
+
+  GrammarFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: group2-englishstudy-grammar-handler
+      CodeUri: .
+      Handler: com.mzc.secondproject.serverless.domain.grammar.handler.GrammarHandler::handleRequest
+      Description: Handle grammar check using Bedrock AI
+      Timeout: 60
+      MemorySize: 1024
+      SnapStart:
+        ApplyOn: PublishedVersions
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ChatTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - bedrock:InvokeModel
+              Resource: "*"
+        - Statement:
+            - Effect: Allow
+              Action:
+                - aws-marketplace:ViewSubscriptions
+                - aws-marketplace:Subscribe
+              Resource: "*"
+      Events:
+        GrammarCheck:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /grammar/check
+            Method: POST
+            Auth:
+              Authorizer: CognitoAuthorizer
+        GrammarConversation:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /grammar/conversation
+            Method: POST
+            Auth:
+              Authorizer: CognitoAuthorizer
+        GetSessions:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /grammar/sessions
+            Method: GET
+            Auth:
+              Authorizer: CognitoAuthorizer
+        GetSessionDetail:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /grammar/sessions/{sessionId}
+            Method: GET
+            Auth:
+              Authorizer: CognitoAuthorizer
+        DeleteSession:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /grammar/sessions/{sessionId}
+            Method: DELETE
             Auth:
               Authorizer: CognitoAuthorizer
 
