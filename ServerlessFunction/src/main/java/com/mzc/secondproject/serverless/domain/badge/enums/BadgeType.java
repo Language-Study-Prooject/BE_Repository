@@ -24,6 +24,12 @@ public enum BadgeType {
 	// 정확도
 	ACCURACY_90("정확도 달인", "전체 정확도 90%를 달성했습니다", "accuracy_90.png", "ACCURACY", 90),
 	
+	// 게임 관련
+	GAME_FIRST_PLAY("첫 게임", "첫 게임에 참여했습니다", "game_first.png", "GAMES_PLAYED", 1),
+	GAME_10_WINS("게임 10승", "게임에서 10번 1등을 했습니다", "game_10_wins.png", "GAMES_WON", 10),
+	QUICK_GUESSER("번개 정답", "5초 내에 정답을 맞췄습니다", "quick_guesser.png", "QUICK_GUESSES", 1),
+	PERFECT_DRAWER("완벽한 출제자", "출제 시 전원이 정답을 맞췄습니다", "perfect_drawer.png", "PERFECT_DRAWS", 1),
+
 	// 특별
 	MASTER("학습 마스터", "모든 업적을 달성했습니다", "master.png", "ALL_BADGES", 1);
 	
