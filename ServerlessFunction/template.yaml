@@ -798,6 +798,90 @@ Resources:
               Authorizer: NONE
 
   #############################################
+  # Stats Lambda Functions (DynamoDB Streams)
+  #############################################
+
+  # DynamoDB Streams 트리거 - 테스트 결과 저장 시 통계 자동 업데이트
+  StatsStreamFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: group2-englishstudy-stats-stream-handler
+      CodeUri: .
+      Handler: com.mzc.secondproject.serverless.domain.stats.handler.StatsStreamHandler::handleRequest
+      Description: Process DynamoDB Streams for stats aggregation
+      Timeout: 60
+      SnapStart:
+        ApplyOn: PublishedVersions
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref VocabTable
+      Events:
+        DynamoDBStream:
+          Type: DynamoDB
+          Properties:
+            Stream: !GetAtt VocabTable.StreamArn
+            StartingPosition: TRIM_HORIZON
+            BatchSize: 100
+            FilterCriteria:
+              Filters:
+                - Pattern: '{"eventName": ["INSERT"], "dynamodb": {"NewImage": {"PK": {"S": [{"prefix": "TEST#"}]}}}}'
+
+  # 사용자 통계 조회 API Handler
+  UserStatsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: group2-englishstudy-user-stats-handler
+      CodeUri: .
+      Handler: com.mzc.secondproject.serverless.domain.stats.handler.UserStatsHandler::handleRequest
+      Description: Handle user learning statistics API
+      SnapStart:
+        ApplyOn: PublishedVersions
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref VocabTable
+      Events:
+        GetDailyStats:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /stats/daily
+            Method: GET
+            Auth:
+              Authorizer: CognitoAuthorizer
+        GetWeeklyStats:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /stats/weekly
+            Method: GET
+            Auth:
+              Authorizer: CognitoAuthorizer
+        GetMonthlyStats:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /stats/monthly
+            Method: GET
+            Auth:
+              Authorizer: CognitoAuthorizer
+        GetTotalStats:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /stats/total
+            Method: GET
+            Auth:
+              Authorizer: CognitoAuthorizer
+        GetStatsHistory:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /stats/history
+            Method: GET
+            Auth:
+              Authorizer: CognitoAuthorizer
+
+  #############################################
   # DynamoDB Tables
   #############################################
 
@@ -895,6 +979,8 @@ Resources:
     Properties:
       TableName: group2-englishstudy-vocab
       BillingMode: PAY_PER_REQUEST
+      StreamSpecification:
+        StreamViewType: NEW_IMAGE
       AttributeDefinitions:
         - AttributeName: PK
           AttributeType: S
