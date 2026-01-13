@@ -1,34 +1,34 @@
-# GitHub Issue → Jira 동기화
-name: Issue-Jira Sync
+# GitHub PR → Jira 동기화
+name: Github-Jira PR Sync
 
 on:
-  issues:
+  pull_request:
     types: [opened, closed, reopened]
-  issue_comment:
-    types: [created]
 
 env:
   JIRA_PROJECT_KEY: MESP
 
 jobs:
-  # GitHub Issue 생성 → Jira 티켓 생성
-  create-jira-from-issue:
+  # GitHub PR 생성 → Jira 티켓 생성
+  create-jira-from-pr:
     runs-on: ubuntu-latest
-    if: github.event_name == 'issues' && github.event.action == 'opened'
+    if: github.event.action == 'opened'
 
     steps:
-      - name: Determine Issue Type from Title
+      - name: Determine Issue Type from PR Title
         id: issue-type
         run: |
-          TITLE='${{ github.event.issue.title }}'
+          TITLE='${{ github.event.pull_request.title }}'
           
-          # Issue 제목 기반 Jira 타입 매핑
-          # [EPIC], [STORY], [TASK] 3가지
+          # PR 제목 기반 Jira 타입 매핑
           if echo "$TITLE" | grep -qiE "^\[EPIC\]"; then
             echo "type=Epic" >> $GITHUB_OUTPUT
           elif echo "$TITLE" | grep -qiE "^\[STORY\]"; then
             echo "type=Story" >> $GITHUB_OUTPUT
+          elif echo "$TITLE" | grep -qiE "^(fix:|hotfix:)"; then
+            echo "type=Bug" >> $GITHUB_OUTPUT
           else
+            # feat:, improve:, refactor:, release:, [TASK] 등 → Task
             echo "type=Task" >> $GITHUB_OUTPUT
           fi
 
@@ -42,13 +42,14 @@ jobs:
             -d '{
               "fields": {
                 "project": {"key": "${{ env.JIRA_PROJECT_KEY }}"},
-                "summary": "[GH-#${{ github.event.issue.number }}] ${{ github.event.issue.title }}",
+                "summary": "[PR-#${{ github.event.pull_request.number }}] ${{ github.event.pull_request.title }}",
                 "description": {
                   "type": "doc",
                   "version": 1,
                   "content": [
-                    {"type": "paragraph", "content": [{"type": "text", "text": "GitHub Issue: ${{ github.event.issue.html_url }}"}]},
-                    {"type": "paragraph", "content": [{"type": "text", "text": "Author: ${{ github.event.issue.user.login }}"}]}
+                    {"type": "paragraph", "content": [{"type": "text", "text": "GitHub PR: ${{ github.event.pull_request.html_url }}"}]},
+                    {"type": "paragraph", "content": [{"type": "text", "text": "Author: ${{ github.event.pull_request.user.login }}"}]},
+                    {"type": "paragraph", "content": [{"type": "text", "text": "Branch: ${{ github.head_ref }} → ${{ github.base_ref }}"}]}
                   ]
                 },
                 "issuetype": {"name": "${{ steps.issue-type.outputs.type }}"}
@@ -58,39 +59,39 @@ jobs:
           JIRA_KEY=$(echo "$RESPONSE" | jq -r '.key // empty')
           echo "jira_key=$JIRA_KEY" >> $GITHUB_OUTPUT
 
-      - name: Update GitHub Issue with Jira Link
+      - name: Update PR with Jira Link
         if: steps.create-jira.outputs.jira_key != ''
         uses: actions/github-script@v7
         with:
           script: |
             const jiraKey = '${{ steps.create-jira.outputs.jira_key }}';
             const jiraUrl = '${{ secrets.JIRA_BASE_URL }}/browse/' + jiraKey;
-            const currentBody = context.payload.issue.body || '';
+            const currentBody = context.payload.pull_request.body || '';
             const newBody = `\n---\n**Jira:** [${jiraKey}](${jiraUrl})\n---\n` + currentBody;
             
-            await github.rest.issues.update({
+            await github.rest.pulls.update({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              issue_number: context.issue.number,
+              pull_number: context.payload.pull_request.number,
               body: newBody
             });
             
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              issue_number: context.issue.number,
+              issue_number: context.payload.pull_request.number,
               body: `Jira 티켓 생성: [${jiraKey}](${jiraUrl})`
             });
 
-  # GitHub Issue 닫힘 → Jira 티켓 Done
-  close-jira-on-issue-close:
+  # PR 머지 → Jira 티켓 Done
+  close-jira-on-pr-merge:
     runs-on: ubuntu-latest
-    if: github.event_name == 'issues' && github.event.action == 'closed'
+    if: github.event.action == 'closed' && github.event.pull_request.merged == true
 
     steps:
       - name: Extract Jira Key and Transition to Done
         run: |
-          BODY='${{ github.event.issue.body }}'
+          BODY='${{ github.event.pull_request.body }}'
           JIRA_KEY=$(echo "$BODY" | grep -oE '${{ env.JIRA_PROJECT_KEY }}-[0-9]+' | head -1)
           
           [ -z "$JIRA_KEY" ] && exit 0
@@ -108,16 +109,29 @@ jobs:
             -H "Content-Type: application/json" \
             "${{ secrets.JIRA_BASE_URL }}/rest/api/3/issue/${JIRA_KEY}/transitions" \
             -d "{\"transition\": {\"id\": \"$DONE_ID\"}}"
+          
+          # Add merge comment to Jira
+          curl -s -X POST \
+            -H "Authorization: Basic $(echo -n '${{ secrets.JIRA_USER_EMAIL }}:${{ secrets.JIRA_API_TOKEN }}' | base64)" \
+            -H "Content-Type: application/json" \
+            "${{ secrets.JIRA_BASE_URL }}/rest/api/3/issue/${JIRA_KEY}/comment" \
+            -d '{
+              "body": {
+                "type": "doc",
+                "version": 1,
+                "content": [{"type": "paragraph", "content": [{"type": "text", "text": "PR #${{ github.event.pull_request.number }} merged to ${{ github.base_ref }}"}]}]
+              }
+            }'
 
-  # GitHub Issue 재오픈 → Jira 상태 복구
-  reopen-jira-on-issue-reopen:
+  # PR 재오픈 → Jira 상태 복구
+  reopen-jira-on-pr-reopen:
     runs-on: ubuntu-latest
-    if: github.event_name == 'issues' && github.event.action == 'reopened'
+    if: github.event.action == 'reopened'
 
     steps:
       - name: Extract Jira Key and Transition to In Progress
         run: |
-          BODY='${{ github.event.issue.body }}'
+          BODY='${{ github.event.pull_request.body }}'
           JIRA_KEY=$(echo "$BODY" | grep -oE '${{ env.JIRA_PROJECT_KEY }}-[0-9]+' | head -1)
           
           [ -z "$JIRA_KEY" ] && exit 0
@@ -135,31 +149,3 @@ jobs:
             -H "Content-Type: application/json" \
             "${{ secrets.JIRA_BASE_URL }}/rest/api/3/issue/${JIRA_KEY}/transitions" \
             -d "{\"transition\": {\"id\": \"$PROGRESS_ID\"}}"
-
-  # GitHub 코멘트 → Jira 코멘트 동기화
-  sync-comment-to-jira:
-    runs-on: ubuntu-latest
-    if: github.event_name == 'issue_comment' && github.event.action == 'created'
-
-    steps:
-      - name: Sync Comment to Jira
-        run: |
-          BODY='${{ github.event.issue.body }}'
-          JIRA_KEY=$(echo "$BODY" | grep -oE '${{ env.JIRA_PROJECT_KEY }}-[0-9]+' | head -1)
-          
-          [ -z "$JIRA_KEY" ] && exit 0
-          
-          COMMENT_AUTHOR="${{ github.event.comment.user.login }}"
-          COMMENT_BODY=$(echo '${{ github.event.comment.body }}' | head -c 500 | sed 's/"/\\"/g' | tr '\n' ' ')
-          
-          curl -s -X POST \
-            -H "Authorization: Basic $(echo -n '${{ secrets.JIRA_USER_EMAIL }}:${{ secrets.JIRA_API_TOKEN }}' | base64)" \
-            -H "Content-Type: application/json" \
-            "${{ secrets.JIRA_BASE_URL }}/rest/api/3/issue/${JIRA_KEY}/comment" \
-            -d "{
-              \"body\": {
-                \"type\": \"doc\",
-                \"version\": 1,
-                \"content\": [{\"type\": \"paragraph\", \"content\": [{\"type\": \"text\", \"text\": \"@${COMMENT_AUTHOR}: ${COMMENT_BODY}\"}]}]
-              }
-            }"
