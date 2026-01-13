@@ -897,6 +897,37 @@ Resources:
             Auth:
               Authorizer: CognitoAuthorizer
 
+  # Badge Lambda Function
+  BadgeFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: group2-englishstudy-badge-handler
+      CodeUri: .
+      Handler: com.mzc.secondproject.serverless.domain.badge.handler.BadgeHandler::handleRequest
+      Description: Handle user badges and achievements
+      SnapStart:
+        ApplyOn: PublishedVersions
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref VocabTable
+      Events:
+        GetAllBadges:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /badges
+            Method: GET
+            Auth:
+              Authorizer: CognitoAuthorizer
+        GetEarnedBadges:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /badges/earned
+            Method: GET
+            Auth:
+              Authorizer: CognitoAuthorizer
+
   # EventBridge Scheduler - 매일 자정 단어 학습 통계 집계
   ScheduledStatsFunction:
     Type: AWS::Serverless::Function
