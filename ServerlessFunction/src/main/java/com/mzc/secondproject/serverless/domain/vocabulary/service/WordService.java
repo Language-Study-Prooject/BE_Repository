@@ -1,47 +1,40 @@
 package com.mzc.secondproject.serverless.domain.vocabulary.service;
 
 import com.mzc.secondproject.serverless.common.dto.PaginatedResult;
+import com.mzc.secondproject.serverless.domain.vocabulary.factory.WordFactory;
 import com.mzc.secondproject.serverless.domain.vocabulary.model.Word;
 import com.mzc.secondproject.serverless.domain.vocabulary.repository.WordRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.time.Instant;
 import java.util.*;
 
 public class WordService {
-	
+
 	private static final Logger logger = LoggerFactory.getLogger(WordService.class);
-	
+
 	private final WordRepository wordRepository;
-	
+	private final WordFactory wordFactory;
+
+	/**
+	 * 기본 생성자 (Lambda에서 사용)
+	 */
 	public WordService() {
-		this.wordRepository = new WordRepository();
+		this(new WordRepository(), new WordFactory());
+	}
+
+	/**
+	 * 의존성 주입 생성자 (테스트 용이성)
+	 */
+	public WordService(WordRepository wordRepository, WordFactory wordFactory) {
+		this.wordRepository = wordRepository;
+		this.wordFactory = wordFactory;
 	}
 	
 	public Word createWord(String english, String korean, String example, String level, String category) {
-		String wordId = UUID.randomUUID().toString();
-		String now = Instant.now().toString();
-		
-		Word word = Word.builder()
-				.pk("WORD#" + wordId)
-				.sk("METADATA")
-				.gsi1pk("LEVEL#" + level)
-				.gsi1sk("WORD#" + wordId)
-				.gsi2pk("CATEGORY#" + category)
-				.gsi2sk("WORD#" + wordId)
-				.wordId(wordId)
-				.english(english)
-				.korean(korean)
-				.example(example)
-				.level(level)
-				.category(category)
-				.createdAt(now)
-				.build();
-		
+		Word word = wordFactory.create(english, korean, example, level, category);
 		wordRepository.save(word);
-		logger.info("Created word: {}", wordId);
-		
+		logger.info("Created word: {}", word.getWordId());
 		return word;
 	}
 	
@@ -63,32 +56,19 @@ public class WordService {
 		if (optWord.isEmpty()) {
 			throw new IllegalArgumentException("Word not found");
 		}
-		
+
 		Word word = optWord.get();
-		
-		if (updates.containsKey("english")) {
-			word.setEnglish((String) updates.get("english"));
-		}
-		if (updates.containsKey("korean")) {
-			word.setKorean((String) updates.get("korean"));
-		}
-		if (updates.containsKey("example")) {
-			word.setExample((String) updates.get("example"));
-		}
-		if (updates.containsKey("level")) {
-			String newLevel = (String) updates.get("level");
-			word.setLevel(newLevel);
-			word.setGsi1pk("LEVEL#" + newLevel);
-		}
-		if (updates.containsKey("category")) {
-			String newCategory = (String) updates.get("category");
-			word.setCategory(newCategory);
-			word.setGsi2pk("CATEGORY#" + newCategory);
-		}
-		
+		wordFactory.updateFields(
+				word,
+				(String) updates.get("english"),
+				(String) updates.get("korean"),
+				(String) updates.get("example"),
+				(String) updates.get("level"),
+				(String) updates.get("category")
+		);
+
 		wordRepository.save(word);
 		logger.info("Updated word: {}", wordId);
-		
 		return word;
 	}
 	
@@ -103,51 +83,31 @@ public class WordService {
 	}
 	
 	public BatchResult createWordsBatch(List<Map<String, Object>> wordsList) {
-		String now = Instant.now().toString();
-		List<Word> createdWords = new ArrayList<>();
 		int successCount = 0;
 		int failCount = 0;
-		
+
 		for (Map<String, Object> wordData : wordsList) {
 			try {
 				String english = (String) wordData.get("english");
 				String korean = (String) wordData.get("korean");
 				String example = (String) wordData.get("example");
-				String level = (String) wordData.getOrDefault("level", "BEGINNER");
-				String category = (String) wordData.getOrDefault("category", "DAILY");
-				
+				String level = (String) wordData.get("level");
+				String category = (String) wordData.get("category");
+
 				if (english == null || korean == null) {
 					failCount++;
 					continue;
 				}
-				
-				String wordId = UUID.randomUUID().toString();
-				
-				Word word = Word.builder()
-						.pk("WORD#" + wordId)
-						.sk("METADATA")
-						.gsi1pk("LEVEL#" + level)
-						.gsi1sk("WORD#" + wordId)
-						.gsi2pk("CATEGORY#" + category)
-						.gsi2sk("WORD#" + wordId)
-						.wordId(wordId)
-						.english(english)
-						.korean(korean)
-						.example(example)
-						.level(level)
-						.category(category)
-						.createdAt(now)
-						.build();
-				
+
+				Word word = wordFactory.create(english, korean, example, level, category);
 				wordRepository.save(word);
-				createdWords.add(word);
 				successCount++;
 			} catch (Exception e) {
 				logger.error("Failed to create word", e);
 				failCount++;
 			}
 		}
-		
+
 		logger.info("Batch created {} words, failed {}", successCount, failCount);
 		return new BatchResult(successCount, failCount, wordsList.size());
 	}
