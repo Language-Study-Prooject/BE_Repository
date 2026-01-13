@@ -5,6 +5,10 @@ on:
   issues:
     types: [opened]
 
+permissions:
+  issues: write
+  contents: read
+
 jobs:
   sync-issue-to-jira:
     runs-on: ubuntu-latest
