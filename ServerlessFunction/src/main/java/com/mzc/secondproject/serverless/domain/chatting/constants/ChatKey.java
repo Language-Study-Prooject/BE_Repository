@@ -15,19 +15,16 @@ public final class ChatKey {
 	private ChatKey() {
 	}
 	
-	// Key Builders
+	// Key Builders (userPk는 DynamoDbKey.userPk() 사용)
+
 	public static String roomPk(String roomId) {
 		return ROOM + roomId;
 	}
-	
+
 	public static String messageSk(String messageId) {
 		return MESSAGE + messageId;
 	}
-	
-	public static String userPk(String userId) {
-		return DynamoDbKey.USER + userId;
-	}
-	
+
 	public static String connectionPk(String connectionId) {
 		return CONNECTION + connectionId;
 	}
