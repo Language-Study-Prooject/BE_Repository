@@ -1022,6 +1022,30 @@ Resources:
             Method: POST
             Auth:
               Authorizer: CognitoAuthorizer
+        GetSessions:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /grammar/sessions
+            Method: GET
+            Auth:
+              Authorizer: CognitoAuthorizer
+        GetSessionDetail:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /grammar/sessions/{sessionId}
+            Method: GET
+            Auth:
+              Authorizer: CognitoAuthorizer
+        DeleteSession:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /grammar/sessions/{sessionId}
+            Method: DELETE
+            Auth:
+              Authorizer: CognitoAuthorizer
 
   # EventBridge Scheduler - 매일 자정 단어 학습 통계 집계
   ScheduledStatsFunction:
