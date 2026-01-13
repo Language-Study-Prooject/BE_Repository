@@ -41,6 +41,9 @@ public class TestResult {
     private Integer incorrectAnswers;
     private Double successRate;     // 성공률 (%)
 
+    // 시험에 출제된 전체 단어 목록
+    private List<String> testedWordIds;
+
     // 오답 단어 목록
     private List<String> incorrectWordIds;
 

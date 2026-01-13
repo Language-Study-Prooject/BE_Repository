@@ -577,6 +577,14 @@ Resources:
             Method: PUT
             Auth:
               Authorizer: CognitoAuthorizer
+        UpdateUserWordStatus:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /vocab/user-words/{wordId}/status
+            Method: PUT
+            Auth:
+              Authorizer: CognitoAuthorizer
 
   WordGroupFunction:
     Type: AWS::Serverless::Function
@@ -725,6 +733,14 @@ Resources:
           Properties:
             RestApiId: !Ref MainApi
             Path: /vocab/test/results/{testId}
+            Method: GET
+            Auth:
+              Authorizer: CognitoAuthorizer
+        GetTestedWords:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /vocab/test/tested-words
             Method: GET
             Auth:
               Authorizer: CognitoAuthorizer

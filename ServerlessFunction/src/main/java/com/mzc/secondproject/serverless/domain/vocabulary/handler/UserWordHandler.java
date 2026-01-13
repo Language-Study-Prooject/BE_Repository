@@ -4,6 +4,7 @@ import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.lambda.runtime.RequestHandler;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyRequestEvent;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyResponseEvent;
+import com.google.gson.reflect.TypeToken;
 import com.mzc.secondproject.serverless.common.exception.CommonErrorCode;
 import com.mzc.secondproject.serverless.common.validation.BeanValidator;
 import com.mzc.secondproject.serverless.domain.vocabulary.dto.request.UpdateUserWordRequest;
@@ -42,6 +43,7 @@ public class UserWordHandler implements RequestHandler<APIGatewayProxyRequestEve
                 Route.getAuth("/user-words", this::getUserWords),
                 Route.getAuth("/user-words/{wordId}", this::getUserWord),
                 Route.putAuth("/user-words/{wordId}/tag", this::updateUserWordTag),
+                Route.putAuth("/user-words/{wordId}/status", this::updateWordStatus),
                 Route.putAuth("/user-words/{wordId}", this::updateUserWord)
         );
     }
@@ -102,6 +104,25 @@ public class UserWordHandler implements RequestHandler<APIGatewayProxyRequestEve
 
         UserWord userWord = commandService.updateUserWordTag(userId, wordId, req.getBookmarked(), req.getFavorite(), req.getDifficulty());
         return ResponseGenerator.ok("Tag updated", userWord);
+    }
+
+    private APIGatewayProxyResponseEvent updateWordStatus(APIGatewayProxyRequestEvent request, String userId) {
+        String wordId = request.getPathParameters().get("wordId");
+
+        Map<String, String> body = ResponseGenerator.gson().fromJson(request.getBody(),
+                new TypeToken<Map<String, String>>(){}.getType());
+
+        String status = body != null ? body.get("status") : null;
+        if (status == null || status.isEmpty()) {
+            return ResponseGenerator.fail(CommonErrorCode.REQUIRED_FIELD_MISSING);
+        }
+
+        try {
+            UserWord userWord = commandService.updateWordStatus(userId, wordId, status);
+            return ResponseGenerator.ok("Word status updated", userWord);
+        } catch (IllegalArgumentException e) {
+            return ResponseGenerator.fail(VocabularyErrorCode.INVALID_WORD_STATUS);
+        }
     }
 
     private APIGatewayProxyResponseEvent getWrongAnswers(APIGatewayProxyRequestEvent request, String userId) {

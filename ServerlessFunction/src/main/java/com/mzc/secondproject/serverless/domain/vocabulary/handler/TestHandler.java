@@ -40,7 +40,8 @@ public class TestHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
                 Route.postAuth("/test/start", this::startTest),
                 Route.postAuth("/test/submit", this::submitAnswer),
                 Route.getAuth("/test/results/{testId}", this::getTestResultDetail),
-                Route.getAuth("/test/results", this::getTestResults)
+                Route.getAuth("/test/results", this::getTestResults),
+                Route.getAuth("/test/tested-words", this::getTestedWords)
         );
     }
 
@@ -129,5 +130,29 @@ public class TestHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
         result.put("completedAt", detail.testResult().getCompletedAt());
 
         return ResponseGenerator.ok("Test result detail retrieved", result);
+    }
+
+    private APIGatewayProxyResponseEvent getTestedWords(APIGatewayProxyRequestEvent request, String userId) {
+        Map<String, String> queryParams = request.getQueryStringParameters();
+
+        int recentTests = 10;
+        int limit = 50;
+
+        if (queryParams != null) {
+            if (queryParams.get("recentTests") != null) {
+                recentTests = Math.min(Integer.parseInt(queryParams.get("recentTests")), 50);
+            }
+            if (queryParams.get("limit") != null) {
+                limit = Math.min(Integer.parseInt(queryParams.get("limit")), 100);
+            }
+        }
+
+        TestQueryService.TestedWordsResult result = queryService.getTestedWords(userId, recentTests, limit);
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("testedWords", result.words());
+        response.put("totalCount", result.totalCount());
+
+        return ResponseGenerator.ok("Tested words retrieved", response);
     }
 }

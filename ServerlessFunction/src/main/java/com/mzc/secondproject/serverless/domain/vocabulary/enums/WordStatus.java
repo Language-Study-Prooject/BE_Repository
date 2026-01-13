@@ -6,7 +6,8 @@ public enum WordStatus {
     NEW("new", "새 단어"),
     LEARNING("learning", "학습 중"),
     REVIEWING("reviewing", "복습 중"),
-    MASTERED("mastered", "완료");
+    MASTERED("mastered", "완료"),
+    UNKNOWN("unknown", "모르겠음");
 
     private final String code;
     private final String displayName;

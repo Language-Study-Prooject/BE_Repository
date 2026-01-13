@@ -31,7 +31,7 @@ public final class WordStateFactory {
      */
     public static WordState fromStatus(WordStatus status) {
         return switch (status) {
-            case NEW -> NewState.getInstance();
+            case NEW, UNKNOWN -> NewState.getInstance();
             case LEARNING -> LearningState.getInstance();
             case REVIEWING -> ReviewingState.getInstance();
             case MASTERED -> MasteredState.getInstance();
