@@ -1,6 +1,7 @@
 package com.mzc.secondproject.serverless.domain.vocabulary.service;
 
 import com.mzc.secondproject.serverless.common.config.StudyConfig;
+import com.mzc.secondproject.serverless.common.constants.DynamoDbKey;
 import com.mzc.secondproject.serverless.common.enums.Difficulty;
 import com.mzc.secondproject.serverless.domain.vocabulary.constants.VocabKey;
 import com.mzc.secondproject.serverless.domain.vocabulary.enums.WordStatus;
@@ -36,7 +37,7 @@ public class UserWordCommandService {
 		
 		if (optUserWord.isEmpty()) {
 			userWord = UserWord.builder()
-					.pk(VocabKey.userPk(userId))
+					.pk(DynamoDbKey.userPk(userId))
 					.sk(VocabKey.wordSk(wordId))
 					.gsi1pk(VocabKey.userReviewPk(userId))
 					.gsi2pk(VocabKey.userStatusPk(userId))
@@ -75,7 +76,7 @@ public class UserWordCommandService {
 		
 		if (optUserWord.isEmpty()) {
 			userWord = UserWord.builder()
-					.pk(VocabKey.userPk(userId))
+					.pk(DynamoDbKey.userPk(userId))
 					.sk(VocabKey.wordSk(wordId))
 					.gsi1pk(VocabKey.userReviewPk(userId))
 					.gsi2pk(VocabKey.userStatusPk(userId))
@@ -137,7 +138,7 @@ public class UserWordCommandService {
 		
 		if (optUserWord.isEmpty()) {
 			userWord = UserWord.builder()
-					.pk(VocabKey.userPk(userId))
+					.pk(DynamoDbKey.userPk(userId))
 					.sk(VocabKey.wordSk(wordId))
 					.gsi1pk(VocabKey.userReviewPk(userId))
 					.gsi2pk(VocabKey.userStatusPk(userId))
