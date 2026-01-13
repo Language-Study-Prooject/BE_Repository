@@ -549,7 +549,7 @@ Resources:
           Type: Api
           Properties:
             RestApiId: !Ref MainApi
-            Path: /vocab/words
+            Path: /vocab/user-words
             Method: GET
             Auth:
               Authorizer: CognitoAuthorizer
@@ -557,7 +557,7 @@ Resources:
           Type: Api
           Properties:
             RestApiId: !Ref MainApi
-            Path: /vocab/words/{wordId}
+            Path: /vocab/user-words/{wordId}
             Method: GET
             Auth:
               Authorizer: CognitoAuthorizer
@@ -565,7 +565,7 @@ Resources:
           Type: Api
           Properties:
             RestApiId: !Ref MainApi
-            Path: /vocab/words/{wordId}
+            Path: /vocab/user-words/{wordId}
             Method: PUT
             Auth:
               Authorizer: CognitoAuthorizer
@@ -573,7 +573,7 @@ Resources:
           Type: Api
           Properties:
             RestApiId: !Ref MainApi
-            Path: /vocab/words/{wordId}/tag
+            Path: /vocab/user-words/{wordId}/tag
             Method: PUT
             Auth:
               Authorizer: CognitoAuthorizer
