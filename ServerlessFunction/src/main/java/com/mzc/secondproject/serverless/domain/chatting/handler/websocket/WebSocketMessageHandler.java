@@ -5,11 +5,13 @@ import com.amazonaws.services.lambda.runtime.RequestHandler;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.mzc.secondproject.serverless.common.util.WebSocketBroadcaster;
+import com.mzc.secondproject.serverless.domain.chatting.dto.response.CommandResult;
 import com.mzc.secondproject.serverless.domain.chatting.model.ChatMessage;
 import com.mzc.secondproject.serverless.domain.chatting.model.Connection;
 import com.mzc.secondproject.serverless.domain.chatting.repository.ChatRoomRepository;
 import com.mzc.secondproject.serverless.domain.chatting.repository.ConnectionRepository;
 import com.mzc.secondproject.serverless.domain.chatting.service.ChatMessageService;
+import com.mzc.secondproject.serverless.domain.chatting.service.CommandService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -32,12 +34,14 @@ public class WebSocketMessageHandler implements RequestHandler<Map<String, Objec
 	private final ChatRoomRepository chatRoomRepository;
 	private final ConnectionRepository connectionRepository;
 	private final WebSocketBroadcaster broadcaster;
-	
+	private final CommandService commandService;
+
 	public WebSocketMessageHandler() {
 		this.chatMessageService = new ChatMessageService();
 		this.chatRoomRepository = new ChatRoomRepository();
 		this.connectionRepository = new ConnectionRepository();
 		this.broadcaster = new WebSocketBroadcaster();
+		this.commandService = new CommandService();
 	}
 	
 	@Override
@@ -57,11 +61,17 @@ public class WebSocketMessageHandler implements RequestHandler<Map<String, Objec
 			if (payload.roomId == null || payload.userId == null || payload.content == null) {
 				return createResponse(400, "roomId, userId, and content are required");
 			}
-			
+
+			// 슬래시 명령어 처리
+			var commandResult = commandService.processCommand(payload.content, payload.roomId, payload.userId);
+			if (commandResult.isPresent()) {
+				return handleCommandResult(commandResult.get(), payload.roomId, payload.userId);
+			}
+
 			String messageType = payload.messageType != null ? payload.messageType : "TEXT";
 			String messageId = UUID.randomUUID().toString();
 			String now = Instant.now().toString();
-			
+
 			ChatMessage message = ChatMessage.builder()
 					.pk("ROOM#" + payload.roomId)
 					.sk("MSG#" + now + "#" + messageId)
@@ -113,7 +123,45 @@ public class WebSocketMessageHandler implements RequestHandler<Map<String, Objec
 		response.put("body", body);
 		return response;
 	}
-	
+
+	/**
+	 * 명령어 처리 결과를 브로드캐스트
+	 */
+	private Map<String, Object> handleCommandResult(CommandResult result, String roomId, String userId) {
+		String messageId = UUID.randomUUID().toString();
+		String now = Instant.now().toString();
+
+		// 시스템 메시지 생성
+		ChatMessage systemMessage = ChatMessage.builder()
+				.pk("ROOM#" + roomId)
+				.sk("MSG#" + now + "#" + messageId)
+				.gsi1pk("SYSTEM")
+				.gsi1sk("MSG#" + now)
+				.gsi2pk("MSG#" + messageId)
+				.gsi2sk("ROOM#" + roomId)
+				.messageId(messageId)
+				.roomId(roomId)
+				.userId("SYSTEM")
+				.content(result.message())
+				.messageType(result.messageType().getCode())
+				.createdAt(now)
+				.build();
+
+		// 명령어 결과는 저장하지 않고 브로드캐스트만 수행
+		List<Connection> connections = connectionRepository.findByRoomId(roomId);
+		String broadcastPayload = gson.toJson(systemMessage);
+		List<String> failedConnections = broadcaster.broadcast(connections, broadcastPayload);
+
+		// 실패한 연결 정리
+		for (String failedConnectionId : failedConnections) {
+			connectionRepository.delete(failedConnectionId);
+			logger.info("Deleted stale connection: {}", failedConnectionId);
+		}
+
+		logger.info("Command result broadcasted: type={}, roomId={}", result.messageType(), roomId);
+		return createResponse(200, "Command executed");
+	}
+
 	/**
 	 * 메시지 페이로드 DTO
 	 */
