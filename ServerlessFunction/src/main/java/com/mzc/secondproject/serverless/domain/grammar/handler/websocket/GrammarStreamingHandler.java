@@ -5,6 +5,8 @@ import com.amazonaws.services.lambda.runtime.RequestHandler;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.mzc.secondproject.serverless.domain.grammar.dto.response.ConversationResponse;
+import com.mzc.secondproject.serverless.domain.grammar.model.GrammarConnection;
+import com.mzc.secondproject.serverless.domain.grammar.repository.GrammarConnectionRepository;
 import com.mzc.secondproject.serverless.domain.grammar.service.GrammarConversationService;
 import com.mzc.secondproject.serverless.domain.grammar.streaming.StreamingCallback;
 import com.mzc.secondproject.serverless.domain.grammar.streaming.StreamingEvent;
@@ -20,15 +22,13 @@ import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * Grammar Streaming WebSocket 핸들러
  * Bedrock 스트리밍 응답을 실시간으로 클라이언트에 전송
  *
- * 리팩토링:
- * - 세션 관리를 GrammarConversationService에 위임
- * - StreamingEvent sealed interface 활용
- * - StreamingRequest record 활용
+ * 인증: $connect에서 JWT 검증 후 저장된 연결 정보에서 userId 조회
  */
 public class GrammarStreamingHandler implements RequestHandler<Map<String, Object>, Map<String, Object>> {
 
@@ -36,9 +36,11 @@ public class GrammarStreamingHandler implements RequestHandler<Map<String, Objec
 	private static final Gson gson = new GsonBuilder().create();
 
 	private final GrammarConversationService conversationService;
+	private final GrammarConnectionRepository connectionRepository;
 
 	public GrammarStreamingHandler() {
 		this.conversationService = new GrammarConversationService();
+		this.connectionRepository = new GrammarConnectionRepository();
 	}
 
 	@Override
@@ -48,20 +50,29 @@ public class GrammarStreamingHandler implements RequestHandler<Map<String, Objec
 		try {
 			String connectionId = extractConnectionId(event);
 			String endpoint = extractWebSocketEndpoint(event);
-			String body = (String) event.get("body");
 
+			// 연결 정보에서 userId 조회 (JWT 인증된 사용자)
+			Optional<GrammarConnection> connectionOpt = connectionRepository.findByConnectionId(connectionId);
+			if (connectionOpt.isEmpty()) {
+				logger.warn("Connection not found: {}", connectionId);
+				return sendError(connectionId, endpoint, "Unauthorized - please reconnect");
+			}
+
+			String userId = connectionOpt.get().getUserId();
+
+			String body = (String) event.get("body");
 			if (body == null || body.isEmpty()) {
 				return sendError(connectionId, endpoint, "Message body is required");
 			}
 
 			StreamingRequest request = gson.fromJson(body, StreamingRequest.class);
 
-			if (!request.isValid()) {
-				return sendError(connectionId, endpoint, "message and userId are required");
+			if (request.message() == null || request.message().trim().isEmpty()) {
+				return sendError(connectionId, endpoint, "message is required");
 			}
 
-			// 스트리밍 대화 처리
-			processStreamingConversation(connectionId, endpoint, request);
+			// 스트리밍 대화 처리 (userId는 연결 정보에서 가져옴)
+			processStreamingConversation(connectionId, endpoint, userId, request);
 
 			return createResponse(200, "Streaming started");
 
@@ -71,14 +82,14 @@ public class GrammarStreamingHandler implements RequestHandler<Map<String, Objec
 		}
 	}
 
-	private void processStreamingConversation(String connectionId, String endpoint, StreamingRequest request) {
+	private void processStreamingConversation(String connectionId, String endpoint, String userId, StreamingRequest request) {
 		ApiGatewayManagementApiClient apiClient = createApiClient(endpoint);
 
-		// 서비스에 스트리밍 처리 위임
+		// 서비스에 스트리밍 처리 위임 (userId는 JWT 인증에서 가져온 값 사용)
 		conversationService.chatStreaming(
 				request.sessionId(),
 				request.message(),
-				request.userId(),
+				userId,
 				request.level(),
 				// 세션 생성 콜백
 				sessionId -> sendEvent(apiClient, connectionId, new StreamingEvent.StartEvent(sessionId)),
