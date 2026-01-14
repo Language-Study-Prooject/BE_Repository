@@ -265,7 +265,9 @@ public class BedrockGrammarCheckFactory implements GrammarCheckFactory {
 				        "type": "VERB_TENSE",
 				        "original": "goed",
 				        "corrected": "went",
-				        "explanation": "explanation here"
+				        "explanation": "explanation here",
+				        "startIndex": 2,
+				        "endIndex": 6
 				      }
 				    ],
 				    "feedback": "brief grammar feedback"
@@ -358,6 +360,8 @@ public class BedrockGrammarCheckFactory implements GrammarCheckFactory {
 						.original(errorObj.get("original").getAsString())
 						.corrected(errorObj.get("corrected").getAsString())
 						.explanation(errorObj.get("explanation").getAsString())
+						.startIndex(getIntOrNull(errorObj, "startIndex"))
+						.endIndex(getIntOrNull(errorObj, "endIndex"))
 						.build();
 				errors.add(error);
 			}
