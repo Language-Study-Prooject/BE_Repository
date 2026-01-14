@@ -11,6 +11,7 @@ import com.mzc.secondproject.serverless.domain.grammar.factory.BedrockGrammarChe
 import com.mzc.secondproject.serverless.domain.grammar.model.GrammarMessage;
 import com.mzc.secondproject.serverless.domain.grammar.model.GrammarSession;
 import com.mzc.secondproject.serverless.domain.grammar.repository.GrammarSessionRepository;
+import com.mzc.secondproject.serverless.domain.grammar.streaming.StreamingCallback;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -18,6 +19,7 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.UUID;
+import java.util.function.Consumer;
 
 public class GrammarConversationService {
 
@@ -219,5 +221,66 @@ public class GrammarConversationService {
 	public void clearSession(String userId, String sessionId) {
 		repository.deleteSession(userId, sessionId);
 		logger.info("Session cleared: sessionId={}", sessionId);
+	}
+
+	/**
+	 * 스트리밍 방식의 대화 처리
+	 * 세션 관리, 메시지 저장 등을 서비스에서 담당
+	 */
+	public void chatStreaming(
+			String sessionId,
+			String message,
+			String userId,
+			String levelStr,
+			Consumer<String> onSessionCreated,
+			StreamingCallback callback
+	) {
+		logger.info("Streaming chat requested: sessionId={}, userId={}", sessionId, userId);
+
+		GrammarLevel level = parseLevel(levelStr);
+
+		// 세션 가져오기 또는 새로 생성
+		GrammarSession session = getOrCreateSession(sessionId, userId, level);
+		onSessionCreated.accept(session.getSessionId());
+
+		// 이전 대화 히스토리 조회
+		String conversationHistory = buildConversationHistory(session.getSessionId());
+
+		// 스트리밍 콜백 래핑 - 완료 시 메시지 저장
+		grammarFactory.generateConversationStreaming(
+				session.getSessionId(),
+				message,
+				level,
+				conversationHistory,
+				new StreamingCallback() {
+					@Override
+					public void onToken(String token) {
+						callback.onToken(token);
+					}
+
+					@Override
+					public void onComplete(ConversationResponse response) {
+						// 사용자 메시지 저장
+						saveUserMessage(session, message, response.getGrammarCheck());
+						// AI 응답 메시지 저장
+						saveAssistantMessage(session, response.getAiResponse());
+						// 세션 업데이트
+						updateSession(session, message);
+						// 완료 콜백 호출
+						callback.onComplete(response);
+					}
+
+					@Override
+					public void onError(Throwable error) {
+						callback.onError(error);
+					}
+				}
+		);
+	}
+
+	// Getter for external access
+	public GrammarSession findOrCreateSession(String sessionId, String userId, String levelStr) {
+		GrammarLevel level = parseLevel(levelStr);
+		return getOrCreateSession(sessionId, userId, level);
 	}
 }
