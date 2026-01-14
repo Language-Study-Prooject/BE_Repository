@@ -2,12 +2,12 @@ package com.mzc.secondproject.serverless.domain.chatting.handler.websocket;
 
 import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.lambda.runtime.RequestHandler;
+import com.mzc.secondproject.serverless.common.util.WebSocketEventUtil;
 import com.mzc.secondproject.serverless.domain.chatting.model.Connection;
 import com.mzc.secondproject.serverless.domain.chatting.repository.ConnectionRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 
@@ -28,12 +28,12 @@ public class WebSocketDisconnectHandler implements RequestHandler<Map<String, Ob
 	@Override
 	public Map<String, Object> handleRequest(Map<String, Object> event, Context context) {
 		logger.info("WebSocket disconnect event: {}", event);
-		
+
 		try {
-			String connectionId = extractConnectionId(event);
-			
+			String connectionId = WebSocketEventUtil.extractConnectionId(event);
+
 			Optional<Connection> connection = connectionRepository.findByConnectionId(connectionId);
-			
+
 			if (connection.isPresent()) {
 				Connection conn = connection.get();
 				connectionRepository.delete(connectionId);
@@ -42,25 +42,12 @@ public class WebSocketDisconnectHandler implements RequestHandler<Map<String, Ob
 			} else {
 				logger.warn("Connection not found for deletion: connectionId={}", connectionId);
 			}
-			
-			return createResponse(200, "Disconnected");
-			
+
+			return WebSocketEventUtil.ok("Disconnected");
+
 		} catch (Exception e) {
 			logger.error("Error handling disconnect: {}", e.getMessage(), e);
-			return createResponse(500, "Internal server error");
+			return WebSocketEventUtil.serverError("Internal server error");
 		}
-	}
-	
-	@SuppressWarnings("unchecked")
-	private String extractConnectionId(Map<String, Object> event) {
-		Map<String, Object> requestContext = (Map<String, Object>) event.get("requestContext");
-		return (String) requestContext.get("connectionId");
-	}
-	
-	private Map<String, Object> createResponse(int statusCode, String body) {
-		Map<String, Object> response = new HashMap<>();
-		response.put("statusCode", statusCode);
-		response.put("body", body);
-		return response;
 	}
 }
