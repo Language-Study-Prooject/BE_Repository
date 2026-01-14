@@ -132,10 +132,10 @@ public class UserService {
     /**
      * 프로필 이미지 URL 업데이트 (업로드 완료 후 호출)
      */
-    public User updateProfileImage(String cognitoSub, String imageUrl) {
+    public User updateProfileImage(String userId, String imageUrl) {
 
-        User user = userRepository.findByCognitoSub(cognitoSub)
-                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+        User user = userRepository.findByCognitoSub(userId)
+                .orElseThrow(() -> UserException.userNotFound(userId));
 
         user.updateProfileUrl(imageUrl);
         return userRepository.update(user);

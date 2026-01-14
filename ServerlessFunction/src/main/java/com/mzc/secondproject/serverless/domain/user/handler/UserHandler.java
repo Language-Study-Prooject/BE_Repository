@@ -6,11 +6,13 @@ import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyRequestEvent;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyResponseEvent;
 import com.google.gson.Gson;
 import com.mzc.secondproject.serverless.common.exception.CommonErrorCode;
+import com.mzc.secondproject.serverless.common.router.HandlerRouter;
+import com.mzc.secondproject.serverless.common.router.Route;
 import com.mzc.secondproject.serverless.common.util.ResponseGenerator;
-import com.mzc.secondproject.serverless.domain.user.dto.ImageUploadRequest;
-import com.mzc.secondproject.serverless.domain.user.dto.ImageUploadResponse;
-import com.mzc.secondproject.serverless.domain.user.dto.ProfileResponse;
-import com.mzc.secondproject.serverless.domain.user.dto.ProfileUpdateRequest;
+import com.mzc.secondproject.serverless.domain.user.dto.request.ImageUploadRequest;
+import com.mzc.secondproject.serverless.domain.user.dto.response.ImageUploadResponse;
+import com.mzc.secondproject.serverless.domain.user.dto.response.ProfileResponse;
+import com.mzc.secondproject.serverless.domain.user.dto.request.ProfileUpdateRequest;
 import com.mzc.secondproject.serverless.domain.user.model.User;
 import com.mzc.secondproject.serverless.domain.user.repository.UserRepository;
 import com.mzc.secondproject.serverless.domain.user.service.UserService;
@@ -53,20 +55,13 @@ public class UserHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
 
     /**
      * GET /users/profile/me - 내 프로필 조회
-     *
-     * - Cognito claims에서 사용자 정보 추출
-     * - DynamoDB에서 추가 정보 조회 (없으면 Lazy Registration)
      */
     private APIGatewayProxyResponseEvent getMyProfile(
-            String cognitoSub,
-            String email,
-            String nickname,
-            String level,
-            String profileUrl
+            APIGatewayProxyRequestEvent request,
+            String userId // cognitoSub
     ) {
-        logger.info("프로필 조회 시작: cognitoSub={}", cognitoSub);
 
-        User user = userService.getProfile(cognitoSub, email, nickname, level, profileUrl);
+        User user = userService.getProfile(userId, request);
         ProfileResponse response = ProfileResponse.from(user);
 
         return ResponseGenerator.ok(user.getNickname() + " 환영합니다!", response);
@@ -74,31 +69,22 @@ public class UserHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
 
     /**
      * PUT /users/profile/me - 프로필 수정
-     *
-     * Request Body:
-     * {
-     *   "nickname": "새닉네임",
-     *   "level": "INTERMEDIATE",
-     *   "profileUrl": "https://..."
-     * }
      */
-    private APIGatewayProxyResponseEvent updateMyProfile(String cognitoSub, String body) {
-        logger.info("프로필 수정 시작: cognitoSub={}", cognitoSub);
+    private APIGatewayProxyResponseEvent updateMyProfile(
+            APIGatewayProxyRequestEvent requestEvent,
+            String userId
+    ) {
 
-        if (body == null || body.isEmpty()) {
-            return ResponseGenerator.fail(CommonErrorCode.REQUIRED_FIELD_MISSING, "요청 본문이 비어있습니다.");
+        ProfileUpdateRequest updateRequest = gson.fromJson(requestEvent.getBody(), ProfileUpdateRequest.class);
+
+        // 프로필 URL 수정
+        if (updateRequest.getProfileUrl() != null && !updateRequest.getProfileUrl().isEmpty()) {
+            userService.updateProfileImage(userId, updateRequest.getProfileUrl());
         }
-
-        ProfileUpdateRequest updateRequest = gson.fromJson(body, ProfileUpdateRequest.class);
-
-//        // 프로필 URL만 수정하는 경우
-//        if (updateRequest.getProfileUrl() != null && !updateRequest.getProfileUrl().isEmpty()) {
-//            userService.updateProfileUrl(cognitoSub, updateRequest.getProfileUrl());
-//        }
 
         // 닉네임, 레벨 수정
         User user = userService.updateProfile(
-                cognitoSub,
+                userId,
                 updateRequest.getNickname(),
                 updateRequest.getLevel()
         );
