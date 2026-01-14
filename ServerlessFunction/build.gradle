@@ -31,6 +31,7 @@ dependencies {
     implementation 'software.amazon.awssdk:sns'
     implementation 'software.amazon.awssdk:bedrockruntime'
     implementation 'software.amazon.awssdk:apigatewaymanagementapi'
+    implementation 'software.amazon.awssdk:url-connection-client'
 
     // JSON Processing
     implementation 'com.google.code.gson:gson:2.10.1'
