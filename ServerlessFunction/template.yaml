@@ -62,6 +62,7 @@ Resources:
           Mutable: true
       LambdaConfig:
         PreSignUp: !GetAtt PreSignUpFunction.Arn
+        PostConfirmation: !GetAtt PostConfirmationFunction.Arn
 
   # Cognito에게 Lambda 호출 권한 부여
   PreSignUpPermission:
