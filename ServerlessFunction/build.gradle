@@ -32,6 +32,10 @@ dependencies {
     implementation 'software.amazon.awssdk:bedrockruntime'
     implementation 'software.amazon.awssdk:apigatewaymanagementapi'
 
+    // AWS X-Ray SDK (다운스트림 서비스 추적용)
+    implementation 'com.amazonaws:aws-xray-recorder-sdk-core:2.15.0'
+    implementation 'com.amazonaws:aws-xray-recorder-sdk-aws-sdk-v2:2.15.0'
+
     // JSON Processing
     implementation 'com.google.code.gson:gson:2.10.1'
 
