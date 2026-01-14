@@ -2,6 +2,7 @@ package com.mzc.secondproject.serverless.domain.grammar.handler.websocket;
 
 import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.lambda.runtime.RequestHandler;
+import com.mzc.secondproject.serverless.common.util.WebSocketEventUtil;
 import com.mzc.secondproject.serverless.domain.grammar.repository.GrammarConnectionRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -27,27 +28,17 @@ public class GrammarStreamingDisconnectHandler implements RequestHandler<Map<Str
 		logger.info("Grammar WebSocket disconnect event");
 
 		try {
-			String connectionId = extractConnectionId(event);
+			String connectionId = WebSocketEventUtil.extractConnectionId(event);
 
 			// 연결 정보 삭제
 			connectionRepository.delete(connectionId);
 
 			logger.info("Grammar connection closed: connectionId={}", connectionId);
-			return createResponse(200, "Disconnected");
+			return WebSocketEventUtil.ok("Disconnected");
 
 		} catch (Exception e) {
 			logger.error("Error handling disconnect: {}", e.getMessage(), e);
-			return createResponse(500, "Internal server error");
+			return WebSocketEventUtil.serverError("Internal server error");
 		}
-	}
-
-	@SuppressWarnings("unchecked")
-	private String extractConnectionId(Map<String, Object> event) {
-		Map<String, Object> requestContext = (Map<String, Object>) event.get("requestContext");
-		return (String) requestContext.get("connectionId");
-	}
-
-	private Map<String, Object> createResponse(int statusCode, String body) {
-		return Map.of("statusCode", statusCode, "body", body);
 	}
 }

@@ -148,41 +148,16 @@ public class BedrockGrammarCheckFactory implements GrammarCheckFactory {
 		try {
 			String jsonContent = extractJson(aiResponse);
 			JsonObject json = gson.fromJson(jsonContent, JsonObject.class);
-
-			String correctedSentence = json.get("correctedSentence").getAsString();
-			int score = json.get("score").getAsInt();
-			boolean isCorrect = json.get("isCorrect").getAsBoolean();
-			String feedback = json.get("feedback").getAsString();
-
-			List<GrammarError> errors = new ArrayList<>();
-			JsonArray errorsArray = json.getAsJsonArray("errors");
-			if (errorsArray != null) {
-				for (JsonElement element : errorsArray) {
-					JsonObject errorObj = element.getAsJsonObject();
-					GrammarError error = GrammarError.builder()
-							.type(parseErrorType(errorObj.get("type").getAsString()))
-							.original(errorObj.get("original").getAsString())
-							.corrected(errorObj.get("corrected").getAsString())
-							.explanation(errorObj.get("explanation").getAsString())
-							.startIndex(getIntOrNull(errorObj, "startIndex"))
-							.endIndex(getIntOrNull(errorObj, "endIndex"))
-							.build();
-					errors.add(error);
-				}
-			}
-
-			return GrammarCheckResponse.builder()
-					.originalSentence(originalSentence)
-					.correctedSentence(correctedSentence)
-					.score(score)
-					.errors(errors)
-					.feedback(feedback)
-					.isCorrect(isCorrect)
-					.build();
-
+			return parseGrammarCheckFromJson(originalSentence, json);
+		} catch (GrammarException e) {
+			throw e;
 		} catch (Exception e) {
-			logger.error("Failed to parse AI response: {}", aiResponse, e);
-			throw GrammarException.bedrockResponseParseError(aiResponse);
+			logger.error("Failed to parse grammar response: length={}",
+					aiResponse != null ? aiResponse.length() : 0, e);
+			throw GrammarException.bedrockResponseParseError(
+					aiResponse != null && aiResponse.length() > 200
+							? aiResponse.substring(0, 200) + "..."
+							: aiResponse);
 		}
 	}
 
@@ -342,8 +317,12 @@ public class BedrockGrammarCheckFactory implements GrammarCheckFactory {
 					.build();
 
 		} catch (Exception e) {
-			logger.error("Failed to parse conversation response: {}", aiResponse, e);
-			throw GrammarException.bedrockResponseParseError(aiResponse);
+			logger.error("Failed to parse conversation response: length={}",
+					aiResponse != null ? aiResponse.length() : 0, e);
+			throw GrammarException.bedrockResponseParseError(
+					aiResponse != null && aiResponse.length() > 200
+							? aiResponse.substring(0, 200) + "..."
+							: aiResponse);
 		}
 	}
 
@@ -452,7 +431,11 @@ public class BedrockGrammarCheckFactory implements GrammarCheckFactory {
 
 			AwsClients.bedrockAsync().invokeModelWithResponseStream(request, handler).get();
 
-		} catch (ExecutionException | InterruptedException e) {
+		} catch (InterruptedException e) {
+			Thread.currentThread().interrupt();
+			logger.error("Streaming conversation interrupted", e);
+			callback.onError(e);
+		} catch (ExecutionException e) {
 			logger.error("Error in streaming conversation", e);
 			callback.onError(e.getCause() != null ? e.getCause() : e);
 		} catch (Exception e) {
@@ -580,8 +563,12 @@ public class BedrockGrammarCheckFactory implements GrammarCheckFactory {
 					.build();
 
 		} catch (Exception e) {
-			logger.error("Failed to parse streaming response: {}", fullResponse, e);
-			throw GrammarException.bedrockResponseParseError(fullResponse);
+			logger.error("Failed to parse streaming response: length={}",
+					fullResponse != null ? fullResponse.length() : 0, e);
+			throw GrammarException.bedrockResponseParseError(
+					fullResponse != null && fullResponse.length() > 200
+							? fullResponse.substring(0, 200) + "..."
+							: fullResponse);
 		}
 	}
 

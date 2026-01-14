@@ -17,6 +17,12 @@ import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.*;
 @DynamoDbBean
 public class GrammarConnection {
 
+	// DynamoDB Key Prefixes
+	public static final String PK_PREFIX = "GRAMMAR_CONN#";
+	public static final String SK_METADATA = "METADATA";
+	public static final String GSI1PK_PREFIX = "GRAMMAR_USER#";
+	public static final String GSI1SK_PREFIX = "CONN#";
+
 	private String pk;          // GRAMMAR_CONN#{connectionId}
 	private String sk;          // METADATA
 	private String gsi1pk;      // GRAMMAR_USER#{userId}
@@ -59,10 +65,10 @@ public class GrammarConnection {
 		long ttl = java.time.Instant.now().plusSeconds(ttlSeconds).getEpochSecond();
 
 		return GrammarConnection.builder()
-				.pk("GRAMMAR_CONN#" + connectionId)
-				.sk("METADATA")
-				.gsi1pk("GRAMMAR_USER#" + userId)
-				.gsi1sk("CONN#" + connectionId)
+				.pk(PK_PREFIX + connectionId)
+				.sk(SK_METADATA)
+				.gsi1pk(GSI1PK_PREFIX + userId)
+				.gsi1sk(GSI1SK_PREFIX + connectionId)
 				.connectionId(connectionId)
 				.userId(userId)
 				.connectedAt(now)

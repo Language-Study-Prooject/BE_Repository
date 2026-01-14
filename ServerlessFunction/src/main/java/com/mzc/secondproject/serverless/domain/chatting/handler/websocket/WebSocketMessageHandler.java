@@ -5,6 +5,7 @@ import com.amazonaws.services.lambda.runtime.RequestHandler;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.mzc.secondproject.serverless.common.util.WebSocketBroadcaster;
+import com.mzc.secondproject.serverless.common.util.WebSocketEventUtil;
 import com.mzc.secondproject.serverless.domain.chatting.dto.response.CommandResult;
 import com.mzc.secondproject.serverless.domain.chatting.model.ChatMessage;
 import com.mzc.secondproject.serverless.domain.chatting.model.Connection;
@@ -53,17 +54,17 @@ public class WebSocketMessageHandler implements RequestHandler<Map<String, Objec
 		logger.info("WebSocket message event: {}", event);
 
 		try {
-			String connectionId = extractConnectionId(event);
+			String connectionId = WebSocketEventUtil.extractConnectionId(event);
 			String body = (String) event.get("body");
 
 			if (body == null || body.isEmpty()) {
-				return createResponse(400, "Message body is required");
+				return WebSocketEventUtil.badRequest("Message body is required");
 			}
 
 			MessagePayload payload = gson.fromJson(body, MessagePayload.class);
 
 			if (payload.roomId == null || payload.userId == null) {
-				return createResponse(400, "roomId and userId are required");
+				return WebSocketEventUtil.badRequest("roomId and userId are required");
 			}
 
 			String messageType = payload.messageType != null ? payload.messageType : "TEXT";
@@ -76,7 +77,7 @@ public class WebSocketMessageHandler implements RequestHandler<Map<String, Objec
 
 		} catch (Exception e) {
 			logger.error("Error handling message: {}", e.getMessage(), e);
-			return createResponse(500, "Internal server error");
+			return WebSocketEventUtil.serverError("Internal server error");
 		}
 	}
 
@@ -113,7 +114,7 @@ public class WebSocketMessageHandler implements RequestHandler<Map<String, Objec
 		}
 
 		logger.info("Drawing broadcasted to {} connections (excluding sender)", otherConnections.size());
-		return createResponse(200, "Drawing sent");
+		return WebSocketEventUtil.ok("Drawing sent");
 	}
 
 	/**
@@ -121,7 +122,7 @@ public class WebSocketMessageHandler implements RequestHandler<Map<String, Objec
 	 */
 	private Map<String, Object> handleRegularMessage(String connectionId, MessagePayload payload, String messageType) {
 		if (payload.content == null) {
-			return createResponse(400, "content is required for text messages");
+			return WebSocketEventUtil.badRequest("content is required for text messages");
 		}
 
 		// 슬래시 명령어 처리
@@ -171,7 +172,7 @@ public class WebSocketMessageHandler implements RequestHandler<Map<String, Objec
 			logger.info("Deleted stale connection: {}", failedConnectionId);
 		}
 
-		return createResponse(200, "Message sent");
+		return WebSocketEventUtil.ok("Message sent");
 	}
 
 	/**
@@ -193,7 +194,7 @@ public class WebSocketMessageHandler implements RequestHandler<Map<String, Objec
 			handleAllCorrect(payload.roomId);
 		}
 
-		return createResponse(200, "Correct answer");
+		return WebSocketEventUtil.ok("Correct answer");
 	}
 
 	/**
@@ -277,19 +278,6 @@ public class WebSocketMessageHandler implements RequestHandler<Map<String, Objec
 			handleCommandResult(endResult, roomId, "SYSTEM");
 		});
 	}
-	
-	@SuppressWarnings("unchecked")
-	private String extractConnectionId(Map<String, Object> event) {
-		Map<String, Object> requestContext = (Map<String, Object>) event.get("requestContext");
-		return (String) requestContext.get("connectionId");
-	}
-	
-	private Map<String, Object> createResponse(int statusCode, String body) {
-		Map<String, Object> response = new HashMap<>();
-		response.put("statusCode", statusCode);
-		response.put("body", body);
-		return response;
-	}
 
 	/**
 	 * 명령어 처리 결과를 브로드캐스트
@@ -326,7 +314,7 @@ public class WebSocketMessageHandler implements RequestHandler<Map<String, Objec
 		}
 
 		logger.info("Command result broadcasted: type={}, roomId={}", result.messageType(), roomId);
-		return createResponse(200, "Command executed");
+		return WebSocketEventUtil.ok("Command executed");
 	}
 
 	/**
