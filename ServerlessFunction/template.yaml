@@ -72,7 +72,6 @@ Resources:
       Principal: cognito-idp.amazonaws.com
       SourceArn: !Sub arn:aws:cognito-idp:${AWS::Region}:${AWS::AccountId}:userpool/*
 
-  # TODO : 회원가입 시 기본값 자동 설정 handler 추가
   # 사용자 custom 속성들 기본값 설정 Lambda 함수
   PreSignUpFunction:
     Type: AWS::Serverless::Function
