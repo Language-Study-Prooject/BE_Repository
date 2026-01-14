@@ -1,4 +1,4 @@
-package com.mzc.secondproject.serverless.domain.user.dto;
+가package com.mzc.secondproject.serverless.domain.user.dto.request;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -11,4 +11,5 @@ public class ProfileUpdateRequest {
 
     private String nickname;
     private String level;
+    private String profileUrl;
 }
