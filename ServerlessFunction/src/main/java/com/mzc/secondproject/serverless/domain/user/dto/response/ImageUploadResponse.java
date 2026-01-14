@@ -1,4 +1,4 @@
-package com.mzc.secondproject.serverless.domain.user.dto;
+package com.mzc.secondproject.serverless.domain.user.dto.response;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
