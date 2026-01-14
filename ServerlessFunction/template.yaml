@@ -86,6 +86,20 @@ Resources:
         Variables:
           DEFAULT_PROFILE_URL: https://group2-englishstudy.s3.amazonaws.com/profile/default.png
 
+  # 회원가입 시점에 사용자 모든 정보가 DB에 저장 Lambda 함수
+  PostConfirmationFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-post-confirmation"
+      CodeUri: .
+      Handler: com.mzc.secondproject.serverless.domain.user.handler.PostConfirmationHandler::handleRequest
+      Description: Handle user registration - save to DynamoDB
+      SnapStart:
+        ApplyOn: PublishedVersions
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref UserTable
+
   CognitoUserPoolClient:
     Type: AWS::Cognito::UserPoolClient
     Properties:
