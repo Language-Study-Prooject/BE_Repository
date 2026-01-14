@@ -30,6 +30,7 @@ public class UserRepository {
     }
 
     /**
+     * Cognito Sub (userId)로 사용자 조회
      * - PK: USER#{cognitoSub}
      * - SK: METADATA
      *
@@ -49,6 +50,9 @@ public class UserRepository {
     /**
      * 이메일로 사용자 조회
      * GSI1 사용: GSI1PK = EMAIL#{email}
+     *
+     * @param email 이메일
+     * @return 사용자 정보 (Optional)
      */
     public Optional<User> findByEmail(String email) {
         QueryConditional queryConditional = QueryConditional

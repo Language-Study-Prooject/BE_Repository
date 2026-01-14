@@ -1,5 +1,6 @@
 package com.mzc.secondproject.serverless.domain.user.service;
 
+import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyRequestEvent;
 import com.mzc.secondproject.serverless.common.config.AwsClients;
 import com.mzc.secondproject.serverless.domain.user.model.User;
 import com.mzc.secondproject.serverless.domain.user.repository.UserRepository;
@@ -9,6 +10,7 @@ import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 
 
 public class UserService {
@@ -17,6 +19,10 @@ public class UserService {
     private static final String BUCKET_NAME = System.getenv("PROFILE_BUCKET_NAME");
     private static final String DEFAULT_PROFILE_URL = "https://group2-englishstudy.s3.amazonaws.com/profile/default.png";
     private static final List<String> VALID_LEVELS = Arrays.asList("BEGINNER", "INTERMEDIATE", "ADVANCED");
+
+    private static final List<String> VALID_IMAGE_TYPES = Arrays.asList("image/jpeg", "image/png", "image/gif", "image/webp");
+    private static final int NICKNAME_MIN_LENGTH = 2;
+    private static final int NICKNAME_MAX_LENGTH = 20;
 
     private final UserRepository userRepository;
     private final S3Presigner s3Presigner;
@@ -29,37 +35,60 @@ public class UserService {
 
     /**
      * 프로필 조회
-     * DynamoDB에 없으면(신규사용자) 프로필 정보 최초 생성
+     * DynamoDB에 없으면 request에서 claims 추출 → fallback 저장
      *
-     * @param cognitoSub Cognito sub
-     * @param email 이메일 (Cognito claims)
-     * @param nickname 닉네임 (Cognito claims)
-     * @param level 레벨 (Cognito claims)
-     * @param profileUrl 프로필 URL (Cognito claims)
+     * @param userId Cognito sub
+     * @param request API Gateway 요청 (fallback 시 claims 추출용)
      * @return User 객체
      */
-    public User getProfile(String cognitoSub, String email, String nickname, String level, String profileUrl) {
+    public User getProfile(String userId, APIGatewayProxyRequestEvent request) {
 
-        return userRepository.findByCognitoSub(cognitoSub)
+        return userRepository.findByCognitoSub(userId)
                 .map(user -> {
-                    // 기존 사용자: 마지막 로그인 시간 갱신
+                    // 정상 DB에서 조회 완료
                     user.updateLastLoginAt();
                     userRepository.update(user);
                     return user;
                 })
                 .orElseGet(() -> {
-                    // 신규 사용자: 프로필 서비스 사용시점에 DB에 저장
-                    // PreSignUpHandler 실패 시에도 기본값 설정
-                    User newUser = User.createNew(
-                            cognitoSub,
-                            email,
-                            nickname != null ? nickname : generateDefaultNickname(),
-                            level != null ? level : "BEGINNER",
-                            profileUrl != null ? profileUrl : DEFAULT_PROFILE_URL
-                    );
-                    return userRepository.save(newUser);
+                    // PostConfirmation 실패 대비 fallback
+                    return createUserFromRequest(userId, request);
                 });
     }
+
+    /**
+     * request에서 Cognito claims 추출 후 사용자 생성 (fallback용)
+     */
+    @SuppressWarnings("unchecked")
+    private User createUserFromRequest(String userId, APIGatewayProxyRequestEvent request) {
+
+        Map<String, String> claims = null;
+        try {
+            Map<String, Object> authorizer = request.getRequestContext().getAuthorizer();
+            if (authorizer != null) {
+                claims = (Map<String, String>) authorizer.get("claims");
+            }
+        } catch (Exception e) {
+            logger.error("claims 추출 실패", e);
+        }
+
+        // claims에서 정보 추출
+        String email = claims != null ? claims.get("email") : "unknown@example.com";
+        String nickname = claims != null ? claims.get("nickname") : null;
+        String level = claims != null ? claims.get("custom:level") : null;
+        String profileUrl = claims != null ? claims.get("custom:profileUrl") : null;
+
+        User newUser = User.createNew(
+                userId,
+                email,
+                nickname != null ? nickname : generateDefaultNickname(),
+                level != null ? level : "BEGINNER",
+                profileUrl != null ? profileUrl : DEFAULT_PROFILE_URL
+        );
+
+        return userRepository.save(newUser);
+    }
+
 
     /**
      * 프로필 수정 (닉네임, 레벨)
