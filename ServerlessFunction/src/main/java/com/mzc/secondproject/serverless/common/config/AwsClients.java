@@ -1,6 +1,7 @@
 package com.mzc.secondproject.serverless.common.config;
 
 import software.amazon.awssdk.enhanced.dynamodb.DynamoDbEnhancedClient;
+import software.amazon.awssdk.services.bedrockruntime.BedrockRuntimeAsyncClient;
 import software.amazon.awssdk.services.bedrockruntime.BedrockRuntimeClient;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.polly.PollyClient;
@@ -28,6 +29,7 @@ public final class AwsClients {
 	private static final SnsClient SNS_CLIENT = SnsClient.builder().build();
 	// Bedrock
 	private static final BedrockRuntimeClient BEDROCK_CLIENT = BedrockRuntimeClient.builder().build();
+	private static final BedrockRuntimeAsyncClient BEDROCK_ASYNC_CLIENT = BedrockRuntimeAsyncClient.builder().build();
 	
 	private AwsClients() {
 		// 인스턴스화 방지
@@ -59,5 +61,9 @@ public final class AwsClients {
 	
 	public static BedrockRuntimeClient bedrock() {
 		return BEDROCK_CLIENT;
+	}
+
+	public static BedrockRuntimeAsyncClient bedrockAsync() {
+		return BEDROCK_ASYNC_CLIENT;
 	}
 }
