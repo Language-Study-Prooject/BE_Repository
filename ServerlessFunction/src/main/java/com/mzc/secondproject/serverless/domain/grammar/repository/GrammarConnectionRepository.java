@@ -41,8 +41,8 @@ public class GrammarConnectionRepository {
 	 */
 	public Optional<GrammarConnection> findByConnectionId(String connectionId) {
 		Key key = Key.builder()
-				.partitionValue("GRAMMAR_CONN#" + connectionId)
-				.sortValue("METADATA")
+				.partitionValue(GrammarConnection.PK_PREFIX + connectionId)
+				.sortValue(GrammarConnection.SK_METADATA)
 				.build();
 
 		GrammarConnection connection = table.getItem(key);
@@ -54,8 +54,8 @@ public class GrammarConnectionRepository {
 	 */
 	public void delete(String connectionId) {
 		Key key = Key.builder()
-				.partitionValue("GRAMMAR_CONN#" + connectionId)
-				.sortValue("METADATA")
+				.partitionValue(GrammarConnection.PK_PREFIX + connectionId)
+				.sortValue(GrammarConnection.SK_METADATA)
 				.build();
 
 		table.deleteItem(key);

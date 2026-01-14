@@ -26,6 +26,7 @@ public class GrammarConversationService {
 	private static final Logger logger = LoggerFactory.getLogger(GrammarConversationService.class);
 	private static final int SESSION_TTL_DAYS = 30;
 	private static final int MAX_HISTORY_MESSAGES = 10;
+	private static final int LAST_MESSAGE_MAX_LENGTH = 100;
 
 	private final BedrockGrammarCheckFactory grammarFactory;
 	private final GrammarSessionRepository repository;
@@ -194,7 +195,7 @@ public class GrammarConversationService {
 		String now = Instant.now().toString();
 		session.setGsi1sk(GrammarKey.updatedSk(now));
 		session.setMessageCount(session.getMessageCount() + 2); // user + assistant
-		session.setLastMessage(truncateMessage(lastMessage, 100));
+		session.setLastMessage(truncateMessage(lastMessage, LAST_MESSAGE_MAX_LENGTH));
 		session.setUpdatedAt(now);
 
 		repository.saveSession(session);
