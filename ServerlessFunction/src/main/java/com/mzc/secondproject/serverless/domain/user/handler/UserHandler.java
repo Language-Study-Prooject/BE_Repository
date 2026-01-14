@@ -25,9 +25,22 @@ public class UserHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
     private static final Gson gson = new Gson();
     private final UserService userService;
 
+    // HandlerRouter가 라우팅 + 파라미터 검증 + 예외 처리 모두 담당
+    private final HandlerRouter router;
+
     public UserHandler() {
         UserRepository repository = new UserRepository();
         this.userService = new UserService(repository);
+        this.router = initRouter();
+    }
+
+    private HandlerRouter initRouter() {
+
+        return new HandlerRouter().addRoutes(
+                Route.getAuth("/users/profile/me", this::getMyProfile),
+                Route.putAuth("/users/profile/me", this::updateMyProfile),
+                Route.postAuth("/users/profile/me/image", this::uploadProfileImage)
+        );
     }
 
     @Override
@@ -35,45 +48,7 @@ public class UserHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
             APIGatewayProxyRequestEvent request,
             Context context
     ) {
-        try {
-            @SuppressWarnings("unchecked")
-            Map<String, Object> authorizer = request.getRequestContext().getAuthorizer();
-
-            String method = request.getHttpMethod();
-            String path = request.getPath();
-
-            // Cognito Authorizer에서 claims 추출
-            @SuppressWarnings("unchecked")
-            Map<String, String> claims = (Map<String, String>) authorizer.get("claims");
-
-            if (claims == null) {
-                return ResponseGenerator.fail(CommonErrorCode.INVALID_TOKEN, "claims가 존재하지 않습니다.");
-            }
-
-            // Cognito에서 사용자 정보 추출
-            String cognitoSub = claims.get("sub");
-            String email = claims.get("email");
-            String nickname = claims.get("nickname");
-            String level = claims.get("custom:level");
-            String profileUrl = claims.get("custom:profileUrl");
-
-
-            if (path.equals("/users/profile/me")) {
-                switch (method) {
-                    case "GET":
-                        return getMyProfile(cognitoSub, email, nickname, level, profileUrl);
-                    case "PUT":
-                        return updateMyProfile(cognitoSub, request.getBody());
-                    default:
-                        return ResponseGenerator.fail(CommonErrorCode.METHOD_NOT_ALLOWED, "지원하지 않는 메서드입니다.");
-                }
-            }
-
-            return ResponseGenerator.fail(CommonErrorCode.RESOURCE_NOT_FOUND, "지원하지 않는 경로입니다.");
-
-        } catch (Exception e){
-            return ResponseGenerator.fail(CommonErrorCode.INTERNAL_SERVER_ERROR);
-        }
+        return router.route(request);
     }
 
     /**
