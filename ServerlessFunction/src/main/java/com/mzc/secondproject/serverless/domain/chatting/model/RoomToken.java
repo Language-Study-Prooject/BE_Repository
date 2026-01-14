@@ -19,24 +19,24 @@ import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbSortK
 @AllArgsConstructor
 @DynamoDbBean
 public class RoomToken {
-
-    private String pk;          // TOKEN#{token}
-    private String sk;          // METADATA
-    private String token;
-    private String roomId;
-    private String userId;
-    private String createdAt;
-    private Long ttl;           // 자동 만료
-
-    @DynamoDbPartitionKey
-    @DynamoDbAttribute("PK")
-    public String getPk() {
-        return pk;
-    }
-
-    @DynamoDbSortKey
-    @DynamoDbAttribute("SK")
-    public String getSk() {
-        return sk;
-    }
+	
+	private String pk;          // TOKEN#{token}
+	private String sk;          // METADATA
+	private String token;
+	private String roomId;
+	private String userId;
+	private String createdAt;
+	private Long ttl;           // 자동 만료
+	
+	@DynamoDbPartitionKey
+	@DynamoDbAttribute("PK")
+	public String getPk() {
+		return pk;
+	}
+	
+	@DynamoDbSortKey
+	@DynamoDbAttribute("SK")
+	public String getSk() {
+		return sk;
+	}
 }

@@ -4,30 +4,31 @@
 
 ### 1.1 목적
 
-Vocabulary Server는 영어 단어 학습 플랫폼의 단어 관리 및 학습 기능을 담당하는 서버리스 마이크로서비스이다. Spaced Repetition 알고리즘을 활용한 효율적인 단어 암기, 시험 기능, 일일 학습 추적 등을 제공한다.
+Vocabulary Server는 영어 단어 학습 플랫폼의 단어 관리 및 학습 기능을 담당하는 서버리스 마이크로서비스이다. Spaced Repetition 알고리즘을 활용한 효율적인 단어 암기, 시험 기능, 일일
+학습 추적 등을 제공한다.
 
 ### 1.2 주요 기능
 
-| 기능 | 설명 |
-|------|------|
-| 단어 관리 | CRUD, 배치 생성/조회, 검색 |
+| 기능     | 설명                          |
+|--------|-----------------------------|
+| 단어 관리  | CRUD, 배치 생성/조회, 검색          |
 | 사용자 학습 | Spaced Repetition 기반 복습 스케줄 |
-| 시험 기능 | DAILY, WEEKLY, CUSTOM 테스트 |
-| 일일 학습 | 학습 기록 및 진도 추적 |
-| 통계 | 학습 통계 및 성취도 분석 |
-| TTS | AWS Polly 기반 발음 듣기 |
-| 단어 그룹 | 카테고리/레벨별 그룹화 |
+| 시험 기능  | DAILY, WEEKLY, CUSTOM 테스트   |
+| 일일 학습  | 학습 기록 및 진도 추적               |
+| 통계     | 학습 통계 및 성취도 분석              |
+| TTS    | AWS Polly 기반 발음 듣기          |
+| 단어 그룹  | 카테고리/레벨별 그룹화                |
 
 ### 1.3 기술 스택
 
-| 구분 | 기술 |
-|------|------|
-| Platform | AWS Lambda (Serverless) |
-| Language | Java 21 (Eclipse Temurin) |
-| Database | AWS DynamoDB (Single Table Design) |
-| TTS | AWS Polly |
-| Storage | AWS S3 (음성 캐시) |
-| Algorithm | SM-2 기반 Spaced Repetition |
+| 구분        | 기술                                 |
+|-----------|------------------------------------|
+| Platform  | AWS Lambda (Serverless)            |
+| Language  | Java 21 (Eclipse Temurin)          |
+| Database  | AWS DynamoDB (Single Table Design) |
+| TTS       | AWS Polly                          |
+| Storage   | AWS S3 (음성 캐시)                     |
+| Algorithm | SM-2 기반 Spaced Repetition          |
 
 ---
 
@@ -378,70 +379,70 @@ erDiagram
 
 #### Word (단어)
 
-| 필드 | 타입 | 필수 | 설명 |
-|------|------|------|------|
-| PK | String | Y | WORD#{wordId} |
-| SK | String | Y | METADATA |
-| GSI1PK | String | Y | LEVEL#{level} |
-| GSI1SK | String | Y | WORD#{wordId} |
-| GSI2PK | String | Y | CATEGORY#{category} |
-| GSI2SK | String | Y | WORD#{wordId} |
-| wordId | String | Y | UUID |
-| english | String | Y | 영어 단어 |
-| korean | String | Y | 한국어 뜻 |
-| example | String | N | 예문 |
-| level | String | Y | BEGINNER, INTERMEDIATE, ADVANCED |
-| category | String | Y | DAILY, BUSINESS, ACADEMIC |
-| maleVoiceKey | String | N | S3 음성 파일 키 (남성) |
-| femaleVoiceKey | String | N | S3 음성 파일 키 (여성) |
-| maleExampleVoiceKey | String | N | S3 예문 음성 키 (남성) |
-| femaleExampleVoiceKey | String | N | S3 예문 음성 키 (여성) |
-| createdAt | String | Y | ISO 8601 형식 |
+| 필드                    | 타입     | 필수 | 설명                               |
+|-----------------------|--------|----|----------------------------------|
+| PK                    | String | Y  | WORD#{wordId}                    |
+| SK                    | String | Y  | METADATA                         |
+| GSI1PK                | String | Y  | LEVEL#{level}                    |
+| GSI1SK                | String | Y  | WORD#{wordId}                    |
+| GSI2PK                | String | Y  | CATEGORY#{category}              |
+| GSI2SK                | String | Y  | WORD#{wordId}                    |
+| wordId                | String | Y  | UUID                             |
+| english               | String | Y  | 영어 단어                            |
+| korean                | String | Y  | 한국어 뜻                            |
+| example               | String | N  | 예문                               |
+| level                 | String | Y  | BEGINNER, INTERMEDIATE, ADVANCED |
+| category              | String | Y  | DAILY, BUSINESS, ACADEMIC        |
+| maleVoiceKey          | String | N  | S3 음성 파일 키 (남성)                  |
+| femaleVoiceKey        | String | N  | S3 음성 파일 키 (여성)                  |
+| maleExampleVoiceKey   | String | N  | S3 예문 음성 키 (남성)                  |
+| femaleExampleVoiceKey | String | N  | S3 예문 음성 키 (여성)                  |
+| createdAt             | String | Y  | ISO 8601 형식                      |
 
 #### UserWord (사용자 학습 상태)
 
-| 필드 | 타입 | 필수 | 설명 |
-|------|------|------|------|
-| PK | String | Y | USER#{userId} |
-| SK | String | Y | WORD#{wordId} |
-| GSI1PK | String | Y | USER#{userId}#REVIEW |
-| GSI1SK | String | Y | DATE#{nextReviewAt} |
-| GSI2PK | String | Y | USER#{userId}#STATUS |
-| GSI2SK | String | Y | STATUS#{status} |
-| userId | String | Y | 사용자 ID |
-| wordId | String | Y | 단어 ID |
-| status | String | Y | NEW, LEARNING, REVIEWING, MASTERED |
-| interval | Integer | Y | 복습 간격 (일) |
-| easeFactor | Double | Y | 난이도 계수 (기본: 2.5) |
-| repetitions | Integer | Y | 연속 정답 횟수 |
-| nextReviewAt | String | N | 다음 복습 예정일 |
-| lastReviewedAt | String | N | 마지막 복습일 |
-| correctCount | Integer | Y | 총 정답 횟수 |
-| incorrectCount | Integer | Y | 총 오답 횟수 |
-| bookmarked | Boolean | N | 북마크 여부 |
-| favorite | Boolean | N | 즐겨찾기 여부 |
-| difficulty | String | N | EASY, NORMAL, HARD |
-| createdAt | String | Y | 생성 시각 |
-| updatedAt | String | Y | 수정 시각 |
+| 필드             | 타입      | 필수 | 설명                                 |
+|----------------|---------|----|------------------------------------|
+| PK             | String  | Y  | USER#{userId}                      |
+| SK             | String  | Y  | WORD#{wordId}                      |
+| GSI1PK         | String  | Y  | USER#{userId}#REVIEW               |
+| GSI1SK         | String  | Y  | DATE#{nextReviewAt}                |
+| GSI2PK         | String  | Y  | USER#{userId}#STATUS               |
+| GSI2SK         | String  | Y  | STATUS#{status}                    |
+| userId         | String  | Y  | 사용자 ID                             |
+| wordId         | String  | Y  | 단어 ID                              |
+| status         | String  | Y  | NEW, LEARNING, REVIEWING, MASTERED |
+| interval       | Integer | Y  | 복습 간격 (일)                          |
+| easeFactor     | Double  | Y  | 난이도 계수 (기본: 2.5)                   |
+| repetitions    | Integer | Y  | 연속 정답 횟수                           |
+| nextReviewAt   | String  | N  | 다음 복습 예정일                          |
+| lastReviewedAt | String  | N  | 마지막 복습일                            |
+| correctCount   | Integer | Y  | 총 정답 횟수                            |
+| incorrectCount | Integer | Y  | 총 오답 횟수                            |
+| bookmarked     | Boolean | N  | 북마크 여부                             |
+| favorite       | Boolean | N  | 즐겨찾기 여부                            |
+| difficulty     | String  | N  | EASY, NORMAL, HARD                 |
+| createdAt      | String  | Y  | 생성 시각                              |
+| updatedAt      | String  | Y  | 수정 시각                              |
 
 #### TestResult (시험 결과)
 
-| 필드 | 타입 | 필수 | 설명 |
-|------|------|------|------|
-| PK | String | Y | TEST#{userId} |
-| SK | String | Y | RESULT#{timestamp} |
-| GSI1PK | String | Y | TEST#ALL |
-| GSI1SK | String | Y | DATE#{date} |
-| testId | String | Y | UUID |
-| userId | String | Y | 사용자 ID |
-| testType | String | Y | DAILY, WEEKLY, CUSTOM |
-| totalQuestions | Integer | Y | 총 문제 수 |
-| correctAnswers | Integer | Y | 정답 수 |
-| incorrectAnswers | Integer | Y | 오답 수 |
-| successRate | Double | Y | 성공률 (%) |
-| incorrectWordIds | List | N | 오답 단어 ID 목록 |
-| startedAt | String | Y | 시험 시작 시각 |
-| completedAt | String | Y | 시험 완료 시각 |
+| 필드               | 타입      | 필수 | 설명                    |
+|------------------|---------|----|-----------------------|
+| PK               | String  | Y  | TEST#{userId}         |
+| SK               | String  | Y  | RESULT#{timestamp}    |
+| GSI1PK           | String  | Y  | TEST#ALL              |
+| GSI1SK           | String  | Y  | DATE#{date}           |
+| testId           | String  | Y  | UUID                  |
+| userId           | String  | Y  | 사용자 ID                |
+| testType         | String  | Y  | DAILY, WEEKLY, CUSTOM |
+| totalQuestions   | Integer | Y  | 총 문제 수                |
+| correctAnswers   | Integer | Y  | 정답 수                  |
+| incorrectAnswers | Integer | Y  | 오답 수                  |
+| successRate      | Double  | Y  | 성공률 (%)               |
+| incorrectWordIds | List    | N  | 오답 단어 ID 목록           |
+| startedAt        | String  | Y  | 시험 시작 시각              |
+| completedAt      | String  | Y  | 시험 완료 시각              |
 
 ### 3.3 Spaced Repetition 알고리즘
 
@@ -562,12 +563,12 @@ stateDiagram-v2
 
 **Query Parameters**
 
-| 파라미터 | 타입 | 필수 | 설명 |
-|---------|------|------|------|
-| level | String | N | 난이도 필터 |
-| category | String | N | 카테고리 필터 |
-| cursor | String | N | 페이징 커서 |
-| limit | Integer | N | 페이지 크기 (기본: 20, 최대: 50) |
+| 파라미터     | 타입      | 필수 | 설명                      |
+|----------|---------|----|-------------------------|
+| level    | String  | N  | 난이도 필터                  |
+| category | String  | N  | 카테고리 필터                 |
+| cursor   | String  | N  | 페이징 커서                  |
+| limit    | Integer | N  | 페이지 크기 (기본: 20, 최대: 50) |
 
 **Response (200 OK)**
 
@@ -597,11 +598,11 @@ stateDiagram-v2
 
 **Query Parameters**
 
-| 파라미터 | 타입 | 필수 | 설명 |
-|---------|------|------|------|
-| q | String | Y | 검색어 (영어/한국어) |
-| cursor | String | N | 페이징 커서 |
-| limit | Integer | N | 페이지 크기 (기본: 20) |
+| 파라미터   | 타입      | 필수 | 설명              |
+|--------|---------|----|-----------------|
+| q      | String  | Y  | 검색어 (영어/한국어)    |
+| cursor | String  | N  | 페이징 커서          |
+| limit  | Integer | N  | 페이지 크기 (기본: 20) |
 
 **Response (200 OK)**
 
@@ -760,12 +761,12 @@ stateDiagram-v2
 
 **Query Parameters**
 
-| 파라미터 | 타입 | 필수 | 설명 |
-|---------|------|------|------|
-| userId | String | Y | 사용자 ID |
-| date | String | N | 조회 날짜 (기본: 오늘) |
-| cursor | String | N | 페이징 커서 |
-| limit | Integer | N | 페이지 크기 |
+| 파라미터   | 타입      | 필수 | 설명             |
+|--------|---------|----|----------------|
+| userId | String  | Y  | 사용자 ID         |
+| date   | String  | N  | 조회 날짜 (기본: 오늘) |
+| cursor | String  | N  | 페이징 커서         |
+| limit  | Integer | N  | 페이지 크기         |
 
 **Response (200 OK)**
 
@@ -896,10 +897,10 @@ stateDiagram-v2
 
 **Query Parameters**
 
-| 파라미터 | 타입 | 필수 | 설명 |
-|---------|------|------|------|
-| userId | String | Y | 사용자 ID |
-| period | String | N | WEEK, MONTH, ALL (기본: WEEK) |
+| 파라미터   | 타입     | 필수 | 설명                          |
+|--------|--------|----|-----------------------------|
+| userId | String | Y  | 사용자 ID                      |
+| period | String | N  | WEEK, MONTH, ALL (기본: WEEK) |
 
 **Response (200 OK)**
 
@@ -955,21 +956,21 @@ stateDiagram-v2
 
 ### 5.1 Spaced Repetition 규칙
 
-| 조건 | interval 계산 | status 변경 |
-|------|--------------|-------------|
-| 첫 정답 (rep=1) | 1일 | LEARNING |
-| 두번째 정답 (rep=2) | 6일 | REVIEWING |
+| 조건             | interval 계산           | status 변경 |
+|----------------|-----------------------|-----------|
+| 첫 정답 (rep=1)   | 1일                    | LEARNING  |
+| 두번째 정답 (rep=2) | 6일                    | REVIEWING |
 | 이후 정답 (rep>=3) | interval × easeFactor | REVIEWING |
-| 5회 연속 정답 | 유지 | MASTERED |
-| 오답 | 1일 (리셋) | LEARNING |
+| 5회 연속 정답       | 유지                    | MASTERED  |
+| 오답             | 1일 (리셋)               | LEARNING  |
 
 ### 5.2 easeFactor 규칙
 
-| 조건 | easeFactor 변경 |
-|------|-----------------|
-| 초기값 | 2.5 |
+| 조건   | easeFactor 변경              |
+|------|----------------------------|
+| 초기값  | 2.5                        |
 | 오답 시 | max(1.3, easeFactor - 0.2) |
-| 정답 시 | 유지 |
+| 정답 시 | 유지                         |
 
 ### 5.3 난이도별 카테고리
 
@@ -997,12 +998,12 @@ flowchart LR
 
 ### 5.4 제한 사항
 
-| 항목 | 제한 |
-|------|------|
-| 단어 목록 페이지 크기 | 최대 50 |
-| 배치 조회 ID | 최대 100개 |
-| 시험 문제 수 | 최소 5, 최대 50 |
-| 사용자 난이도 | EASY, NORMAL, HARD |
+| 항목           | 제한                 |
+|--------------|--------------------|
+| 단어 목록 페이지 크기 | 최대 50              |
+| 배치 조회 ID     | 최대 100개            |
+| 시험 문제 수      | 최소 5, 최대 50        |
+| 사용자 난이도      | EASY, NORMAL, HARD |
 
 ---
 
@@ -1010,11 +1011,11 @@ flowchart LR
 
 ### 6.1 HTTP 에러
 
-| HTTP Code | 설명 | 예시 |
-|-----------|------|------|
-| 400 | 잘못된 요청 | 필수 파라미터 누락, 잘못된 difficulty 값 |
-| 404 | 리소스 없음 | 존재하지 않는 단어 |
-| 500 | 서버 오류 | 내부 오류 |
+| HTTP Code | 설명     | 예시                           |
+|-----------|--------|------------------------------|
+| 400       | 잘못된 요청 | 필수 파라미터 누락, 잘못된 difficulty 값 |
+| 404       | 리소스 없음 | 존재하지 않는 단어                   |
+| 500       | 서버 오류  | 내부 오류                        |
 
 ### 6.2 에러 응답 형식
 

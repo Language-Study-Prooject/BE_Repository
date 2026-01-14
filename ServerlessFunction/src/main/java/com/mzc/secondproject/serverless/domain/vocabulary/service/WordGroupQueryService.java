@@ -15,40 +15,41 @@ import java.util.Optional;
  * WordGroup 조회 전용 서비스 (CQRS Query)
  */
 public class WordGroupQueryService {
-
-    private static final Logger logger = LoggerFactory.getLogger(WordGroupQueryService.class);
-
-    private final WordGroupRepository wordGroupRepository;
-    private final WordRepository wordRepository;
-
-    public WordGroupQueryService() {
-        this.wordGroupRepository = new WordGroupRepository();
-        this.wordRepository = new WordRepository();
-    }
-
-    public PaginatedResult<WordGroup> getGroups(String userId, int limit, String cursor) {
-        return wordGroupRepository.findByUserId(userId, limit, cursor);
-    }
-
-    public Optional<WordGroup> getGroup(String userId, String groupId) {
-        return wordGroupRepository.findByUserIdAndGroupId(userId, groupId);
-    }
-
-    public Optional<WordGroupDetail> getGroupDetail(String userId, String groupId) {
-        Optional<WordGroup> optGroup = wordGroupRepository.findByUserIdAndGroupId(userId, groupId);
-        if (optGroup.isEmpty()) {
-            return Optional.empty();
-        }
-
-        WordGroup group = optGroup.get();
-        List<Word> words = List.of();
-
-        if (group.getWordIds() != null && !group.getWordIds().isEmpty()) {
-            words = wordRepository.findByIds(group.getWordIds());
-        }
-
-        return Optional.of(new WordGroupDetail(group, words));
-    }
-
-    public record WordGroupDetail(WordGroup group, List<Word> words) {}
+	
+	private static final Logger logger = LoggerFactory.getLogger(WordGroupQueryService.class);
+	
+	private final WordGroupRepository wordGroupRepository;
+	private final WordRepository wordRepository;
+	
+	public WordGroupQueryService() {
+		this.wordGroupRepository = new WordGroupRepository();
+		this.wordRepository = new WordRepository();
+	}
+	
+	public PaginatedResult<WordGroup> getGroups(String userId, int limit, String cursor) {
+		return wordGroupRepository.findByUserId(userId, limit, cursor);
+	}
+	
+	public Optional<WordGroup> getGroup(String userId, String groupId) {
+		return wordGroupRepository.findByUserIdAndGroupId(userId, groupId);
+	}
+	
+	public Optional<WordGroupDetail> getGroupDetail(String userId, String groupId) {
+		Optional<WordGroup> optGroup = wordGroupRepository.findByUserIdAndGroupId(userId, groupId);
+		if (optGroup.isEmpty()) {
+			return Optional.empty();
+		}
+		
+		WordGroup group = optGroup.get();
+		List<Word> words = List.of();
+		
+		if (group.getWordIds() != null && !group.getWordIds().isEmpty()) {
+			words = wordRepository.findByIds(group.getWordIds());
+		}
+		
+		return Optional.of(new WordGroupDetail(group, words));
+	}
+	
+	public record WordGroupDetail(WordGroup group, List<Word> words) {
+	}
 }

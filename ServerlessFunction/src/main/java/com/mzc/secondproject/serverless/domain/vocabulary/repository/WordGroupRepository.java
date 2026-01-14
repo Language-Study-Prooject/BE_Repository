@@ -18,63 +18,63 @@ import java.util.Map;
 import java.util.Optional;
 
 public class WordGroupRepository {
-
-    private static final Logger logger = LoggerFactory.getLogger(WordGroupRepository.class);
-    private static final String TABLE_NAME = System.getenv("VOCAB_TABLE_NAME");
-
-    private final DynamoDbTable<WordGroup> table;
-
-    public WordGroupRepository() {
-        this.table = AwsClients.dynamoDbEnhanced().table(TABLE_NAME, TableSchema.fromBean(WordGroup.class));
-    }
-
-    public WordGroup save(WordGroup wordGroup) {
-        logger.info("Saving word group: userId={}, groupId={}", wordGroup.getUserId(), wordGroup.getGroupId());
-        table.putItem(wordGroup);
-        return wordGroup;
-    }
-
-    public Optional<WordGroup> findByUserIdAndGroupId(String userId, String groupId) {
-        Key key = Key.builder()
-                .partitionValue("USER#" + userId + "#GROUP")
-                .sortValue("GROUP#" + groupId)
-                .build();
-
-        WordGroup wordGroup = table.getItem(key);
-        return Optional.ofNullable(wordGroup);
-    }
-
-    public void delete(String userId, String groupId) {
-        Key key = Key.builder()
-                .partitionValue("USER#" + userId + "#GROUP")
-                .sortValue("GROUP#" + groupId)
-                .build();
-
-        table.deleteItem(key);
-        logger.info("Deleted word group: userId={}, groupId={}", userId, groupId);
-    }
-
-    public PaginatedResult<WordGroup> findByUserId(String userId, int limit, String cursor) {
-        QueryConditional queryConditional = QueryConditional
-                .sortBeginsWith(Key.builder()
-                        .partitionValue("USER#" + userId + "#GROUP")
-                        .sortValue("GROUP#")
-                        .build());
-
-        QueryEnhancedRequest.Builder requestBuilder = QueryEnhancedRequest.builder()
-                .queryConditional(queryConditional)
-                .limit(limit);
-
-        if (cursor != null && !cursor.isEmpty()) {
-            Map<String, AttributeValue> exclusiveStartKey = CursorUtil.decode(cursor);
-            if (exclusiveStartKey != null) {
-                requestBuilder.exclusiveStartKey(exclusiveStartKey);
-            }
-        }
-
-        Page<WordGroup> page = table.query(requestBuilder.build()).iterator().next();
-        String nextCursor = CursorUtil.encode(page.lastEvaluatedKey());
-
-        return new PaginatedResult<>(page.items(), nextCursor);
-    }
+	
+	private static final Logger logger = LoggerFactory.getLogger(WordGroupRepository.class);
+	private static final String TABLE_NAME = System.getenv("VOCAB_TABLE_NAME");
+	
+	private final DynamoDbTable<WordGroup> table;
+	
+	public WordGroupRepository() {
+		this.table = AwsClients.dynamoDbEnhanced().table(TABLE_NAME, TableSchema.fromBean(WordGroup.class));
+	}
+	
+	public WordGroup save(WordGroup wordGroup) {
+		logger.info("Saving word group: userId={}, groupId={}", wordGroup.getUserId(), wordGroup.getGroupId());
+		table.putItem(wordGroup);
+		return wordGroup;
+	}
+	
+	public Optional<WordGroup> findByUserIdAndGroupId(String userId, String groupId) {
+		Key key = Key.builder()
+				.partitionValue("USER#" + userId + "#GROUP")
+				.sortValue("GROUP#" + groupId)
+				.build();
+		
+		WordGroup wordGroup = table.getItem(key);
+		return Optional.ofNullable(wordGroup);
+	}
+	
+	public void delete(String userId, String groupId) {
+		Key key = Key.builder()
+				.partitionValue("USER#" + userId + "#GROUP")
+				.sortValue("GROUP#" + groupId)
+				.build();
+		
+		table.deleteItem(key);
+		logger.info("Deleted word group: userId={}, groupId={}", userId, groupId);
+	}
+	
+	public PaginatedResult<WordGroup> findByUserId(String userId, int limit, String cursor) {
+		QueryConditional queryConditional = QueryConditional
+				.sortBeginsWith(Key.builder()
+						.partitionValue("USER#" + userId + "#GROUP")
+						.sortValue("GROUP#")
+						.build());
+		
+		QueryEnhancedRequest.Builder requestBuilder = QueryEnhancedRequest.builder()
+				.queryConditional(queryConditional)
+				.limit(limit);
+		
+		if (cursor != null && !cursor.isEmpty()) {
+			Map<String, AttributeValue> exclusiveStartKey = CursorUtil.decode(cursor);
+			if (exclusiveStartKey != null) {
+				requestBuilder.exclusiveStartKey(exclusiveStartKey);
+			}
+		}
+		
+		Page<WordGroup> page = table.query(requestBuilder.build()).iterator().next();
+		String nextCursor = CursorUtil.encode(page.lastEvaluatedKey());
+		
+		return new PaginatedResult<>(page.items(), nextCursor);
+	}
 }

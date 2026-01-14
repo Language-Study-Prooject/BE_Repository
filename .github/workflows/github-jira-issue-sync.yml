@@ -1,0 +1,96 @@
+# GitHub Issue → Jira 동기화
+name: Issue-Jira Sync
+
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  issues: write
+  contents: read
+
+jobs:
+  sync-issue-to-jira:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Login to Jira
+        uses: atlassian/gajira-login@v3
+        env:
+          JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
+          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+          JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
+
+      - name: Determine Issue Type
+        id: issue-type
+        run: |
+          TITLE='${{ github.event.issue.title }}'
+          
+          if echo "$TITLE" | grep -qiE "^\[EPIC\]"; then
+            echo "type=Epic" >> $GITHUB_OUTPUT
+            echo "template=epic.yml" >> $GITHUB_OUTPUT
+          elif echo "$TITLE" | grep -qiE "^\[STORY\]"; then
+            echo "type=Story" >> $GITHUB_OUTPUT
+            echo "template=story.yml" >> $GITHUB_OUTPUT
+          elif echo "$TITLE" | grep -qiE "^\[TASK\]"; then
+            echo "type=Task" >> $GITHUB_OUTPUT
+            echo "template=task.yml" >> $GITHUB_OUTPUT
+          elif echo "$TITLE" | grep -qiE "^\[SPIKE\]"; then
+            echo "type=Task" >> $GITHUB_OUTPUT
+            echo "template=spike.yml" >> $GITHUB_OUTPUT
+          elif echo "$TITLE" | grep -qiE "^\[CR\]"; then
+            echo "type=Task" >> $GITHUB_OUTPUT
+            echo "template=change_request.yml" >> $GITHUB_OUTPUT
+          else
+            echo "type=Task" >> $GITHUB_OUTPUT
+            echo "template=task.yml" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Parse Issue
+        uses: stefanbuck/github-issue-parser@v3
+        id: issue-parser
+        with:
+          template-path: .github/ISSUE_TEMPLATE/${{ steps.issue-type.outputs.template }}
+
+      - name: Convert to Jira Syntax
+        uses: peter-evans/jira2md@v1
+        id: md2jira
+        with:
+          input-text: |
+            h3. GitHub Issue
+            ${{ github.event.issue.html_url }}
+            
+            h3. Author
+            ${{ github.event.issue.user.login }}
+            
+            ----
+            ${{ github.event.issue.body }}
+          mode: md2jira
+
+      - name: Create Jira Issue
+        id: create-jira
+        uses: atlassian/gajira-create@v3
+        with:
+          project: MESP
+          issuetype: ${{ steps.issue-type.outputs.type }}
+          summary: '${{ github.event.issue.title }}'
+          description: '${{ steps.md2jira.outputs.output-text }}'
+
+      - name: Update Issue Title
+        uses: actions-cool/issues-helper@v3
+        with:
+          actions: 'update-issue'
+          token: ${{ secrets.GITHUB_TOKEN }}
+          title: '[${{ steps.create-jira.outputs.issue }}] ${{ github.event.issue.title }}'
+
+      - name: Add Jira Link Comment
+        uses: actions-cool/issues-helper@v3
+        with:
+          actions: 'create-comment'
+          token: ${{ secrets.GITHUB_TOKEN }}
+          issue-number: ${{ github.event.issue.number }}
+          body: |
+            Jira: [${{ steps.create-jira.outputs.issue }}](${{ secrets.JIRA_BASE_URL }}/browse/${{ steps.create-jira.outputs.issue }})

@@ -4,28 +4,29 @@
 
 ### 1.1 목적
 
-User Server는 영어 회화 학습 플랫폼의 사용자 인증 및 프로필 관리를 담당하는 서버리스 마이크로서비스이다. AWS Cognito를 활용하여 안전한 인증 체계를 제공하고, 사용자별 학습 데이터 및 개인 설정을 관리한다.
+User Server는 영어 회화 학습 플랫폼의 사용자 인증 및 프로필 관리를 담당하는 서버리스 마이크로서비스이다. AWS Cognito를 활용하여 안전한 인증 체계를 제공하고, 사용자별 학습 데이터 및 개인 설정을
+관리한다.
 
 ### 1.2 주요 기능
 
-| 기능 | 설명 |
-|------|------|
-| 회원가입 | Cognito 기반 이메일 회원가입 |
-| 이메일 인증 | Cognito 자동 인증 코드 발송 |
-| 로그인 | JWT 토큰 발급 (IdToken, AccessToken, RefreshToken) |
-| 프로필 조회 | 인증된 사용자 정보 조회 |
+| 기능     | 설명                                               |
+|--------|--------------------------------------------------|
+| 회원가입   | Cognito 기반 이메일 회원가입                              |
+| 이메일 인증 | Cognito 자동 인증 코드 발송                              |
+| 로그인    | JWT 토큰 발급 (IdToken, AccessToken, RefreshToken)   |
+| 프로필 조회 | 인증된 사용자 정보 조회                                    |
 | 기본값 설정 | PreSignUp 트리거로 nickname, level, profileUrl 자동 설정 |
 
 ### 1.3 기술 스택
 
-| 구분 | 기술 |
-|------|------|
-| Platform | AWS Lambda (Serverless) |
-| Language | Java 21 (Eclipse Temurin) |
-| Authentication | AWS Cognito User Pool |
-| Authorization | Cognito Built-in Authorizer |
-| Database | AWS DynamoDB (Single Table Design) |
-| Storage | AWS S3 (프로필 이미지) |
+| 구분             | 기술                                 |
+|----------------|------------------------------------|
+| Platform       | AWS Lambda (Serverless)            |
+| Language       | Java 21 (Eclipse Temurin)          |
+| Authentication | AWS Cognito User Pool              |
+| Authorization  | Cognito Built-in Authorizer        |
+| Database       | AWS DynamoDB (Single Table Design) |
+| Storage        | AWS S3 (프로필 이미지)                   |
 
 ---
 
@@ -178,15 +179,14 @@ sequenceDiagram
 
 ### 3.1 Cognito User Attributes
 
-| Attribute | Type | Required | Mutable | 설명 |
-|-----------|------|----------|---------|------|
-| sub | Standard | Y | N | Cognito 고유 ID (UUID) |
-| email | Standard | Y | N | 이메일 (로그인 ID) |
-| email_verified | Standard | Y | N | 이메일 인증 여부 |
-| nickname | Standard | N | Y | 닉네임 |
-| custom:level | Custom | N | Y | 학습 난이도 (BEGINNER/INTERMEDIATE/ADVANCED) |
-| custom:profileUrl | Custom | N | Y | 프로필 이미지 URL |
-
+| Attribute         | Type     | Required | Mutable | 설명                                      |
+|-------------------|----------|----------|---------|-----------------------------------------|
+| sub               | Standard | Y        | N       | Cognito 고유 ID (UUID)                    |
+| email             | Standard | Y        | N       | 이메일 (로그인 ID)                            |
+| email_verified    | Standard | Y        | N       | 이메일 인증 여부                               |
+| nickname          | Standard | N        | Y       | 닉네임                                     |
+| custom:level      | Custom   | N        | Y       | 학습 난이도 (BEGINNER/INTERMEDIATE/ADVANCED) |
+| custom:profileUrl | Custom   | N        | Y       | 프로필 이미지 URL                             |
 
 ### 3.2 ERD (DynamoDB - 향후 확장용)
 
@@ -213,14 +213,14 @@ erDiagram
     }
 ```
 
-| 필드 | 패턴 | 설명 |
-|------|------|------|
-| PK | USER#{cognitoSub} | 파티션 키 |
-| SK | METADATA | 정렬 키 |
-| GSI1PK | EMAIL#{email} | 이메일 조회용 |
-| GSI1SK | USER#{cognitoSub} | - |
-| GSI2PK | LEVEL#{level} | 레벨별 조회용 |
-| GSI2SK | USER#{cognitoSub} | - |
+| 필드     | 패턴                | 설명      |
+|--------|-------------------|---------|
+| PK     | USER#{cognitoSub} | 파티션 키   |
+| SK     | METADATA          | 정렬 키    |
+| GSI1PK | EMAIL#{email}     | 이메일 조회용 |
+| GSI1SK | USER#{cognitoSub} | -       |
+| GSI2PK | LEVEL#{level}     | 레벨별 조회용 |
+| GSI2SK | USER#{cognitoSub} | -       |
 
 ### 3.3 GSI (Global Secondary Index) 설계
 
@@ -325,15 +325,15 @@ aws cognito-idp initiate-auth \
   --auth-parameters REFRESH_TOKEN={REFRESH_TOKEN}
 ```
 
-### 4.2 프로필 API 
+### 4.2 프로필 API
 
 #### GET /users/profile/me - 내 정보 조회
 
 **Headers**
 
-| Header | 값 | 필수 |
-|--------|------|------|
-| Authorization | Bearer {IdToken} | Y |
+| Header        | 값                | 필수 |
+|---------------|------------------|----|
+| Authorization | Bearer {IdToken} | Y  |
 
 **Response (200 OK)**
 
@@ -355,30 +355,28 @@ aws cognito-idp initiate-auth \
 
 ### 5.1 회원가입 기본값 (PreSignUp Trigger)
 
-| 항목 | 조건 | 기본값 | 예시 |
-|------|------|--------|------|
-| nickname | null 또는 빈 문자열 | UUID 6자 + "님" | "A7K2X9님" |
-| custom:level | null 또는 빈 문자열 | BEGINNER | "BEGINNER" |
-| custom:profileUrl | null 또는 빈 문자열 | S3 기본 이미지 | https://group2-englishstudy.s3.amazonaws.com/profile/default.png |
+| 항목                | 조건            | 기본값           | 예시                                                               |
+|-------------------|---------------|---------------|------------------------------------------------------------------|
+| nickname          | null 또는 빈 문자열 | UUID 6자 + "님" | "A7K2X9님"                                                        |
+| custom:level      | null 또는 빈 문자열 | BEGINNER      | "BEGINNER"                                                       |
+| custom:profileUrl | null 또는 빈 문자열 | S3 기본 이미지     | https://group2-englishstudy.s3.amazonaws.com/profile/default.png |
 
 ### 5.2 비밀번호 정책 (Cognito)
 
-| 항목 | 요구사항 |
-|------|----------|
-| 최소 길이 | 8자 |
-| 소문자 | 1개 이상 |
-| 숫자 | 1개 이상 |
-| 특수문자 | 1개 이상 |
-
+| 항목    | 요구사항  |
+|-------|-------|
+| 최소 길이 | 8자    |
+| 소문자   | 1개 이상 |
+| 숫자    | 1개 이상 |
+| 특수문자  | 1개 이상 |
 
 ### 5.3 토큰 유효 시간
 
-| 토큰 | 유효 시간 | 용도 |
-|------|----------|------|
-| IdToken | 1시간 (3600초) | API 인증, 사용자 정보 |
-| AccessToken | 1시간 (3600초) | Cognito API 호출 |
-| RefreshToken | 30일 | 토큰 갱신 |
-
+| 토큰           | 유효 시간       | 용도             |
+|--------------|-------------|----------------|
+| IdToken      | 1시간 (3600초) | API 인증, 사용자 정보 |
+| AccessToken  | 1시간 (3600초) | Cognito API 호출 |
+| RefreshToken | 30일         | 토큰 갱신          |
 
 ---
 
@@ -386,24 +384,24 @@ aws cognito-idp initiate-auth \
 
 ### 6.1 Cognito 에러
 
-| Error Code | HTTP | 설명 | 해결 방법 |
-|------------|------|------|----------|
-| UsernameExistsException | 400 | 이미 존재하는 이메일 | 다른 이메일 사용 |
-| InvalidPasswordException | 400 | 비밀번호 정책 미충족 | 정책에 맞는 비밀번호 |
-| CodeMismatchException | 400 | 인증 코드 불일치 | 올바른 코드 입력 |
-| ExpiredCodeException | 400 | 인증 코드 만료 | 재발송 요청 |
-| NotAuthorizedException | 401 | 비밀번호 틀림 | 올바른 비밀번호 |
-| UserNotConfirmedException | 400 | 이메일 미인증 | 인증 완료 필요 |
-| UserNotFoundException | 400 | 존재하지 않는 사용자 | 회원가입 필요 |
+| Error Code                | HTTP | 설명          | 해결 방법       |
+|---------------------------|------|-------------|-------------|
+| UsernameExistsException   | 400  | 이미 존재하는 이메일 | 다른 이메일 사용   |
+| InvalidPasswordException  | 400  | 비밀번호 정책 미충족 | 정책에 맞는 비밀번호 |
+| CodeMismatchException     | 400  | 인증 코드 불일치   | 올바른 코드 입력   |
+| ExpiredCodeException      | 400  | 인증 코드 만료    | 재발송 요청      |
+| NotAuthorizedException    | 401  | 비밀번호 틀림     | 올바른 비밀번호    |
+| UserNotConfirmedException | 400  | 이메일 미인증     | 인증 완료 필요    |
+| UserNotFoundException     | 400  | 존재하지 않는 사용자 | 회원가입 필요     |
 
 ### 6.2 API 에러
 
-| HTTP Code | Error Code | 메시지 |
-|-----------|------------|--------|
-| 401 | AUTH_001 | 인증이 필요합니다 |
-| 401 | AUTH_003 | 유효하지 않은 토큰입니다 |
-| 401 | AUTH_004 | 토큰이 만료되었습니다 |
-| 500 | SYSTEM_001 | 내부 서버 오류가 발생했습니다 |
+| HTTP Code | Error Code | 메시지              |
+|-----------|------------|------------------|
+| 401       | AUTH_001   | 인증이 필요합니다        |
+| 401       | AUTH_003   | 유효하지 않은 토큰입니다    |
+| 401       | AUTH_004   | 토큰이 만료되었습니다      |
+| 500       | SYSTEM_001 | 내부 서버 오류가 발생했습니다 |
 
 ### 6.3 에러 응답 형식
 
@@ -528,7 +526,7 @@ domain/user/
 
 ## 9. 구현 현황
 
-### Phase 1 - Cognito 인증 (완료) 
+### Phase 1 - Cognito 인증 (완료)
 
 - [x] Cognito User Pool 생성
 - [x] Cognito User Pool Client 생성
@@ -537,29 +535,27 @@ domain/user/
 - [x] 회원가입/이메일인증/로그인 테스트
 - [x] UserHandler (claims 추출)
 
-### Phase 2 - 프로필 관리 (예정) 
+### Phase 2 - 프로필 관리 (예정)
 
 - [ ] GET /users/profile/me - 내 프로필 상세 조회
 - [ ] PUT /users/profile/me - 프로필 수정 (닉네임, 레벨)
 - [ ] POST /users/profile/me/image - 프로필 이미지 업로드 (S3)
 - [ ] DynamoDB에 추가 사용자 정보 저장
 
-### Phase 3 - 추가 기능 (예정) 
+### Phase 3 - 추가 기능 (예정)
 
 - [ ] 비밀번호 변경
-- [ ] 비밀번호 찾기 
+- [ ] 비밀번호 찾기
 - [ ] 회원 탈퇴 (delete-user)
 - [ ] 학습 통계 연동 (Vocabulary Domain)
 - [ ] 사용자 설정 (알림, 학습 목표, 일일 학습량)
 
-### Phase 4 - 최적화 
+### Phase 4 - 최적화
 
-- [ ] 소셜 로그인 (Kakao, Google, Apple) 
+- [ ] 소셜 로그인 (Kakao, Google, Apple)
 - [ ] SNS-SQS Fan-out 패턴 (이메일 발송 비동기 처리)
 - [ ] 이메일 타임아웃 방안 SQS 마련
 - [ ] S3 이벤트 트리거 - 이미지 리사이징 패턴
-
-
 
 ---
 

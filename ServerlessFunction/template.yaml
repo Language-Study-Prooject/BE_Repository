@@ -326,48 +326,102 @@ Resources:
             RestApiId: !Ref MainApi
             Path: /chat/rooms
             Method: POST
-            # Auth:
-            #   Authorizer: CognitoAuthorizer
+            Auth:
+              Authorizer: CognitoAuthorizer
         GetRooms:
           Type: Api
           Properties:
             RestApiId: !Ref MainApi
             Path: /chat/rooms
             Method: GET
-            # Auth:
-            #   Authorizer: CognitoAuthorizer
+            Auth:
+              Authorizer: CognitoAuthorizer
         GetRoom:
           Type: Api
           Properties:
             RestApiId: !Ref MainApi
             Path: /chat/rooms/{roomId}
             Method: GET
-            # Auth:
-            #   Authorizer: CognitoAuthorizer
+            Auth:
+              Authorizer: CognitoAuthorizer
         DeleteRoom:
           Type: Api
           Properties:
             RestApiId: !Ref MainApi
             Path: /chat/rooms/{roomId}
             Method: DELETE
-            # Auth:
-            #   Authorizer: CognitoAuthorizer
+            Auth:
+              Authorizer: CognitoAuthorizer
         JoinRoom:
           Type: Api
           Properties:
             RestApiId: !Ref MainApi
             Path: /chat/rooms/{roomId}/join
             Method: POST
-            # Auth:
-            #   Authorizer: CognitoAuthorizer
+            Auth:
+              Authorizer: CognitoAuthorizer
         LeaveRoom:
           Type: Api
           Properties:
             RestApiId: !Ref MainApi
             Path: /chat/rooms/{roomId}/leave
             Method: POST
-            # Auth:
-            #   Authorizer: CognitoAuthorizer
+            Auth:
+              Authorizer: CognitoAuthorizer
+
+  GameFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: group2-englishstudy-game-handler
+      CodeUri: .
+      Handler: com.mzc.secondproject.serverless.domain.chatting.handler.GameHandler::handleRequest
+      Description: Handle catch-mind game operations
+      SnapStart:
+        ApplyOn: PublishedVersions
+      Environment:
+        Variables:
+          WEBSOCKET_ENDPOINT: !Sub "https://${WebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/dev"
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ChatTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - execute-api:ManageConnections
+              Resource: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${WebSocketApi}/*"
+      Events:
+        StartGame:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /chat/rooms/{roomId}/game/start
+            Method: POST
+            Auth:
+              Authorizer: CognitoAuthorizer
+        StopGame:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /chat/rooms/{roomId}/game/stop
+            Method: POST
+            Auth:
+              Authorizer: CognitoAuthorizer
+        GetGameStatus:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /chat/rooms/{roomId}/game/status
+            Method: GET
+            Auth:
+              Authorizer: CognitoAuthorizer
+        GetScores:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /chat/rooms/{roomId}/game/scores
+            Method: GET
+            Auth:
+              Authorizer: CognitoAuthorizer
 
   ChatMessageFunction:
     Type: AWS::Serverless::Function
@@ -402,54 +456,24 @@ Resources:
             RestApiId: !Ref MainApi
             Path: /chat/rooms/{roomId}/messages
             Method: POST
-            # Auth:
-            #   Authorizer: CognitoAuthorizer
+            Auth:
+              Authorizer: CognitoAuthorizer
         GetMessages:
           Type: Api
           Properties:
             RestApiId: !Ref MainApi
             Path: /chat/rooms/{roomId}/messages
             Method: GET
-            # Auth:
-            #   Authorizer: CognitoAuthorizer
+            Auth:
+              Authorizer: CognitoAuthorizer
         GetMessage:
           Type: Api
           Properties:
             RestApiId: !Ref MainApi
             Path: /chat/rooms/{roomId}/messages/{messageId}
             Method: GET
-            # Auth:
-            #   Authorizer: CognitoAuthorizer
-
-  ChatAIFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      FunctionName: group2-englishstudy-chat-ai-handler
-      CodeUri: .
-      Handler: com.mzc.secondproject.serverless.domain.chatting.handler.ChatAIHandler::handleRequest
-      Description: Generate AI responses using Bedrock
-      Timeout: 60
-      MemorySize: 1024
-      SnapStart:
-        ApplyOn: PublishedVersions
-      Policies:
-        - DynamoDBCrudPolicy:
-            TableName: !Ref ChatTable
-        - Statement:
-            - Effect: Allow
-              Action:
-                - bedrock:InvokeModel
-                - bedrock:InvokeModelWithResponseStream
-              Resource: "*"
-      Events:
-        GenerateAI:
-          Type: Api
-          Properties:
-            RestApiId: !Ref MainApi
-            Path: /chat/ai/generate
-            Method: POST
-            # Auth:
-            #   Authorizer: CognitoAuthorizer
+            Auth:
+              Authorizer: CognitoAuthorizer
 
   ChatVoiceFunction:
     Type: AWS::Serverless::Function
@@ -478,8 +502,8 @@ Resources:
             RestApiId: !Ref MainApi
             Path: /chat/voice/synthesize
             Method: POST
-            # Auth:
-            #   Authorizer: CognitoAuthorizer
+            Auth:
+              Authorizer: CognitoAuthorizer
 
   #############################################
   # Vocabulary Lambda Functions
@@ -504,64 +528,64 @@ Resources:
             RestApiId: !Ref MainApi
             Path: /vocab/words
             Method: POST
-            # Auth:
-            #   Authorizer: CognitoAuthorizer
+            Auth:
+              Authorizer: NONE
         BatchCreateWords:
           Type: Api
           Properties:
             RestApiId: !Ref MainApi
             Path: /vocab/words/batch
             Method: POST
-            # Auth:
-            #   Authorizer: CognitoAuthorizer
+            Auth:
+              Authorizer: NONE
         BatchGetWords:
           Type: Api
           Properties:
             RestApiId: !Ref MainApi
             Path: /vocab/words/batch/get
             Method: POST
-            # Auth:
-            #   Authorizer: CognitoAuthorizer
+            Auth:
+              Authorizer: NONE
         SearchWords:
           Type: Api
           Properties:
             RestApiId: !Ref MainApi
             Path: /vocab/words/search
             Method: GET
-            # Auth:
-            #   Authorizer: CognitoAuthorizer
+            Auth:
+              Authorizer: NONE
         GetWords:
           Type: Api
           Properties:
             RestApiId: !Ref MainApi
             Path: /vocab/words
             Method: GET
-            # Auth:
-            #   Authorizer: CognitoAuthorizer
+            Auth:
+              Authorizer: NONE
         GetWord:
           Type: Api
           Properties:
             RestApiId: !Ref MainApi
             Path: /vocab/words/{wordId}
             Method: GET
-            # Auth:
-            #   Authorizer: CognitoAuthorizer
+            Auth:
+              Authorizer: NONE
         UpdateWord:
           Type: Api
           Properties:
             RestApiId: !Ref MainApi
             Path: /vocab/words/{wordId}
             Method: PUT
-            # Auth:
-            #   Authorizer: CognitoAuthorizer
+            Auth:
+              Authorizer: NONE
         DeleteWord:
           Type: Api
           Properties:
             RestApiId: !Ref MainApi
             Path: /vocab/words/{wordId}
             Method: DELETE
-            # Auth:
-            #   Authorizer: CognitoAuthorizer
+            Auth:
+              Authorizer: NONE
 
   UserWordFunction:
     Type: AWS::Serverless::Function
@@ -580,42 +604,50 @@ Resources:
           Type: Api
           Properties:
             RestApiId: !Ref MainApi
-            Path: /vocab/users/{userId}/wrong-answers
+            Path: /vocab/wrong-answers
             Method: GET
-            # Auth:
-            #   Authorizer: CognitoAuthorizer
+            Auth:
+              Authorizer: CognitoAuthorizer
         GetUserWords:
           Type: Api
           Properties:
             RestApiId: !Ref MainApi
-            Path: /vocab/users/{userId}/words
+            Path: /vocab/user-words
             Method: GET
-            # Auth:
-            #   Authorizer: CognitoAuthorizer
+            Auth:
+              Authorizer: CognitoAuthorizer
         GetUserWord:
           Type: Api
           Properties:
             RestApiId: !Ref MainApi
-            Path: /vocab/users/{userId}/words/{wordId}
+            Path: /vocab/user-words/{wordId}
             Method: GET
-            # Auth:
-            #   Authorizer: CognitoAuthorizer
+            Auth:
+              Authorizer: CognitoAuthorizer
         UpdateUserWord:
           Type: Api
           Properties:
             RestApiId: !Ref MainApi
-            Path: /vocab/users/{userId}/words/{wordId}
+            Path: /vocab/user-words/{wordId}
             Method: PUT
-            # Auth:
-            #   Authorizer: CognitoAuthorizer
+            Auth:
+              Authorizer: CognitoAuthorizer
         UpdateUserWordTag:
           Type: Api
           Properties:
             RestApiId: !Ref MainApi
-            Path: /vocab/users/{userId}/words/{wordId}/tag
+            Path: /vocab/user-words/{wordId}/tag
             Method: PUT
-            # Auth:
-            #   Authorizer: CognitoAuthorizer
+            Auth:
+              Authorizer: CognitoAuthorizer
+        UpdateUserWordStatus:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /vocab/user-words/{wordId}/status
+            Method: PUT
+            Auth:
+              Authorizer: CognitoAuthorizer
 
   WordGroupFunction:
     Type: AWS::Serverless::Function
@@ -634,58 +666,58 @@ Resources:
           Type: Api
           Properties:
             RestApiId: !Ref MainApi
-            Path: /vocab/users/{userId}/groups
+            Path: /vocab/groups
             Method: POST
-            # Auth:
-            #   Authorizer: CognitoAuthorizer
+            Auth:
+              Authorizer: CognitoAuthorizer
         GetGroups:
           Type: Api
           Properties:
             RestApiId: !Ref MainApi
-            Path: /vocab/users/{userId}/groups
+            Path: /vocab/groups
             Method: GET
-            # Auth:
-            #   Authorizer: CognitoAuthorizer
+            Auth:
+              Authorizer: CognitoAuthorizer
         GetGroupDetail:
           Type: Api
           Properties:
             RestApiId: !Ref MainApi
-            Path: /vocab/users/{userId}/groups/{groupId}
+            Path: /vocab/groups/{groupId}
             Method: GET
-            # Auth:
-            #   Authorizer: CognitoAuthorizer
+            Auth:
+              Authorizer: CognitoAuthorizer
         UpdateGroup:
           Type: Api
           Properties:
             RestApiId: !Ref MainApi
-            Path: /vocab/users/{userId}/groups/{groupId}
+            Path: /vocab/groups/{groupId}
             Method: PUT
-            # Auth:
-            #   Authorizer: CognitoAuthorizer
+            Auth:
+              Authorizer: CognitoAuthorizer
         DeleteGroup:
           Type: Api
           Properties:
             RestApiId: !Ref MainApi
-            Path: /vocab/users/{userId}/groups/{groupId}
+            Path: /vocab/groups/{groupId}
             Method: DELETE
-            # Auth:
-            #   Authorizer: CognitoAuthorizer
+            Auth:
+              Authorizer: CognitoAuthorizer
         AddWordToGroup:
           Type: Api
           Properties:
             RestApiId: !Ref MainApi
-            Path: /vocab/users/{userId}/groups/{groupId}/words/{wordId}
+            Path: /vocab/groups/{groupId}/words/{wordId}
             Method: POST
-            # Auth:
-            #   Authorizer: CognitoAuthorizer
+            Auth:
+              Authorizer: CognitoAuthorizer
         RemoveWordFromGroup:
           Type: Api
           Properties:
             RestApiId: !Ref MainApi
-            Path: /vocab/users/{userId}/groups/{groupId}/words/{wordId}
+            Path: /vocab/groups/{groupId}/words/{wordId}
             Method: DELETE
-            # Auth:
-            #   Authorizer: CognitoAuthorizer
+            Auth:
+              Authorizer: CognitoAuthorizer
 
   DailyStudyFunction:
     Type: AWS::Serverless::Function
@@ -704,18 +736,18 @@ Resources:
           Type: Api
           Properties:
             RestApiId: !Ref MainApi
-            Path: /vocab/daily/{userId}
+            Path: /vocab/daily
             Method: GET
-            # Auth:
-            #   Authorizer: CognitoAuthorizer
+            Auth:
+              Authorizer: CognitoAuthorizer
         MarkWordLearned:
           Type: Api
           Properties:
             RestApiId: !Ref MainApi
-            Path: /vocab/daily/{userId}/words/{wordId}/learned
+            Path: /vocab/daily/words/{wordId}/learned
             Method: POST
-            # Auth:
-            #   Authorizer: CognitoAuthorizer
+            Auth:
+              Authorizer: CognitoAuthorizer
 
   TestFunction:
     Type: AWS::Serverless::Function
@@ -739,34 +771,42 @@ Resources:
           Type: Api
           Properties:
             RestApiId: !Ref MainApi
-            Path: /vocab/test/{userId}/start
+            Path: /vocab/test/start
             Method: POST
-            # Auth:
-            #   Authorizer: CognitoAuthorizer
+            Auth:
+              Authorizer: CognitoAuthorizer
         SubmitAnswer:
           Type: Api
           Properties:
             RestApiId: !Ref MainApi
-            Path: /vocab/test/{userId}/submit
+            Path: /vocab/test/submit
             Method: POST
-            # Auth:
-            #   Authorizer: CognitoAuthorizer
+            Auth:
+              Authorizer: CognitoAuthorizer
         GetTestResults:
           Type: Api
           Properties:
             RestApiId: !Ref MainApi
-            Path: /vocab/test/{userId}/results
+            Path: /vocab/test/results
             Method: GET
-            # Auth:
-            #   Authorizer: CognitoAuthorizer
+            Auth:
+              Authorizer: CognitoAuthorizer
         GetTestResultDetail:
           Type: Api
           Properties:
             RestApiId: !Ref MainApi
-            Path: /vocab/test/{userId}/results/{testId}
+            Path: /vocab/test/results/{testId}
             Method: GET
-            # Auth:
-            #   Authorizer: CognitoAuthorizer
+            Auth:
+              Authorizer: CognitoAuthorizer
+        GetTestedWords:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /vocab/test/tested-words
+            Method: GET
+            Auth:
+              Authorizer: CognitoAuthorizer
 
   StatsFunction:
     Type: AWS::Serverless::Function
@@ -785,26 +825,26 @@ Resources:
           Type: Api
           Properties:
             RestApiId: !Ref MainApi
-            Path: /vocab/stats/{userId}
+            Path: /vocab/stats
             Method: GET
-            # Auth:
-            #   Authorizer: CognitoAuthorizer
+            Auth:
+              Authorizer: CognitoAuthorizer
         GetDailyStats:
           Type: Api
           Properties:
             RestApiId: !Ref MainApi
-            Path: /vocab/stats/{userId}/daily
+            Path: /vocab/stats/daily
             Method: GET
-            # Auth:
-            #   Authorizer: CognitoAuthorizer
+            Auth:
+              Authorizer: CognitoAuthorizer
         GetWeaknessAnalysis:
           Type: Api
           Properties:
             RestApiId: !Ref MainApi
-            Path: /vocab/stats/{userId}/weakness
+            Path: /vocab/stats/weakness
             Method: GET
-            # Auth:
-            #   Authorizer: CognitoAuthorizer
+            Auth:
+              Authorizer: CognitoAuthorizer
 
   VocabVoiceFunction:
     Type: AWS::Serverless::Function
@@ -833,8 +873,358 @@ Resources:
             RestApiId: !Ref MainApi
             Path: /vocab/voice/synthesize
             Method: POST
-            # Auth:
-            #   Authorizer: CognitoAuthorizer
+            Auth:
+              Authorizer: NONE
+
+  #############################################
+  # Stats Lambda Functions (DynamoDB Streams)
+  #############################################
+
+  # DynamoDB Streams 트리거 - 테스트 결과 저장 시 통계 자동 업데이트
+  StatsStreamFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: group2-englishstudy-stats-stream-handler
+      CodeUri: .
+      Handler: com.mzc.secondproject.serverless.domain.stats.handler.StatsStreamHandler::handleRequest
+      Description: Process DynamoDB Streams for stats aggregation
+      Timeout: 60
+      SnapStart:
+        ApplyOn: PublishedVersions
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref VocabTable
+      Events:
+        DynamoDBStream:
+          Type: DynamoDB
+          Properties:
+            Stream: !GetAtt VocabTable.StreamArn
+            StartingPosition: TRIM_HORIZON
+            BatchSize: 100
+            FilterCriteria:
+              Filters:
+                - Pattern: '{"eventName": ["INSERT"], "dynamodb": {"NewImage": {"PK": {"S": [{"prefix": "TEST#"}]}}}}'
+
+  # 사용자 통계 조회 API Handler
+  UserStatsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: group2-englishstudy-user-stats-handler
+      CodeUri: .
+      Handler: com.mzc.secondproject.serverless.domain.stats.handler.UserStatsHandler::handleRequest
+      Description: Handle user learning statistics API
+      SnapStart:
+        ApplyOn: PublishedVersions
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref VocabTable
+      Events:
+        GetDailyStats:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /stats/daily
+            Method: GET
+            Auth:
+              Authorizer: CognitoAuthorizer
+        GetWeeklyStats:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /stats/weekly
+            Method: GET
+            Auth:
+              Authorizer: CognitoAuthorizer
+        GetMonthlyStats:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /stats/monthly
+            Method: GET
+            Auth:
+              Authorizer: CognitoAuthorizer
+        GetTotalStats:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /stats/total
+            Method: GET
+            Auth:
+              Authorizer: CognitoAuthorizer
+        GetStatsHistory:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /stats/history
+            Method: GET
+            Auth:
+              Authorizer: CognitoAuthorizer
+
+  # Badge Lambda Function
+  BadgeFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: group2-englishstudy-badge-handler
+      CodeUri: .
+      Handler: com.mzc.secondproject.serverless.domain.badge.handler.BadgeHandler::handleRequest
+      Description: Handle user badges and achievements
+      SnapStart:
+        ApplyOn: PublishedVersions
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref VocabTable
+      Events:
+        GetAllBadges:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /badges
+            Method: GET
+            Auth:
+              Authorizer: CognitoAuthorizer
+        GetEarnedBadges:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /badges/earned
+            Method: GET
+            Auth:
+              Authorizer: CognitoAuthorizer
+
+  #############################################
+  # Grammar Lambda Functions
+  #############################################
+
+  GrammarFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: group2-englishstudy-grammar-handler
+      CodeUri: .
+      Handler: com.mzc.secondproject.serverless.domain.grammar.handler.GrammarHandler::handleRequest
+      Description: Handle grammar check using Bedrock AI
+      Timeout: 60
+      MemorySize: 1024
+      SnapStart:
+        ApplyOn: PublishedVersions
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ChatTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - bedrock:InvokeModel
+              Resource: "*"
+        - Statement:
+            - Effect: Allow
+              Action:
+                - aws-marketplace:ViewSubscriptions
+                - aws-marketplace:Subscribe
+              Resource: "*"
+      Events:
+        GrammarCheck:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /grammar/check
+            Method: POST
+            Auth:
+              Authorizer: CognitoAuthorizer
+        GrammarConversation:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /grammar/conversation
+            Method: POST
+            Auth:
+              Authorizer: CognitoAuthorizer
+        GetSessions:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /grammar/sessions
+            Method: GET
+            Auth:
+              Authorizer: CognitoAuthorizer
+        GetSessionDetail:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /grammar/sessions/{sessionId}
+            Method: GET
+            Auth:
+              Authorizer: CognitoAuthorizer
+        DeleteSession:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /grammar/sessions/{sessionId}
+            Method: DELETE
+            Auth:
+              Authorizer: CognitoAuthorizer
+
+  #############################################
+  # Grammar WebSocket API (Streaming)
+  #############################################
+
+  GrammarWebSocketApi:
+    Type: AWS::ApiGatewayV2::Api
+    Properties:
+      Name: group2-englishstudy-grammar-websocket
+      ProtocolType: WEBSOCKET
+      RouteSelectionExpression: "$request.body.action"
+
+  GrammarWebSocketStage:
+    Type: AWS::ApiGatewayV2::Stage
+    Properties:
+      ApiId: !Ref GrammarWebSocketApi
+      StageName: dev
+      AutoDeploy: true
+
+  # Grammar WebSocket Connect Route
+  GrammarConnectRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref GrammarWebSocketApi
+      RouteKey: $connect
+      AuthorizationType: NONE
+      Target: !Sub integrations/${GrammarConnectIntegration}
+
+  GrammarConnectIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref GrammarWebSocketApi
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${GrammarStreamingConnectFunction.Arn}/invocations
+
+  # Grammar WebSocket Disconnect Route
+  GrammarDisconnectRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref GrammarWebSocketApi
+      RouteKey: $disconnect
+      AuthorizationType: NONE
+      Target: !Sub integrations/${GrammarDisconnectIntegration}
+
+  GrammarDisconnectIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref GrammarWebSocketApi
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${GrammarStreamingDisconnectFunction.Arn}/invocations
+
+  # Grammar WebSocket Streaming Route
+  GrammarStreamingRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref GrammarWebSocketApi
+      RouteKey: grammarStreaming
+      AuthorizationType: NONE
+      Target: !Sub integrations/${GrammarStreamingIntegration}
+
+  GrammarStreamingIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref GrammarWebSocketApi
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${GrammarStreamingFunction.Arn}/invocations
+
+  # Grammar WebSocket Lambda Functions
+  GrammarStreamingConnectFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: group2-grammar-ws-connect
+      CodeUri: .
+      Handler: com.mzc.secondproject.serverless.domain.grammar.handler.websocket.GrammarStreamingConnectHandler::handleRequest
+      Description: Handle Grammar WebSocket $connect with JWT auth
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ChatTable
+
+  GrammarStreamingConnectPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref GrammarStreamingConnectFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${GrammarWebSocketApi}/*/$connect
+
+  GrammarStreamingDisconnectFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: group2-grammar-ws-disconnect
+      CodeUri: .
+      Handler: com.mzc.secondproject.serverless.domain.grammar.handler.websocket.GrammarStreamingDisconnectHandler::handleRequest
+      Description: Handle Grammar WebSocket $disconnect
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ChatTable
+
+  GrammarStreamingDisconnectPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref GrammarStreamingDisconnectFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${GrammarWebSocketApi}/*/$disconnect
+
+  GrammarStreamingFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: group2-grammar-ws-streaming
+      CodeUri: .
+      Handler: com.mzc.secondproject.serverless.domain.grammar.handler.websocket.GrammarStreamingHandler::handleRequest
+      Description: Handle Grammar streaming with Bedrock
+      Timeout: 120
+      MemorySize: 1024
+      Environment:
+        Variables:
+          GRAMMAR_WEBSOCKET_ENDPOINT: !Sub "https://${GrammarWebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/dev"
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ChatTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - bedrock:InvokeModel
+                - bedrock:InvokeModelWithResponseStream
+              Resource: "*"
+        - Statement:
+            - Effect: Allow
+              Action:
+                - execute-api:ManageConnections
+              Resource: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${GrammarWebSocketApi}/*
+
+  GrammarStreamingPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref GrammarStreamingFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${GrammarWebSocketApi}/*/grammarStreaming
+
+  # EventBridge Scheduler - 매일 자정 단어 학습 통계 집계
+  ScheduledStatsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: group2-englishstudy-scheduled-stats
+      CodeUri: .
+      Handler: com.mzc.secondproject.serverless.domain.stats.handler.ScheduledStatsHandler::handleRequest
+      Description: Daily scheduled job for word learning stats aggregation
+      Timeout: 300
+      MemorySize: 1024
+      SnapStart:
+        ApplyOn: PublishedVersions
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref VocabTable
+      Events:
+        DailySchedule:
+          Type: Schedule
+          Properties:
+            Schedule: cron(0 15 * * ? *)  # UTC 15:00 = KST 00:00 (자정)
+            Name: daily-stats-aggregation
+            Description: Daily word learning stats aggregation
+            Enabled: true
 
   #############################################
   # DynamoDB Tables
@@ -936,6 +1326,8 @@ Resources:
     Properties:
       TableName: group2-englishstudy-vocab
       BillingMode: PAY_PER_REQUEST
+      StreamSpecification:
+        StreamViewType: NEW_IMAGE
       AttributeDefinitions:
         - AttributeName: PK
           AttributeType: S
@@ -1075,6 +1467,10 @@ Outputs:
   WebSocketUrl:
     Description: WebSocket API Gateway endpoint URL
     Value: !Sub 'wss://${WebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/dev'
+
+  GrammarWebSocketUrl:
+    Description: Grammar Streaming WebSocket API endpoint URL
+    Value: !Sub 'wss://${GrammarWebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/dev'
 
   ChatTableName:
     Description: Chat DynamoDB Table Name
