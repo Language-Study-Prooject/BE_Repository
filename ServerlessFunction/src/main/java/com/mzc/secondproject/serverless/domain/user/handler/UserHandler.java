@@ -108,19 +108,27 @@ public class UserHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
     }
 
 
-    @SuppressWarnings("unchecked")
-    private Map<String, String> extractClaims(APIGatewayProxyRequestEvent request) {
-        try {
-            Map<String, Object> authorizer = request.getRequestContext().getAuthorizer();
-            if (authorizer == null) {
-                logger.warn("Authorizer가 null입니다.");
-                return null;
-            }
-            return (Map<String, String>) authorizer.get("claims");
-        } catch (Exception e) {
-            logger.error("claims 추출 실패", e);
-            return null;
-        }
+    /**
+     * POST /users/profile/me/image - 프로필 이미지 업로드 URL 발급
+     */
+    private APIGatewayProxyResponseEvent uploadProfileImage(
+            APIGatewayProxyRequestEvent request,
+            String userId
+    ) {
+        ImageUploadRequest uploadRequest = gson.fromJson(request.getBody(), ImageUploadRequest.class);
+
+        Map<String, String> urls = userService.generateProfileImageUploadUrl(
+                userId,
+                uploadRequest.getFileName(),
+                uploadRequest.getContentType()
+        );
+
+        ImageUploadResponse response = ImageUploadResponse.builder()
+                .uploadUrl(urls.get("uploadUrl"))
+                .imageUrl(urls.get("imageUrl"))
+                .build();
+
+        return ResponseGenerator.ok("이미지 업로드 URL 발급 성공", response);
     }
 
 }
