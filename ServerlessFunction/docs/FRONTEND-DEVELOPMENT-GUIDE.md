@@ -143,19 +143,31 @@ interface ConversationResponse {
 
 **WebSocket Endpoint:** `wss://{websocket-api-id}.execute-api.ap-northeast-2.amazonaws.com/dev`
 
+#### 인증
+
+WebSocket 연결 시 JWT 토큰을 query parameter로 전달해야 합니다.
+
+```
+wss://{api-id}.execute-api.ap-northeast-2.amazonaws.com/dev?token={JWT_TOKEN}
+```
+
+- 토큰이 없거나 만료된 경우 연결이 거부됩니다 (401)
+- 연결 성공 후에는 메시지에 userId를 포함할 필요 없음 (서버에서 자동 조회)
+
 #### 연결 및 사용법
 
 ```typescript
-// 1. WebSocket 연결
-const ws = new WebSocket(`wss://${WEBSOCKET_API_ID}.execute-api.ap-northeast-2.amazonaws.com/dev`);
+// 1. WebSocket 연결 (JWT 토큰 포함)
+const ws = new WebSocket(
+  `wss://${WEBSOCKET_API_ID}.execute-api.ap-northeast-2.amazonaws.com/dev?token=${jwtToken}`
+);
 
-// 2. 연결 완료 시 메시지 전송
+// 2. 연결 완료 시 메시지 전송 (userId 불필요)
 ws.onopen = () => {
   const request = {
     action: 'grammarStreaming',  // 라우트 키
     sessionId: 'optional-session-id',
     message: 'I go to school yesterday',
-    userId: 'user-id-from-jwt',
     level: 'BEGINNER'
   };
   ws.send(JSON.stringify(request));
