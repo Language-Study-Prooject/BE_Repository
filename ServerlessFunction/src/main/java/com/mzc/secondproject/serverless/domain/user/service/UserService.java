@@ -7,8 +7,12 @@ import com.mzc.secondproject.serverless.domain.user.model.User;
 import com.mzc.secondproject.serverless.domain.user.repository.UserRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
+import software.amazon.awssdk.services.s3.presigner.model.PresignedPutObjectRequest;
+import software.amazon.awssdk.services.s3.presigner.model.PutObjectPresignRequest;
 
+import java.time.Duration;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -135,6 +139,44 @@ public class UserService {
 
         user.updateProfileUrl(imageUrl);
         return userRepository.update(user);
+    }
+
+    /**
+     * 프로필 이미지 업로드를 위한 Presigned URL 발급
+     *
+     * @param userId      cognitoSub
+     * @param fileName    파일명
+     * @param contentType MIME 타입
+     * @return {uploadUrl, imageUrl}
+     * @throws UserException INVALID_IMAGE_TYPE
+     */
+    public Map<String, String> generateProfileImageUploadUrl(String userId, String fileName, String contentType) {
+
+        validateImageContentType(contentType);
+
+        String objectKey = String.format("profile/%s/%s", userId, fileName);
+        String imageUrl = String.format("https://%s.s3.amazonaws.com/%s", BUCKET_NAME, objectKey);
+
+        PutObjectRequest putObjectRequest = PutObjectRequest.builder()
+                .bucket(BUCKET_NAME)
+                .key(objectKey)
+                .contentType(contentType)
+                .build();
+
+        PutObjectPresignRequest presignRequest = PutObjectPresignRequest.builder()
+                .signatureDuration(Duration.ofMinutes(5))
+                .putObjectRequest(putObjectRequest)
+                .build();
+
+        PresignedPutObjectRequest presignedRequest = s3Presigner.presignPutObject(presignRequest);
+        String uploadUrl = presignedRequest.url().toString();
+
+        logger.info("Presigned URL 생성 완료: objectKey={}", objectKey);
+
+        return Map.of(
+                "uploadUrl", uploadUrl,
+                "imageUrl", imageUrl
+        );
     }
 
 
