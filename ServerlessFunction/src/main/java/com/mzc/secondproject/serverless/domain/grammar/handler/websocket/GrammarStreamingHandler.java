@@ -4,6 +4,7 @@ import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.lambda.runtime.RequestHandler;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.mzc.secondproject.serverless.common.util.WebSocketEventUtil;
 import com.mzc.secondproject.serverless.domain.grammar.dto.response.ConversationResponse;
 import com.mzc.secondproject.serverless.domain.grammar.model.GrammarConnection;
 import com.mzc.secondproject.serverless.domain.grammar.repository.GrammarConnectionRepository;
@@ -48,8 +49,8 @@ public class GrammarStreamingHandler implements RequestHandler<Map<String, Objec
 		logger.info("Grammar streaming event received");
 
 		try {
-			String connectionId = extractConnectionId(event);
-			String endpoint = extractWebSocketEndpoint(event);
+			String connectionId = WebSocketEventUtil.extractConnectionId(event);
+			String endpoint = WebSocketEventUtil.extractWebSocketEndpoint(event);
 
 			// 연결 정보에서 userId 조회 (JWT 인증된 사용자)
 			Optional<GrammarConnection> connectionOpt = connectionRepository.findByConnectionId(connectionId);
@@ -74,11 +75,11 @@ public class GrammarStreamingHandler implements RequestHandler<Map<String, Objec
 			// 스트리밍 대화 처리 (userId는 연결 정보에서 가져옴)
 			processStreamingConversation(connectionId, endpoint, userId, request);
 
-			return createResponse(200, "Streaming started");
+			return WebSocketEventUtil.ok("Streaming started");
 
 		} catch (Exception e) {
 			logger.error("Error handling streaming request: {}", e.getMessage(), e);
-			return createResponse(500, "Internal server error");
+			return WebSocketEventUtil.serverError("Internal server error");
 		}
 	}
 
@@ -163,24 +164,6 @@ public class GrammarStreamingHandler implements RequestHandler<Map<String, Objec
 	private Map<String, Object> sendError(String connectionId, String endpoint, String message) {
 		ApiGatewayManagementApiClient apiClient = createApiClient(endpoint);
 		sendEvent(apiClient, connectionId, new StreamingEvent.ErrorEvent(message));
-		return createResponse(400, message);
-	}
-
-	@SuppressWarnings("unchecked")
-	private String extractConnectionId(Map<String, Object> event) {
-		Map<String, Object> requestContext = (Map<String, Object>) event.get("requestContext");
-		return (String) requestContext.get("connectionId");
-	}
-
-	@SuppressWarnings("unchecked")
-	private String extractWebSocketEndpoint(Map<String, Object> event) {
-		Map<String, Object> requestContext = (Map<String, Object>) event.get("requestContext");
-		String domainName = (String) requestContext.get("domainName");
-		String stage = (String) requestContext.get("stage");
-		return "https://" + domainName + "/" + stage;
-	}
-
-	private Map<String, Object> createResponse(int statusCode, String body) {
-		return Map.of("statusCode", statusCode, "body", body);
+		return WebSocketEventUtil.badRequest(message);
 	}
 }
