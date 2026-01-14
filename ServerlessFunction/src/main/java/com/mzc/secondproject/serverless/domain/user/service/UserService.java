@@ -2,6 +2,7 @@ package com.mzc.secondproject.serverless.domain.user.service;
 
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyRequestEvent;
 import com.mzc.secondproject.serverless.common.config.AwsClients;
+import com.mzc.secondproject.serverless.domain.user.exception.UserException;
 import com.mzc.secondproject.serverless.domain.user.model.User;
 import com.mzc.secondproject.serverless.domain.user.repository.UserRepository;
 import org.slf4j.Logger;
@@ -92,12 +93,18 @@ public class UserService {
 
     /**
      * 프로필 수정 (닉네임, 레벨)
+     *
+     * @param userId   cognitoSub
+     * @param nickname 새 닉네임 (null이면 변경 안 함)
+     * @param level    새 레벨 (null이면 변경 안 함)
+     * @return 수정된 User 객체
+     * @throws UserException USER_NOT_FOUND, INVALID_NICKNAME, INVALID_LEVEL
      */
-    public User updateProfile(String cognitoSub, String nickname, String level) {
-        logger.info("프로필 수정 요청: cognitoSub={}, nickname={}, level={}", cognitoSub, nickname, level);
+    public User updateProfile(String userId, String nickname, String level) {
+        logger.info("프로필 수정 요청: userId={}, nickname={}, level={}", userId, nickname, level);
 
-        User user = userRepository.findByCognitoSub(cognitoSub)
-                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+        User user = userRepository.findByCognitoSub(userId)
+                .orElseThrow(() -> UserException.userNotFound(userId));
 
         // 닉네임 수정
         if (nickname != null && !nickname.trim().isEmpty()) {
