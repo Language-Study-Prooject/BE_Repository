@@ -140,20 +140,19 @@ public class UserService {
 
     private void validateNickname(String nickname) {
         if (nickname.length() < 2 || nickname.length() > 20) {
-            throw new IllegalArgumentException("닉네임은 2~20자여야 합니다.");
+            throw UserException.invalidNickname(nickname, NICKNAME_MIN_LENGTH, NICKNAME_MAX_LENGTH);
         }
     }
 
     private void validateLevel(String level) {
         if (!VALID_LEVELS.contains(level)) {
-            throw new IllegalArgumentException("유효하지 않은 레벨입니다.");
+            throw UserException.invalidLevel(level);
         }
     }
 
     private void validateImageContentType(String contentType) {
-        List<String> validTypes = Arrays.asList("image/jpeg", "image/png", "image/gif", "image/webp");
-        if (!validTypes.contains(contentType)) {
-            throw new IllegalArgumentException("지원하지 않는 이미지 형식입니다.");
+        if (!VALID_IMAGE_TYPES.contains(contentType)) {
+            throw UserException.invalidImageType(contentType);
         }
     }
 
