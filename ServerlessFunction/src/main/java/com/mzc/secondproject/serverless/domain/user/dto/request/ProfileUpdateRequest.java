@@ -1,4 +1,4 @@
-가package com.mzc.secondproject.serverless.domain.user.dto.request;
+package com.mzc.secondproject.serverless.domain.user.dto.request;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
