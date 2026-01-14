@@ -68,6 +68,7 @@ public class User {
 
     /**
      * 신규 사용자 생성
+     * - Lazy Registration 적용: 최초 프로필 조회 시 DynamoDB에 저장
      *
      * @param cognitoSub Cognito User Pool의 sub (UUID)
      * @param email 이메일
