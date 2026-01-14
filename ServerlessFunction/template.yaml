@@ -9,6 +9,7 @@ Globals:
     Runtime: java21
     Architectures:
       - x86_64
+    Tracing: Active
     Environment:
       Variables:
         USER_TABLE_NAME: !Ref UserTable
@@ -18,6 +19,8 @@ Globals:
         VOCAB_BUCKET_NAME: group2-englishstudy
         AWS_REGION_NAME: !Ref AWS::Region
         ROOM_TOKEN_TTL_SECONDS: "300"
+  Api:
+    TracingEnabled: true
 
 Resources:
   #############################################
