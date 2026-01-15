@@ -15,6 +15,8 @@ User Server는 영어 회화 학습 플랫폼의 사용자 인증 및 프로필 
 | 이메일 인증 | Cognito 자동 인증 코드 발송                              |
 | 로그인    | JWT 토큰 발급 (IdToken, AccessToken, RefreshToken)   |
 | 프로필 조회 | 인증된 사용자 정보 조회                                    |
+| 프로필 수정     | 닉네임, 레벨 변경                                       |
+| 프로필 이미지 업로드 | S3 Presigned URL 발급 및 이미지 업로드                    |
 | 기본값 설정 | PreSignUp 트리거로 nickname, level, profileUrl 자동 설정 |
 
 ### 1.3 기술 스택
@@ -112,20 +114,20 @@ flowchart TB
 sequenceDiagram
     participant C as Client
     participant COG as Cognito
-    participant TRIGGER as PreSignUpHandler
+    participant PRE as PreSignUpHandler
+    participant POST as PostConfirmationHandler
+    participant DB as DynamoDB
     participant SES as AWS SES
 
     C->>COG: sign-up (email, password)
-    COG->>TRIGGER: PreSignUp Event
-    Note over TRIGGER: userAttributes 추출
-    TRIGGER->>TRIGGER: 기본값 설정
-    Note over TRIGGER: nickname: UUID 6자 + "님"<br/>custom:level: BEGINNER<br/>custom:profileUrl: 기본 이미지
-    TRIGGER-->>COG: Modified Attributes
-    COG->>COG: Create User (UNCONFIRMED)
+    COG->>PRE: PreSignUp Event
+    PRE->>PRE: 기본값 설정
+    PRE-->>COG: Modified Attributes
     COG->>SES: 인증 코드 이메일 발송
     SES-->>C: 6자리 인증 코드
     C->>COG: confirm-sign-up (code)
-    COG->>COG: User Status → CONFIRMED
+    COG->>POST: PostConfirmation Event
+    POST->>DB: 사용자 정보 저장
     COG-->>C: 가입 완료
 ```
 
@@ -327,26 +329,113 @@ aws cognito-idp initiate-auth \
 
 ### 4.2 프로필 API
 
-#### GET /users/profile/me - 내 정보 조회
+#### GET /users/profile/me - 내 프로필 조회
 
 **Headers**
 
 | Header        | 값                | 필수 |
-|---------------|------------------|----|
-| Authorization | Bearer {IdToken} | Y  |
+|---------------|------------------|-----|
+| Authorization | Bearer {IdToken} | Y   |
 
 **Response (200 OK)**
-
 ```json
 {
-    "success": true,
-    "message": "A7K2X9님 환영합니다!",
+    "isSuccess": true,
+    "message": "테스트닉네임 환영합니다!",
     "data": {
         "userId": "d4088d7c-e0f1-70bd-3b7a-eb8b812e3ae4",
         "email": "hye.ina0130@gmail.com",
-        "nickname": "A7K2X9님"
+        "nickname": "테스트닉네임",
+        "level": "INTERMEDIATE",
+        "profileUrl": "https://group2-englishstudy.s3.amazonaws.com/profile/default.png",
+        "createdAt": "2026-01-14T10:59:44.763918081Z",
+        "updatedAt": "2026-01-14T11:31:49.868505292Z"
     }
 }
+```
+
+---
+
+#### PUT /users/profile/me - 프로필 수정
+
+**Headers**
+
+| Header        | 값                | 필수 |
+|---------------|------------------|-----|
+| Authorization | Bearer {IdToken} | Y   |
+| Content-Type  | application/json | Y   |
+
+**Request Body**
+```json
+{
+    "nickname": "새닉네임",
+    "level": "INTERMEDIATE"
+}
+```
+
+| 필드      | 타입     | 필수 | 설명                                    |
+|---------|--------|-----|---------------------------------------|
+| nickname | String | N   | 닉네임 (2~20자)                          |
+| level    | String | N   | BEGINNER / INTERMEDIATE / ADVANCED    |
+
+**Response (200 OK)**
+```json
+{
+    "isSuccess": true,
+    "message": "프로필이 수정되었습니다.",
+    "data": {
+        "userId": "d4088d7c-e0f1-70bd-3b7a-eb8b812e3ae4",
+        "email": "hye.ina0130@gmail.com",
+        "nickname": "새닉네임",
+        "level": "INTERMEDIATE",
+        "profileUrl": "https://group2-englishstudy.s3.amazonaws.com/profile/default.png",
+        "createdAt": "2026-01-14T10:59:44.763918081Z",
+        "updatedAt": "2026-01-15T01:30:00.000000000Z"
+    }
+}
+```
+
+---
+
+#### POST /users/profile/me/image - 프로필 이미지 업로드 URL 발급
+
+**Headers**
+
+| Header        | 값                | 필수 |
+|---------------|------------------|-----|
+| Authorization | Bearer {IdToken} | Y   |
+| Content-Type  | application/json | Y   |
+
+**Request Body**
+```json
+{
+    "fileName": "profile.jpg",
+    "contentType": "image/jpeg"
+}
+```
+
+| 필드         | 타입     | 필수 | 설명                                      |
+|------------|--------|-----|------------------------------------------|
+| fileName   | String | Y   | 파일명                                     |
+| contentType | String | Y   | image/jpeg, image/png, image/gif, image/webp |
+
+**Response (200 OK)**
+```json
+{
+    "isSuccess": true,
+    "message": "이미지 업로드 URL 발급 성공",
+    "data": {
+        "uploadUrl": "https://group2-englishstudy.s3.ap-northeast-2.amazonaws.com/profile/{userId}/{fileName}?X-Amz-...",
+        "imageUrl": "https://group2-englishstudy.s3.amazonaws.com/profile/{userId}/{fileName}"
+    }
+}
+```
+
+**이미지 업로드 방법 (클라이언트)**
+```
+PUT {uploadUrl}
+Content-Type: {요청 시 보낸 contentType과 동일}
+Body: Binary (이미지 파일)
 ```
 
 ---
@@ -396,13 +485,18 @@ aws cognito-idp initiate-auth \
 
 ### 6.2 API 에러
 
-| HTTP Code | Error Code | 메시지              |
-|-----------|------------|------------------|
-| 401       | AUTH_001   | 인증이 필요합니다        |
-| 401       | AUTH_003   | 유효하지 않은 토큰입니다    |
-| 401       | AUTH_004   | 토큰이 만료되었습니다      |
-| 500       | SYSTEM_001 | 내부 서버 오류가 발생했습니다 |
-
+| HTTP Code | Error Code | 메시지                          |
+|-----------|------------|-------------------------------|
+| 400       | USER_002   | 닉네임은 2~20자여야 합니다              |
+| 400       | USER_003   | 유효하지 않은 레벨입니다                 |
+| 400       | USER_004   | 지원하지 않는 이미지 형식입니다             |
+| 401       | AUTH_001   | 인증이 필요합니다                     |
+| 401       | AUTH_003   | 유효하지 않은 토큰입니다                 |
+| 401       | AUTH_004   | 토큰이 만료되었습니다                   |
+| 404       | USER_001   | 사용자를 찾을 수 없습니다                |
+| 500       | USER_005   | 이미지 업로드에 실패했습니다               |
+| 500       | USER_006   | Cognito 동기화에 실패했습니다           |
+| 500       | SYSTEM_001 | 내부 서버 오류가 발생했습니다              |
 ### 6.3 에러 응답 형식
 
 ```json
@@ -537,10 +631,10 @@ domain/user/
 
 ### Phase 2 - 프로필 관리 (예정)
 
-- [ ] GET /users/profile/me - 내 프로필 상세 조회
-- [ ] PUT /users/profile/me - 프로필 수정 (닉네임, 레벨)
-- [ ] POST /users/profile/me/image - 프로필 이미지 업로드 (S3)
-- [ ] DynamoDB에 추가 사용자 정보 저장
+- [x] GET /users/profile/me - 내 프로필 상세 조회
+- [x] PUT /users/profile/me - 프로필 수정 (닉네임, 레벨)
+- [x] POST /users/profile/me/image - 프로필 이미지 업로드 (S3)
+- [x] DynamoDB에 추가 사용자 정보 저장
 
 ### Phase 3 - 추가 기능 (예정)
 
