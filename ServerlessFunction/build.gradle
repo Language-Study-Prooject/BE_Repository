@@ -30,6 +30,7 @@ dependencies {
     implementation 'software.amazon.awssdk:polly'
     implementation 'software.amazon.awssdk:sns'
     implementation 'software.amazon.awssdk:bedrockruntime'
+    implementation 'software.amazon.awssdk:comprehend'
     implementation 'software.amazon.awssdk:apigatewaymanagementapi'
     implementation 'software.amazon.awssdk:url-connection-client'
 
