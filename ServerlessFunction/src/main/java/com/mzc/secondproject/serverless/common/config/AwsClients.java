@@ -7,6 +7,7 @@ import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.polly.PollyClient;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
+import software.amazon.awssdk.services.comprehend.ComprehendClient;
 import software.amazon.awssdk.services.sns.SnsClient;
 
 /**
@@ -30,6 +31,8 @@ public final class AwsClients {
 	// Bedrock
 	private static final BedrockRuntimeClient BEDROCK_CLIENT = BedrockRuntimeClient.builder().build();
 	private static final BedrockRuntimeAsyncClient BEDROCK_ASYNC_CLIENT = BedrockRuntimeAsyncClient.builder().build();
+	// Comprehend
+	private static final ComprehendClient COMPREHEND_CLIENT = ComprehendClient.builder().build();
 	
 	private AwsClients() {
 		// 인스턴스화 방지
@@ -65,5 +68,9 @@ public final class AwsClients {
 
 	public static BedrockRuntimeAsyncClient bedrockAsync() {
 		return BEDROCK_ASYNC_CLIENT;
+	}
+
+	public static ComprehendClient comprehend() {
+		return COMPREHEND_CLIENT;
 	}
 }
