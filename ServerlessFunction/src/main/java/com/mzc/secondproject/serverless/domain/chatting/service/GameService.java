@@ -363,8 +363,19 @@ public class GameService {
 
 		logger.info("Round ended: roomId={}, round={}, reason={}", roomId, currentRound, reason);
 
-		return CommandResult.success(MessageType.ROUND_END, message,
-				Map.of("answer", answer, "nextRound", nextRound, "nextDrawer", nextDrawer, "nextWord", nextWord));
+		// ranking 생성
+		List<Map<String, Object>> ranking = buildRankingList(room.getScores());
+
+		Map<String, Object> data = new HashMap<>();
+		data.put("answer", answer);
+		data.put("nextRound", nextRound);
+		data.put("nextDrawer", nextDrawer);
+		data.put("nextWord", nextWord);
+		data.put("ranking", ranking);
+		data.put("currentRound", currentRound);
+		data.put("totalRounds", room.getTotalRounds());
+
+		return CommandResult.success(MessageType.ROUND_END, message, data);
 	}
 
 	/**
@@ -499,6 +510,29 @@ public class GameService {
 				.forEach(userId -> room.getStreaks().put(userId, 0));
 
 		logger.info("Reset streaks for non-guessers: correctGuessers={}", correctGuessers);
+	}
+
+	/**
+	 * 점수 맵을 순위 리스트로 변환
+	 */
+	private List<Map<String, Object>> buildRankingList(Map<String, Integer> scores) {
+		if (scores == null || scores.isEmpty()) {
+			return List.of();
+		}
+
+		List<Map.Entry<String, Integer>> sorted = scores.entrySet().stream()
+				.sorted(Map.Entry.<String, Integer>comparingByValue().reversed())
+				.toList();
+
+		List<Map<String, Object>> ranking = new ArrayList<>();
+		for (int i = 0; i < sorted.size(); i++) {
+			Map<String, Object> entry = new HashMap<>();
+			entry.put("rank", i + 1);
+			entry.put("userId", sorted.get(i).getKey());
+			entry.put("score", sorted.get(i).getValue());
+			ranking.add(entry);
+		}
+		return ranking;
 	}
 
 	// ========== Result DTOs ==========
