@@ -7,6 +7,7 @@ import com.google.gson.GsonBuilder;
 import com.mzc.secondproject.serverless.common.util.WebSocketBroadcaster;
 import com.mzc.secondproject.serverless.common.util.WebSocketEventUtil;
 import com.mzc.secondproject.serverless.domain.chatting.dto.response.CommandResult;
+import com.mzc.secondproject.serverless.domain.chatting.dto.response.ScoreUpdateMessage;
 import com.mzc.secondproject.serverless.domain.chatting.model.ChatMessage;
 import com.mzc.secondproject.serverless.domain.chatting.model.Connection;
 import com.mzc.secondproject.serverless.domain.chatting.repository.ChatRoomRepository;
@@ -184,8 +185,11 @@ public class WebSocketMessageHandler implements RequestHandler<Map<String, Objec
 		// 1. 정답 알림 메시지 브로드캐스트
 		broadcastCorrectAnswerMessage(payload, result, connections);
 
-		// 2. 점수 업데이트 메시지 브로드캐스트
-		broadcastScoreUpdate(payload.roomId, result.scores(), connections);
+		// 2. 점수 업데이트 메시지 브로드캐스트 (실시간 리더보드)
+		chatRoomRepository.findById(payload.roomId).ifPresent(room -> {
+			broadcastScoreUpdate(payload.roomId, payload.userId, result.score(),
+					result.scores(), room.getCurrentRound(), room.getTotalRounds(), connections);
+		});
 
 		logger.info("Correct answer: roomId={}, userId={}, score={}", payload.roomId, payload.userId, result.score());
 
@@ -227,36 +231,27 @@ public class WebSocketMessageHandler implements RequestHandler<Map<String, Objec
 	}
 
 	/**
-	 * 점수 업데이트 메시지 브로드캐스트
+	 * 점수 업데이트 메시지 브로드캐스트 (실시간 리더보드)
 	 */
-	private void broadcastScoreUpdate(String roomId, Map<String, Integer> scores, List<Connection> connections) {
+	private void broadcastScoreUpdate(String roomId, String scorerId, int scoreGained,
+	                                   Map<String, Integer> scores, Integer currentRound,
+	                                   Integer totalRounds, List<Connection> connections) {
 		if (scores == null || scores.isEmpty()) {
 			return;
 		}
 
-		String messageId = UUID.randomUUID().toString();
-		String now = Instant.now().toString();
+		ScoreUpdateMessage scoreUpdate = ScoreUpdateMessage.from(
+				roomId, scorerId, scoreGained, scores,
+				currentRound != null ? currentRound : 0,
+				totalRounds != null ? totalRounds : 0
+		);
 
-		// 점수 현황 문자열 생성
-		StringBuilder sb = new StringBuilder("📊 현재 점수:\n");
-		scores.entrySet().stream()
-				.sorted((a, b) -> b.getValue().compareTo(a.getValue()))
-				.forEach(entry -> sb.append(String.format("  %s: %d점\n", entry.getKey(), entry.getValue())));
-
-		Map<String, Object> scoreUpdateMessage = new HashMap<>();
-		scoreUpdateMessage.put("messageId", messageId);
-		scoreUpdateMessage.put("roomId", roomId);
-		scoreUpdateMessage.put("userId", "SYSTEM");
-		scoreUpdateMessage.put("content", sb.toString());
-		scoreUpdateMessage.put("messageType", MessageType.SCORE_UPDATE.getCode());
-		scoreUpdateMessage.put("createdAt", now);
-		scoreUpdateMessage.put("scores", scores);
-
-		String broadcastPayload = gson.toJson(scoreUpdateMessage);
+		String broadcastPayload = gson.toJson(scoreUpdate);
 		List<String> failedConnections = broadcaster.broadcast(connections, broadcastPayload);
 		cleanupFailedConnections(failedConnections);
 
-		logger.info("Score update broadcasted: roomId={}", roomId);
+		logger.info("Score update broadcasted: roomId={}, scorerId={}, scoreGained={}",
+				roomId, scorerId, scoreGained);
 	}
 
 	/**
