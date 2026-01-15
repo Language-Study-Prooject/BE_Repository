@@ -1045,6 +1045,14 @@ Resources:
                 - aws-marketplace:ViewSubscriptions
                 - aws-marketplace:Subscribe
               Resource: "*"
+        - Statement:
+            - Effect: Allow
+              Action:
+                - comprehend:DetectSentiment
+                - comprehend:DetectSyntax
+                - comprehend:DetectKeyPhrases
+                - comprehend:DetectDominantLanguage
+              Resource: "*"
       Events:
         GrammarCheck:
           Type: Api
