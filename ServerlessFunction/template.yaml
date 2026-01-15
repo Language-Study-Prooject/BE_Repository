@@ -9,6 +9,7 @@ Globals:
     Runtime: java21
     Architectures:
       - x86_64
+    Tracing: Active
     Environment:
       Variables:
         USER_TABLE_NAME: !Ref UserTable
@@ -18,6 +19,8 @@ Globals:
         VOCAB_BUCKET_NAME: group2-englishstudy
         AWS_REGION_NAME: !Ref AWS::Region
         ROOM_TOKEN_TTL_SECONDS: "300"
+  Api:
+    TracingEnabled: true
 
 Resources:
   #############################################
@@ -1023,6 +1026,146 @@ Resources:
             Auth:
               Authorizer: CognitoAuthorizer
 
+  #############################################
+  # Grammar WebSocket API (Streaming)
+  #############################################
+
+  GrammarWebSocketApi:
+    Type: AWS::ApiGatewayV2::Api
+    Properties:
+      Name: group2-englishstudy-grammar-websocket
+      ProtocolType: WEBSOCKET
+      RouteSelectionExpression: "$request.body.action"
+
+  GrammarWebSocketStage:
+    Type: AWS::ApiGatewayV2::Stage
+    Properties:
+      ApiId: !Ref GrammarWebSocketApi
+      StageName: dev
+      AutoDeploy: true
+
+  # Grammar WebSocket Connect Route
+  GrammarConnectRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref GrammarWebSocketApi
+      RouteKey: $connect
+      AuthorizationType: NONE
+      Target: !Sub integrations/${GrammarConnectIntegration}
+
+  GrammarConnectIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref GrammarWebSocketApi
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${GrammarStreamingConnectFunction.Arn}/invocations
+
+  # Grammar WebSocket Disconnect Route
+  GrammarDisconnectRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref GrammarWebSocketApi
+      RouteKey: $disconnect
+      AuthorizationType: NONE
+      Target: !Sub integrations/${GrammarDisconnectIntegration}
+
+  GrammarDisconnectIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref GrammarWebSocketApi
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${GrammarStreamingDisconnectFunction.Arn}/invocations
+
+  # Grammar WebSocket Streaming Route
+  GrammarStreamingRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref GrammarWebSocketApi
+      RouteKey: grammarStreaming
+      AuthorizationType: NONE
+      Target: !Sub integrations/${GrammarStreamingIntegration}
+
+  GrammarStreamingIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref GrammarWebSocketApi
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${GrammarStreamingFunction.Arn}/invocations
+
+  # Grammar WebSocket Lambda Functions
+  GrammarStreamingConnectFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: group2-grammar-ws-connect
+      CodeUri: .
+      Handler: com.mzc.secondproject.serverless.domain.grammar.handler.websocket.GrammarStreamingConnectHandler::handleRequest
+      Description: Handle Grammar WebSocket $connect with JWT auth
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ChatTable
+
+  GrammarStreamingConnectPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref GrammarStreamingConnectFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${GrammarWebSocketApi}/*/$connect
+
+  GrammarStreamingDisconnectFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: group2-grammar-ws-disconnect
+      CodeUri: .
+      Handler: com.mzc.secondproject.serverless.domain.grammar.handler.websocket.GrammarStreamingDisconnectHandler::handleRequest
+      Description: Handle Grammar WebSocket $disconnect
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ChatTable
+
+  GrammarStreamingDisconnectPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref GrammarStreamingDisconnectFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${GrammarWebSocketApi}/*/$disconnect
+
+  GrammarStreamingFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: group2-grammar-ws-streaming
+      CodeUri: .
+      Handler: com.mzc.secondproject.serverless.domain.grammar.handler.websocket.GrammarStreamingHandler::handleRequest
+      Description: Handle Grammar streaming with Bedrock
+      Timeout: 120
+      MemorySize: 1024
+      Environment:
+        Variables:
+          GRAMMAR_WEBSOCKET_ENDPOINT: !Sub "https://${GrammarWebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/dev"
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ChatTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - bedrock:InvokeModel
+                - bedrock:InvokeModelWithResponseStream
+              Resource: "*"
+        - Statement:
+            - Effect: Allow
+              Action:
+                - execute-api:ManageConnections
+              Resource: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${GrammarWebSocketApi}/*
+
+  GrammarStreamingPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref GrammarStreamingFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${GrammarWebSocketApi}/*/grammarStreaming
+
   # EventBridge Scheduler - 매일 자정 단어 학습 통계 집계
   ScheduledStatsFunction:
     Type: AWS::Serverless::Function
@@ -1286,6 +1429,10 @@ Outputs:
   WebSocketUrl:
     Description: WebSocket API Gateway endpoint URL
     Value: !Sub 'wss://${WebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/dev'
+
+  GrammarWebSocketUrl:
+    Description: Grammar Streaming WebSocket API endpoint URL
+    Value: !Sub 'wss://${GrammarWebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/dev'
 
   ChatTableName:
     Description: Chat DynamoDB Table Name
