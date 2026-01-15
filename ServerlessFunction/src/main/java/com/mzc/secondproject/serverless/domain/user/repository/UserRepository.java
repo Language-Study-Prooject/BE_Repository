@@ -13,58 +13,74 @@ import software.amazon.awssdk.enhanced.dynamodb.model.QueryConditional;
 import java.util.Optional;
 
 public class UserRepository {
-	
-	private static final Logger logger = LoggerFactory.getLogger(UserRepository.class);
-	private static final String TABLE_NAME = System.getenv("USER_TABLE_NAME");
-	
-	private final DynamoDbTable<User> table;
-	
-	public UserRepository() {
-		this.table = AwsClients.dynamoDbEnhanced().table(TABLE_NAME, TableSchema.fromBean(User.class));
-	}
-	
-	public User save(User user) {
-		table.putItem(user);
-		return user;
-	}
-	
-	public Optional<User> findById(String userId) {
-		Key key = Key.builder()
-				.partitionValue(userId)
-				.build();
-		
-		User user = table.getItem(key);
-		return Optional.ofNullable(user);
-	}
-	
-	/**
-	 * 이메일로 사용자 조회 (로그인, 중복 체크용)
-	 * GSI1 사용: GSI1PK = EMAIL#{email}
-	 */
-	public Optional<User> findByEmail(String email) {
-		QueryConditional queryConditional = QueryConditional
-				.keyEqualTo(Key.builder()
-						.partitionValue("EMAIL#" + email)
-						.build());
-		
-		DynamoDbIndex<User> gsi1 = table.index("GSI1");
-		
-		return gsi1.query(queryConditional)
-				.stream()
-				.flatMap(page -> page.items().stream())
-				.findFirst();
-	}
-	
-	public boolean existsByEmail(String email) {
-		return findByEmail(email).isPresent();
-	}
-	
-	
-	public void delete(String userId) {
-		Key key = Key.builder()
-				.partitionValue(userId)
-				.build();
-		table.deleteItem(key);
-	}
-	
+
+    private static final Logger logger = LoggerFactory.getLogger(UserRepository.class);
+    private static final String TABLE_NAME = System.getenv("USER_TABLE_NAME");
+
+    private final DynamoDbTable<User> table;
+
+    public UserRepository() {
+        this.table = AwsClients.dynamoDbEnhanced().table(TABLE_NAME, TableSchema.fromBean(User.class));
+    }
+
+    public User save(User user) {
+        logger.info("저장할 사용자 PartitionKey={}, SortKey={}", user.getPk(), user.getSk());
+        table.putItem(user);
+        return user;
+    }
+
+    /**
+     * Cognito Sub (userId)로 사용자 조회
+     * - PK: USER#{cognitoSub}
+     * - SK: METADATA
+     *
+     * @param cognitoSub Cognito User Pool의 sub (UUID)
+     * @return 사용자 정보 (Optional)
+     */
+    public Optional<User> findByCognitoSub(String cognitoSub) {
+        Key key = Key.builder()
+                .partitionValue("USER#" + cognitoSub)
+                .sortValue("METADATA")
+                .build();
+
+        User user = table.getItem(key);
+        return Optional.ofNullable(user);
+    }
+
+    /**
+     * 이메일로 사용자 조회
+     * GSI1 사용: GSI1PK = EMAIL#{email}
+     *
+     * @param email 이메일
+     * @return 사용자 정보 (Optional)
+     */
+    public Optional<User> findByEmail(String email) {
+        QueryConditional queryConditional = QueryConditional
+                .keyEqualTo(Key.builder()
+                        .partitionValue("EMAIL#" + email)
+                        .build());
+
+        DynamoDbIndex<User> gsi1 = table.index("GSI1");
+
+        return gsi1.query(queryConditional)
+                .stream()
+                .flatMap(page -> page.items().stream())
+                .findFirst();
+    }
+
+
+    public User update(User user) {
+        table.updateItem(user);
+        return user;
+    }
+
+    public void delete(String cognitoSub) {
+        Key key = Key.builder()
+                .partitionValue("USER#" + cognitoSub)
+                .sortValue("METADATA")
+                .build();
+        logger.info("삭제할 사용자: cognitoSub={}", cognitoSub);
+        table.deleteItem(key);
+    }
+
 }

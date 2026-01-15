@@ -17,6 +17,7 @@ Globals:
         VOCAB_TABLE_NAME: !Ref VocabTable
         CHAT_BUCKET_NAME: group2-englishstudy
         VOCAB_BUCKET_NAME: group2-englishstudy
+        PROFILE_BUCKET_NAME: group2-englishstudy
         AWS_REGION_NAME: !Ref AWS::Region
         ROOM_TOKEN_TTL_SECONDS: "300"
   Api:
@@ -30,7 +31,7 @@ Resources:
   CognitoUserPool:
     Type: AWS::Cognito::UserPool
     DeletionPolicy: Retain
-    UpdateReplacePolicy: Retain
+    # UpdateReplacePolicy: Retain
     Properties:
       UserPoolName: !Sub "${AWS::StackName}-userpool"
       UsernameAttributes:
@@ -64,6 +65,7 @@ Resources:
           Mutable: true
       LambdaConfig:
         PreSignUp: !GetAtt PreSignUpFunction.Arn
+        PostConfirmation: !GetAtt PostConfirmationFunction.Arn
 
   # Cognito에게 Lambda 호출 권한 부여
   PreSignUpPermission:
@@ -74,7 +76,14 @@ Resources:
       Principal: cognito-idp.amazonaws.com
       SourceArn: !Sub arn:aws:cognito-idp:${AWS::Region}:${AWS::AccountId}:userpool/*
 
-  # TODO : 회원가입 시 기본값 자동 설정 handler 추가
+  PostConfirmationPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !GetAtt PostConfirmationFunction.Arn
+      Principal: cognito-idp.amazonaws.com
+      SourceArn: !GetAtt CognitoUserPool.Arn
+
   # 사용자 custom 속성들 기본값 설정 Lambda 함수
   PreSignUpFunction:
     Type: AWS::Serverless::Function
@@ -88,6 +97,20 @@ Resources:
       Environment:
         Variables:
           DEFAULT_PROFILE_URL: https://group2-englishstudy.s3.amazonaws.com/profile/default.png
+
+  # 회원가입 시점에 사용자 모든 정보가 DB에 저장 Lambda 함수
+  PostConfirmationFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-post-confirmation"
+      CodeUri: .
+      Handler: com.mzc.secondproject.serverless.domain.user.handler.PostConfirmationHandler::handleRequest
+      Description: Handle user registration - save to DynamoDB
+      SnapStart:
+        ApplyOn: PublishedVersions
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref UserTable
 
   CognitoUserPoolClient:
     Type: AWS::Cognito::UserPoolClient
@@ -266,6 +289,44 @@ Resources:
       FunctionName: !Ref WebSocketMessageFunction
       Principal: apigateway.amazonaws.com
       SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${WebSocketApi}/*/sendMessage
+
+  #############################################
+  # User Lambda Functions
+  #############################################
+
+  UserFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-user-handler"
+      CodeUri: .
+      Handler: com.mzc.secondproject.serverless.domain.user.handler.UserHandler::handleRequest
+      Description: Handle user profile CRUD operations
+      SnapStart:
+        ApplyOn: PublishedVersions
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref UserTable
+        - S3CrudPolicy:
+            BucketName: group2-englishstudy
+      Events:
+        GetMyProfile:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /users/profile/me
+            Method: GET
+        UpdateMyProfile:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /users/profile/me
+            Method: PUT
+        UploadProfileImage:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /users/profile/me/image
+            Method: POST
 
   #############################################
   # Chatting Lambda Functions
@@ -1196,6 +1257,8 @@ Resources:
 
   UserTable:
     Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    # UpdateReplacePolicy: Retain
     Properties:
       TableName: group2-englishstudy-user
       BillingMode: PAY_PER_REQUEST
