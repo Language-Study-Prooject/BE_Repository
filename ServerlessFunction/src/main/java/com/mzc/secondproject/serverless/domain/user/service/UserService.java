@@ -164,12 +164,14 @@ public class UserService {
                 .build();
 
         PutObjectPresignRequest presignRequest = PutObjectPresignRequest.builder()
-                .signatureDuration(Duration.ofMinutes(5))
+                .signatureDuration(Duration.ofMinutes(10))
                 .putObjectRequest(putObjectRequest)
                 .build();
 
         PresignedPutObjectRequest presignedRequest = s3Presigner.presignPutObject(presignRequest);
         String uploadUrl = presignedRequest.url().toString();
+
+        updateProfileImage(userId, imageUrl);
 
         logger.info("Presigned URL 생성 완료: objectKey={}", objectKey);
 
