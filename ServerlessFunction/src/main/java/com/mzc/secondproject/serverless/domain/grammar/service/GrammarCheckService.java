@@ -1,6 +1,8 @@
 package com.mzc.secondproject.serverless.domain.grammar.service;
 
+import com.mzc.secondproject.serverless.common.service.ComprehendService;
 import com.mzc.secondproject.serverless.domain.grammar.dto.request.GrammarCheckRequest;
+import com.mzc.secondproject.serverless.domain.grammar.dto.response.ComprehendAnalysis;
 import com.mzc.secondproject.serverless.domain.grammar.dto.response.GrammarCheckResponse;
 import com.mzc.secondproject.serverless.domain.grammar.enums.GrammarLevel;
 import com.mzc.secondproject.serverless.domain.grammar.exception.GrammarException;
@@ -14,13 +16,16 @@ public class GrammarCheckService {
 	private static final Logger logger = LoggerFactory.getLogger(GrammarCheckService.class);
 
 	private final GrammarCheckFactory grammarCheckFactory;
+	private final ComprehendService comprehendService;
 
 	public GrammarCheckService() {
 		this.grammarCheckFactory = new BedrockGrammarCheckFactory();
+		this.comprehendService = new ComprehendService();
 	}
 
-	public GrammarCheckService(GrammarCheckFactory grammarCheckFactory) {
+	public GrammarCheckService(GrammarCheckFactory grammarCheckFactory, ComprehendService comprehendService) {
 		this.grammarCheckFactory = grammarCheckFactory;
+		this.comprehendService = comprehendService;
 	}
 
 	public GrammarCheckResponse checkGrammar(GrammarCheckRequest request) {
@@ -30,7 +35,18 @@ public class GrammarCheckService {
 
 		GrammarLevel level = parseLevel(request.getLevel());
 
-		return grammarCheckFactory.checkGrammar(request.getSentence(), level);
+		GrammarCheckResponse response = grammarCheckFactory.checkGrammar(request.getSentence(), level);
+
+		try {
+			ComprehendAnalysis analysis = comprehendService.analyze(request.getSentence());
+			response.setAnalysis(analysis);
+			logger.info("Comprehend analysis completed: complexity={}",
+					analysis != null ? analysis.getComplexity() : "null");
+		} catch (Exception e) {
+			logger.warn("Comprehend analysis failed, continuing without analysis: {}", e.getMessage());
+		}
+
+		return response;
 	}
 
 	private void validateRequest(GrammarCheckRequest request) {
