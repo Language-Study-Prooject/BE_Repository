@@ -114,20 +114,20 @@ flowchart TB
 sequenceDiagram
     participant C as Client
     participant COG as Cognito
-    participant TRIGGER as PreSignUpHandler
+    participant PRE as PreSignUpHandler
+    participant POST as PostConfirmationHandler
+    participant DB as DynamoDB
     participant SES as AWS SES
 
     C->>COG: sign-up (email, password)
-    COG->>TRIGGER: PreSignUp Event
-    Note over TRIGGER: userAttributes 추출
-    TRIGGER->>TRIGGER: 기본값 설정
-    Note over TRIGGER: nickname: UUID 6자 + "님"<br/>custom:level: BEGINNER<br/>custom:profileUrl: 기본 이미지
-    TRIGGER-->>COG: Modified Attributes
-    COG->>COG: Create User (UNCONFIRMED)
+    COG->>PRE: PreSignUp Event
+    PRE->>PRE: 기본값 설정
+    PRE-->>COG: Modified Attributes
     COG->>SES: 인증 코드 이메일 발송
     SES-->>C: 6자리 인증 코드
     C->>COG: confirm-sign-up (code)
-    COG->>COG: User Status → CONFIRMED
+    COG->>POST: PostConfirmation Event
+    POST->>DB: 사용자 정보 저장
     COG-->>C: 가입 완료
 ```
 
