@@ -15,6 +15,8 @@ User Server는 영어 회화 학습 플랫폼의 사용자 인증 및 프로필 
 | 이메일 인증 | Cognito 자동 인증 코드 발송                              |
 | 로그인    | JWT 토큰 발급 (IdToken, AccessToken, RefreshToken)   |
 | 프로필 조회 | 인증된 사용자 정보 조회                                    |
+| 프로필 수정     | 닉네임, 레벨 변경                                       |
+| 프로필 이미지 업로드 | S3 Presigned URL 발급 및 이미지 업로드                    |
 | 기본값 설정 | PreSignUp 트리거로 nickname, level, profileUrl 자동 설정 |
 
 ### 1.3 기술 스택
