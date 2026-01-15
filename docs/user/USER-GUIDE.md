@@ -329,26 +329,113 @@ aws cognito-idp initiate-auth \
 
 ### 4.2 프로필 API
 
-#### GET /users/profile/me - 내 정보 조회
+#### GET /users/profile/me - 내 프로필 조회
 
 **Headers**
 
 | Header        | 값                | 필수 |
-|---------------|------------------|----|
-| Authorization | Bearer {IdToken} | Y  |
+|---------------|------------------|-----|
+| Authorization | Bearer {IdToken} | Y   |
 
 **Response (200 OK)**
-
 ```json
 {
-    "success": true,
-    "message": "A7K2X9님 환영합니다!",
+    "isSuccess": true,
+    "message": "테스트닉네임 환영합니다!",
     "data": {
         "userId": "d4088d7c-e0f1-70bd-3b7a-eb8b812e3ae4",
         "email": "hye.ina0130@gmail.com",
-        "nickname": "A7K2X9님"
+        "nickname": "테스트닉네임",
+        "level": "INTERMEDIATE",
+        "profileUrl": "https://group2-englishstudy.s3.amazonaws.com/profile/default.png",
+        "createdAt": "2026-01-14T10:59:44.763918081Z",
+        "updatedAt": "2026-01-14T11:31:49.868505292Z"
     }
 }
+```
+
+---
+
+#### PUT /users/profile/me - 프로필 수정
+
+**Headers**
+
+| Header        | 값                | 필수 |
+|---------------|------------------|-----|
+| Authorization | Bearer {IdToken} | Y   |
+| Content-Type  | application/json | Y   |
+
+**Request Body**
+```json
+{
+    "nickname": "새닉네임",
+    "level": "INTERMEDIATE"
+}
+```
+
+| 필드      | 타입     | 필수 | 설명                                    |
+|---------|--------|-----|---------------------------------------|
+| nickname | String | N   | 닉네임 (2~20자)                          |
+| level    | String | N   | BEGINNER / INTERMEDIATE / ADVANCED    |
+
+**Response (200 OK)**
+```json
+{
+    "isSuccess": true,
+    "message": "프로필이 수정되었습니다.",
+    "data": {
+        "userId": "d4088d7c-e0f1-70bd-3b7a-eb8b812e3ae4",
+        "email": "hye.ina0130@gmail.com",
+        "nickname": "새닉네임",
+        "level": "INTERMEDIATE",
+        "profileUrl": "https://group2-englishstudy.s3.amazonaws.com/profile/default.png",
+        "createdAt": "2026-01-14T10:59:44.763918081Z",
+        "updatedAt": "2026-01-15T01:30:00.000000000Z"
+    }
+}
+```
+
+---
+
+#### POST /users/profile/me/image - 프로필 이미지 업로드 URL 발급
+
+**Headers**
+
+| Header        | 값                | 필수 |
+|---------------|------------------|-----|
+| Authorization | Bearer {IdToken} | Y   |
+| Content-Type  | application/json | Y   |
+
+**Request Body**
+```json
+{
+    "fileName": "profile.jpg",
+    "contentType": "image/jpeg"
+}
+```
+
+| 필드         | 타입     | 필수 | 설명                                      |
+|------------|--------|-----|------------------------------------------|
+| fileName   | String | Y   | 파일명                                     |
+| contentType | String | Y   | image/jpeg, image/png, image/gif, image/webp |
+
+**Response (200 OK)**
+```json
+{
+    "isSuccess": true,
+    "message": "이미지 업로드 URL 발급 성공",
+    "data": {
+        "uploadUrl": "https://group2-englishstudy.s3.ap-northeast-2.amazonaws.com/profile/{userId}/{fileName}?X-Amz-...",
+        "imageUrl": "https://group2-englishstudy.s3.amazonaws.com/profile/{userId}/{fileName}"
+    }
+}
+```
+
+**이미지 업로드 방법 (클라이언트)**
+```
+PUT {uploadUrl}
+Content-Type: {요청 시 보낸 contentType과 동일}
+Body: Binary (이미지 파일)
 ```
 
 ---
@@ -398,13 +485,18 @@ aws cognito-idp initiate-auth \
 
 ### 6.2 API 에러
 
-| HTTP Code | Error Code | 메시지              |
-|-----------|------------|------------------|
-| 401       | AUTH_001   | 인증이 필요합니다        |
-| 401       | AUTH_003   | 유효하지 않은 토큰입니다    |
-| 401       | AUTH_004   | 토큰이 만료되었습니다      |
-| 500       | SYSTEM_001 | 내부 서버 오류가 발생했습니다 |
-
+| HTTP Code | Error Code | 메시지                          |
+|-----------|------------|-------------------------------|
+| 400       | USER_002   | 닉네임은 2~20자여야 합니다              |
+| 400       | USER_003   | 유효하지 않은 레벨입니다                 |
+| 400       | USER_004   | 지원하지 않는 이미지 형식입니다             |
+| 401       | AUTH_001   | 인증이 필요합니다                     |
+| 401       | AUTH_003   | 유효하지 않은 토큰입니다                 |
+| 401       | AUTH_004   | 토큰이 만료되었습니다                   |
+| 404       | USER_001   | 사용자를 찾을 수 없습니다                |
+| 500       | USER_005   | 이미지 업로드에 실패했습니다               |
+| 500       | USER_006   | Cognito 동기화에 실패했습니다           |
+| 500       | SYSTEM_001 | 내부 서버 오류가 발생했습니다              |
 ### 6.3 에러 응답 형식
 
 ```json
@@ -539,10 +631,10 @@ domain/user/
 
 ### Phase 2 - 프로필 관리 (예정)
 
-- [ ] GET /users/profile/me - 내 프로필 상세 조회
-- [ ] PUT /users/profile/me - 프로필 수정 (닉네임, 레벨)
-- [ ] POST /users/profile/me/image - 프로필 이미지 업로드 (S3)
-- [ ] DynamoDB에 추가 사용자 정보 저장
+- [x] GET /users/profile/me - 내 프로필 상세 조회
+- [x] PUT /users/profile/me - 프로필 수정 (닉네임, 레벨)
+- [x] POST /users/profile/me/image - 프로필 이미지 업로드 (S3)
+- [x] DynamoDB에 추가 사용자 정보 저장
 
 ### Phase 3 - 추가 기능 (예정)
 
