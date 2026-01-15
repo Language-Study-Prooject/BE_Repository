@@ -14,4 +14,5 @@ public class GrammarCheckResponse {
 	private List<GrammarError> errors;
 	private String feedback;
 	private Boolean isCorrect;
+	private ComprehendAnalysis analysis;
 }
