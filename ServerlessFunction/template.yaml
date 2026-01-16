@@ -20,6 +20,7 @@ Globals:
         PROFILE_BUCKET_NAME: group2-englishstudy
         AWS_REGION_NAME: !Ref AWS::Region
         ROOM_TOKEN_TTL_SECONDS: "300"
+        RANKING_STREAM_NAME: !Ref RankingEventStream
   Api:
     TracingEnabled: true
 
@@ -1465,6 +1466,19 @@ Resources:
       Endpoint: !GetAtt StatisticsQueue.Arn
       RawMessageDelivery: true
 
+  #############################################
+  # Kinesis Data Streams (Ranking Events)
+  #############################################
+
+  RankingEventStream:
+    Type: AWS::Kinesis::Stream
+    Properties:
+      Name: !Sub "${AWS::StackName}-ranking-events"
+      ShardCount: 2
+      RetentionPeriodHours: 24
+      StreamModeDetails:
+        StreamMode: PROVISIONED
+
   # Statistics Processor Lambda - SQS에서 메시지 소비하여 통계 업데이트
   StatisticsProcessorFunction:
     Type: AWS::Serverless::Function
@@ -1524,3 +1538,11 @@ Outputs:
   CognitoUserPoolClientId:
     Description: Cognito User Pool Client ID
     Value: !Ref CognitoUserPoolClient
+
+  RankingStreamName:
+    Description: Kinesis Data Stream for ranking events
+    Value: !Ref RankingEventStream
+
+  RankingStreamArn:
+    Description: Kinesis Data Stream ARN
+    Value: !GetAtt RankingEventStream.Arn
