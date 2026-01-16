@@ -7,22 +7,24 @@ import com.mzc.secondproject.serverless.domain.vocabulary.repository.WordReposit
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.*;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 
 public class WordService {
-
+	
 	private static final Logger logger = LoggerFactory.getLogger(WordService.class);
-
+	
 	private final WordRepository wordRepository;
 	private final WordFactory wordFactory;
-
+	
 	/**
 	 * 기본 생성자 (Lambda에서 사용)
 	 */
 	public WordService() {
 		this(new WordRepository(), new WordFactory());
 	}
-
+	
 	/**
 	 * 의존성 주입 생성자 (테스트 용이성)
 	 */
@@ -56,7 +58,7 @@ public class WordService {
 		if (optWord.isEmpty()) {
 			throw new IllegalArgumentException("Word not found");
 		}
-
+		
 		Word word = optWord.get();
 		wordFactory.updateFields(
 				word,
@@ -66,7 +68,7 @@ public class WordService {
 				(String) updates.get("level"),
 				(String) updates.get("category")
 		);
-
+		
 		wordRepository.save(word);
 		logger.info("Updated word: {}", wordId);
 		return word;
@@ -85,7 +87,7 @@ public class WordService {
 	public BatchResult createWordsBatch(List<Map<String, Object>> wordsList) {
 		int successCount = 0;
 		int failCount = 0;
-
+		
 		for (Map<String, Object> wordData : wordsList) {
 			try {
 				String english = (String) wordData.get("english");
@@ -93,12 +95,12 @@ public class WordService {
 				String example = (String) wordData.get("example");
 				String level = (String) wordData.get("level");
 				String category = (String) wordData.get("category");
-
+				
 				if (english == null || korean == null) {
 					failCount++;
 					continue;
 				}
-
+				
 				Word word = wordFactory.create(english, korean, example, level, category);
 				wordRepository.save(word);
 				successCount++;
@@ -107,7 +109,7 @@ public class WordService {
 				failCount++;
 			}
 		}
-
+		
 		logger.info("Batch created {} words, failed {}", successCount, failCount);
 		return new BatchResult(successCount, failCount, wordsList.size());
 	}
