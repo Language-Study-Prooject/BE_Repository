@@ -3,7 +3,7 @@ name: Issue-Jira Sync
 
 on:
   issues:
-    types: [opened]
+    types: [ opened ]
 
 permissions:
   issues: write
