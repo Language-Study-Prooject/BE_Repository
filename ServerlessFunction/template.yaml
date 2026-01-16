@@ -1499,6 +1499,39 @@ Resources:
               - kinesis:DescribeStream
             Resource: !GetAtt RankingEventStream.Arn
 
+  # Kinesis Ranking Consumer - 랭킹 이벤트 소비 및 점수 업데이트
+  KinesisRankingConsumerFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-ranking-consumer"
+      CodeUri: .
+      Handler: com.mzc.secondproject.serverless.domain.ranking.handler.KinesisRankingConsumer::handleRequest
+      Description: Consume ranking events from Kinesis and update scores
+      Timeout: 60
+      MemorySize: 512
+      SnapStart:
+        ApplyOn: PublishedVersions
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref VocabTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - kinesis:GetRecords
+                - kinesis:GetShardIterator
+                - kinesis:DescribeStream
+                - kinesis:DescribeStreamSummary
+                - kinesis:ListShards
+              Resource: !GetAtt RankingEventStream.Arn
+      Events:
+        KinesisEvent:
+          Type: Kinesis
+          Properties:
+            Stream: !GetAtt RankingEventStream.Arn
+            StartingPosition: LATEST
+            BatchSize: 100
+            MaximumBatchingWindowInSeconds: 5
+
   # Statistics Processor Lambda - SQS에서 메시지 소비하여 통계 업데이트
   StatisticsProcessorFunction:
     Type: AWS::Serverless::Function
