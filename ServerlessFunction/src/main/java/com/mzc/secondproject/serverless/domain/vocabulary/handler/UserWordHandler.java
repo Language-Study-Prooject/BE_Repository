@@ -42,8 +42,8 @@ public class UserWordHandler implements RequestHandler<APIGatewayProxyRequestEve
 				Route.getAuth("/wrong-answers", this::getWrongAnswers),
 				Route.getAuth("/user-words", this::getUserWords),
 				Route.getAuth("/user-words/{wordId}", this::getUserWord),
-				Route.putAuth("/user-words/{wordId}/tag", this::updateUserWordTag),
-				Route.putAuth("/user-words/{wordId}/status", this::updateWordStatus),
+				Route.patchAuth("/user-words/{wordId}/tag", this::updateUserWordTag),
+				Route.patchAuth("/user-words/{wordId}/status", this::updateWordStatus),
 				Route.putAuth("/user-words/{wordId}", this::updateUserWord)
 		);
 	}

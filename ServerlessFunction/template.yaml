@@ -15,6 +15,7 @@ Globals:
         USER_TABLE_NAME: !Ref UserTable
         CHAT_TABLE_NAME: !Ref ChatTable
         VOCAB_TABLE_NAME: !Ref VocabTable
+        BUCKET_NAME: group2-englishstudy
         CHAT_BUCKET_NAME: group2-englishstudy
         VOCAB_BUCKET_NAME: group2-englishstudy
         PROFILE_BUCKET_NAME: group2-englishstudy
@@ -662,7 +663,7 @@ Resources:
           Properties:
             RestApiId: !Ref MainApi
             Path: /vocab/user-words/{wordId}/tag
-            Method: PUT
+            Method: PATCH
             Auth:
               Authorizer: CognitoAuthorizer
         UpdateUserWordStatus:
@@ -670,7 +671,7 @@ Resources:
           Properties:
             RestApiId: !Ref MainApi
             Path: /vocab/user-words/{wordId}/status
-            Method: PUT
+            Method: PATCH
             Auth:
               Authorizer: CognitoAuthorizer
 
@@ -998,6 +999,8 @@ Resources:
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref VocabTable
+        - S3ReadPolicy:
+            BucketName: group2-englishstudy
       Events:
         GetAllBadges:
           Type: Api

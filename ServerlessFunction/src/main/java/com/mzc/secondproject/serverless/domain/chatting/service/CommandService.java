@@ -60,7 +60,7 @@ public class CommandService {
 	}
 
 	/**
-	 * /member - 현재 접속자 목록 조회
+	 * /member - 현재 접속자 수 조회
 	 */
 	private CommandResult handleMemberCommand(String roomId) {
 		List<Connection> connections = connectionRepository.findByRoomId(roomId);
@@ -69,11 +69,7 @@ public class CommandService {
 			return CommandResult.success(MessageType.SYSTEM_COMMAND, "현재 접속자가 없습니다.");
 		}
 
-		String memberList = connections.stream()
-				.map(Connection::getUserId)
-				.collect(Collectors.joining(", "));
-
-		String message = String.format("현재 접속자 (%d명): %s", connections.size(), memberList);
+		String message = String.format("현재 접속자: %d명", connections.size());
 		return CommandResult.success(MessageType.SYSTEM_COMMAND, message, connections.size());
 	}
 
@@ -155,7 +151,7 @@ public class CommandService {
 	private CommandResult handleHelpCommand() {
 		String helpMessage = """
 				📖 사용 가능한 명령어:
-				  /member - 현재 접속자 목록
+				  /member - 현재 접속자 수
 				  /start - 게임 시작 (2명 이상)
 				  /stop - 게임 중단
 				  /score - 현재 점수 보기
