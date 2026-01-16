@@ -124,7 +124,7 @@ public class UserStatsHandler implements RequestHandler<APIGatewayProxyRequestEv
 
 		int limit = 7;  // 기본 7일
 		if (queryParams != null && queryParams.get("limit") != null) {
-			limit = Math.min(Integer.parseInt(queryParams.get("limit")), 30);
+			limit = Math.min(Integer.parseInt(queryParams.get("limit")), 100);
 		}
 
 		PaginatedResult<UserStats> result = statsRepository.findRecentDailyStats(userId, limit, cursor);
