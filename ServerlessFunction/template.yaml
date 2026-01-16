@@ -1587,6 +1587,83 @@ Resources:
             BatchSize: 100
             MaximumBatchingWindowInSeconds: 5
 
+  #############################################
+  # Kinesis Firehose (S3 Archiving)
+  #############################################
+
+  # S3 Bucket for ranking event logs
+  RankingLogBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "${AWS::StackName}-ranking-logs"
+      LifecycleConfiguration:
+        Rules:
+          - Id: MoveToGlacierAfter90Days
+            Status: Enabled
+            Transitions:
+              - StorageClass: GLACIER
+                TransitionInDays: 90
+            ExpirationInDays: 365
+
+  # IAM Role for Firehose to access Kinesis and S3
+  FirehoseDeliveryRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${AWS::StackName}-firehose-delivery-role"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: firehose.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: FirehoseS3Access
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:AbortMultipartUpload
+                  - s3:GetBucketLocation
+                  - s3:GetObject
+                  - s3:ListBucket
+                  - s3:ListBucketMultipartUploads
+                  - s3:PutObject
+                Resource:
+                  - !GetAtt RankingLogBucket.Arn
+                  - !Sub "${RankingLogBucket.Arn}/*"
+        - PolicyName: FirehoseKinesisAccess
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - kinesis:DescribeStream
+                  - kinesis:GetShardIterator
+                  - kinesis:GetRecords
+                  - kinesis:ListShards
+                Resource: !GetAtt RankingEventStream.Arn
+
+  # Kinesis Firehose Delivery Stream
+  RankingEventFirehose:
+    Type: AWS::KinesisFirehose::DeliveryStream
+    Properties:
+      DeliveryStreamName: !Sub "${AWS::StackName}-ranking-firehose"
+      DeliveryStreamType: KinesisStreamAsSource
+      KinesisStreamSourceConfiguration:
+        KinesisStreamARN: !GetAtt RankingEventStream.Arn
+        RoleARN: !GetAtt FirehoseDeliveryRole.Arn
+      S3DestinationConfiguration:
+        BucketARN: !GetAtt RankingLogBucket.Arn
+        Prefix: "ranking-events/year=!{timestamp:yyyy}/month=!{timestamp:MM}/day=!{timestamp:dd}/"
+        ErrorOutputPrefix: "errors/!{firehose:error-output-type}/year=!{timestamp:yyyy}/month=!{timestamp:MM}/day=!{timestamp:dd}/"
+        BufferingHints:
+          IntervalInSeconds: 300
+          SizeInMBs: 5
+        CompressionFormat: UNCOMPRESSED
+        RoleARN: !GetAtt FirehoseDeliveryRole.Arn
+
   # Statistics Processor Lambda - SQS에서 메시지 소비하여 통계 업데이트
   StatisticsProcessorFunction:
     Type: AWS::Serverless::Function
@@ -1654,3 +1731,11 @@ Outputs:
   RankingStreamArn:
     Description: Kinesis Data Stream ARN
     Value: !GetAtt RankingEventStream.Arn
+
+  RankingFirehoseName:
+    Description: Kinesis Firehose Delivery Stream Name
+    Value: !Ref RankingEventFirehose
+
+  RankingLogBucketName:
+    Description: S3 Bucket for ranking event logs
+    Value: !Ref RankingLogBucket
