@@ -69,6 +69,10 @@ public enum BadgeType {
 	public String getImageUrl() {
 		return BASE_URL + imageFile;
 	}
+
+	public String getImageFile() {
+		return imageFile;
+	}
 	
 	public String getCategory() {
 		return category;
