@@ -33,7 +33,7 @@ public enum ChattingErrorCode implements DomainErrorCode {
 	// 연결 관련 에러
 	CONNECTION_FAILED("CONN_001", "연결에 실패했습니다", 500),
 	CONNECTION_TIMEOUT("CONN_002", "연결 시간이 초과되었습니다", 408),
-
+	
 	// 게임 관련 에러
 	GAME_START_FAILED("GAME_001", "게임 시작에 실패했습니다", 400),
 	GAME_STOP_FAILED("GAME_002", "게임 중단에 실패했습니다", 400),

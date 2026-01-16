@@ -6,6 +6,8 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.*;
 
+import java.time.Instant;
+
 @Data
 @Builder
 @NoArgsConstructor
@@ -24,10 +26,42 @@ public class User {
 	private String email;
 	private String nickname;
 	private String level;
+	private String profileUrl;
 	private String createdAt;
 	private String updatedAt;
 	private String lastLoginAt;
 	private Long ttl;
+	
+	/**
+	 * 신규 사용자 생성
+	 * - Lazy Registration 적용: 최초 프로필 조회 시 DynamoDB에 저장
+	 *
+	 * @param cognitoSub Cognito User Pool의 sub (UUID)
+	 * @param email      이메일
+	 * @param nickname   닉네임
+	 * @param level      학습 레벨 (BEGINNER/INTERMEDIATE/ADVANCED)
+	 * @param profileUrl 프로필 이미지 URL
+	 * @return 새로운 User 객체 (DynamoDB 키 패턴 적용됨)
+	 */
+	public static User createNew(String cognitoSub, String email, String nickname, String level, String profileUrl) {
+		String now = Instant.now().toString();
+		return User.builder()
+				.pk("USER#" + cognitoSub)
+				.sk("METADATA")
+				.gsi1pk("EMAIL#" + email)
+				.gsi1sk("USER#" + cognitoSub)
+				.gsi2pk("LEVEL#" + level)
+				.gsi2sk("USER#" + cognitoSub)
+				.cognitoSub(cognitoSub)
+				.email(email)
+				.nickname(nickname)
+				.level(level)
+				.profileUrl(profileUrl)
+				.createdAt(now)
+				.updatedAt(now)
+				.lastLoginAt(now)
+				.build();
+	}
 	
 	@DynamoDbPartitionKey
 	@DynamoDbAttribute("PK")
@@ -64,5 +98,26 @@ public class User {
 	public String getGsi2sk() {
 		return gsi2sk;
 	}
+	
+	public void updateLevel(String newLevel) {
+		this.level = newLevel;
+		this.gsi2pk = "LEVEL#" + newLevel;
+		this.updatedAt = Instant.now().toString();
+	}
+	
+	public void updateNickname(String newNickname) {
+		this.nickname = newNickname;
+		this.updatedAt = Instant.now().toString();
+	}
+	
+	public void updateProfileUrl(String newProfileUrl) {
+		this.profileUrl = newProfileUrl;
+		this.updatedAt = Instant.now().toString();
+	}
+	
+	public void updateLastLoginAt() {
+		this.lastLoginAt = Instant.now().toString();
+	}
+	
 	
 }

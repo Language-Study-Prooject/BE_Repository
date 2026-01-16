@@ -7,7 +7,7 @@ public enum MessageType {
 	IMAGE("image", "이미지"),
 	VOICE("voice", "음성"),
 	AI_RESPONSE("ai_response", "AI 응답"),
-
+	
 	// 게임 관련 메시지 타입
 	GAME_START("game_start", "게임 시작"),
 	GAME_END("game_end", "게임 종료"),

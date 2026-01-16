@@ -42,7 +42,8 @@ public class DailyStudyRepository {
 				.sortValue("DATE#" + date)
 				.build();
 		
-		DailyStudy dailyStudy = table.getItem(key);
+		// Strongly consistent read for accurate data after updates
+		DailyStudy dailyStudy = table.getItem(r -> r.key(key).consistentRead(true));
 		return Optional.ofNullable(dailyStudy);
 	}
 	

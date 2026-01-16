@@ -8,34 +8,29 @@ import com.mzc.secondproject.serverless.domain.grammar.dto.response.GrammarCheck
  * Java 17+ Sealed Class 활용
  */
 public sealed interface StreamingEvent {
-
+	
 	String type();
-
+	
 	record StartEvent(String sessionId) implements StreamingEvent {
 		@Override
 		public String type() {
 			return "start";
 		}
 	}
-
+	
 	record TokenEvent(String token) implements StreamingEvent {
 		@Override
 		public String type() {
 			return "token";
 		}
 	}
-
+	
 	record CompleteEvent(
 			String sessionId,
 			GrammarCheckResponse grammarCheck,
 			String aiResponse,
 			String conversationTip
 	) implements StreamingEvent {
-		@Override
-		public String type() {
-			return "complete";
-		}
-
 		public static CompleteEvent from(ConversationResponse response) {
 			return new CompleteEvent(
 					response.getSessionId(),
@@ -44,8 +39,13 @@ public sealed interface StreamingEvent {
 					response.getConversationTip()
 			);
 		}
+		
+		@Override
+		public String type() {
+			return "complete";
+		}
 	}
-
+	
 	record ErrorEvent(String message) implements StreamingEvent {
 		@Override
 		public String type() {

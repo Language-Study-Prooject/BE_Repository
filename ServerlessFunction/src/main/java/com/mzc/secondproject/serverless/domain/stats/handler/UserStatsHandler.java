@@ -10,15 +10,15 @@ import com.mzc.secondproject.serverless.common.router.Route;
 import com.mzc.secondproject.serverless.common.util.ResponseGenerator;
 import com.mzc.secondproject.serverless.domain.stats.model.UserStats;
 import com.mzc.secondproject.serverless.domain.stats.repository.UserStatsRepository;
+import com.mzc.secondproject.serverless.domain.vocabulary.model.DailyStudy;
+import com.mzc.secondproject.serverless.domain.vocabulary.repository.DailyStudyRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.time.LocalDate;
 import java.time.temporal.WeekFields;
-import java.util.HashMap;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * 사용자 학습 통계 API Handler
@@ -28,10 +28,12 @@ public class UserStatsHandler implements RequestHandler<APIGatewayProxyRequestEv
 	private static final Logger logger = LoggerFactory.getLogger(UserStatsHandler.class);
 	
 	private final UserStatsRepository statsRepository;
+	private final DailyStudyRepository dailyStudyRepository;
 	private final HandlerRouter router;
 	
 	public UserStatsHandler() {
 		this.statsRepository = new UserStatsRepository();
+		this.dailyStudyRepository = new DailyStudyRepository();
 		this.router = initRouter();
 	}
 	
@@ -122,13 +124,34 @@ public class UserStatsHandler implements RequestHandler<APIGatewayProxyRequestEv
 		
 		int limit = 7;  // 기본 7일
 		if (queryParams != null && queryParams.get("limit") != null) {
-			limit = Math.min(Integer.parseInt(queryParams.get("limit")), 30);
+			limit = Math.min(Integer.parseInt(queryParams.get("limit")), 100);
 		}
 		
 		PaginatedResult<UserStats> result = statsRepository.findRecentDailyStats(userId, limit, cursor);
 		
+		// 각 날짜별 isCompleted 정보 조회 및 응답 구성
+		List<Map<String, Object>> historyWithCompletion = result.items().stream()
+				.map(stats -> {
+					Map<String, Object> item = new HashMap<>();
+					item.put("period", stats.getPeriod());
+					item.put("testsCompleted", stats.getTestsCompleted() != null ? stats.getTestsCompleted() : 0);
+					item.put("questionsAnswered", stats.getQuestionsAnswered() != null ? stats.getQuestionsAnswered() : 0);
+					item.put("correctAnswers", stats.getCorrectAnswers() != null ? stats.getCorrectAnswers() : 0);
+					item.put("incorrectAnswers", stats.getIncorrectAnswers() != null ? stats.getIncorrectAnswers() : 0);
+					item.put("successRate", calculateSuccessRate(stats));
+					item.put("newWordsLearned", stats.getNewWordsLearned() != null ? stats.getNewWordsLearned() : 0);
+					item.put("wordsReviewed", stats.getWordsReviewed() != null ? stats.getWordsReviewed() : 0);
+					
+					// DailyStudy에서 isCompleted 조회
+					Optional<DailyStudy> dailyStudy = dailyStudyRepository.findByUserIdAndDate(userId, stats.getPeriod());
+					item.put("isCompleted", dailyStudy.map(ds -> ds.getIsCompleted() != null && ds.getIsCompleted()).orElse(false));
+					
+					return item;
+				})
+				.collect(Collectors.toList());
+		
 		Map<String, Object> response = new HashMap<>();
-		response.put("history", result.items());
+		response.put("history", historyWithCompletion);
 		response.put("nextCursor", result.nextCursor());
 		response.put("hasMore", result.hasMore());
 		
