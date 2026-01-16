@@ -1,6 +1,9 @@
 package com.mzc.secondproject.serverless.domain.grammar.dto.response;
 
-import lombok.*;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
 import java.util.List;
 
@@ -19,7 +22,7 @@ public class ComprehendAnalysis {
 	private String complexity;
 	private String language;
 	private Double languageScore;
-
+	
 	@Data
 	@Builder
 	@NoArgsConstructor
@@ -30,7 +33,7 @@ public class ComprehendAnalysis {
 		private Double neutral;
 		private Double mixed;
 	}
-
+	
 	@Data
 	@Builder
 	@NoArgsConstructor
