@@ -8,7 +8,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ImageUploadRequest {
-
-    private String fileName;
-    private String contentType;
+	
+	private String fileName;
+	private String contentType;
 }
