@@ -15,6 +15,7 @@ import com.mzc.secondproject.serverless.domain.vocabulary.dto.request.SubmitTest
 import com.mzc.secondproject.serverless.domain.vocabulary.model.TestResult;
 import com.mzc.secondproject.serverless.domain.vocabulary.service.TestCommandService;
 import com.mzc.secondproject.serverless.domain.vocabulary.service.TestQueryService;
+import com.mzc.secondproject.serverless.domain.ranking.service.KinesisEventPublisher;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -27,11 +28,13 @@ public class TestHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
 	
 	private final TestCommandService commandService;
 	private final TestQueryService queryService;
+	private final KinesisEventPublisher eventPublisher;
 	private final HandlerRouter router;
-	
+
 	public TestHandler() {
 		this.commandService = new TestCommandService();
 		this.queryService = new TestQueryService();
+		this.eventPublisher = new KinesisEventPublisher();
 		this.router = initRouter();
 	}
 	
@@ -72,10 +75,18 @@ public class TestHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
 		
 		return BeanValidator.validateAndExecute(req, dto -> {
 			String testType = dto.getTestType() != null ? dto.getTestType() : "DAILY";
-			
+
 			TestCommandService.SubmitTestResult result = commandService.submitTest(
 					userId, dto.getTestId(), testType, dto.getAnswers(), dto.getStartedAt());
-			
+
+			eventPublisher.publishTestCompleted(
+					userId,
+					result.correctCount(),
+					result.totalQuestions(),
+					result.successRate(),
+					result.testId()
+			);
+
 			Map<String, Object> response = new HashMap<>();
 			response.put("testId", result.testId());
 			response.put("testType", result.testType());
@@ -84,7 +95,7 @@ public class TestHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
 			response.put("incorrectCount", result.incorrectCount());
 			response.put("successRate", result.successRate());
 			response.put("results", result.results());
-			
+
 			return ResponseGenerator.ok("Test submitted", response);
 		});
 	}
