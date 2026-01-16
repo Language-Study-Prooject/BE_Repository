@@ -3,11 +3,11 @@ package com.mzc.secondproject.serverless.common.config;
 import software.amazon.awssdk.enhanced.dynamodb.DynamoDbEnhancedClient;
 import software.amazon.awssdk.services.bedrockruntime.BedrockRuntimeAsyncClient;
 import software.amazon.awssdk.services.bedrockruntime.BedrockRuntimeClient;
+import software.amazon.awssdk.services.comprehend.ComprehendClient;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.polly.PollyClient;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
-import software.amazon.awssdk.services.comprehend.ComprehendClient;
 import software.amazon.awssdk.services.sns.SnsClient;
 
 /**
@@ -65,11 +65,11 @@ public final class AwsClients {
 	public static BedrockRuntimeClient bedrock() {
 		return BEDROCK_CLIENT;
 	}
-
+	
 	public static BedrockRuntimeAsyncClient bedrockAsync() {
 		return BEDROCK_ASYNC_CLIENT;
 	}
-
+	
 	public static ComprehendClient comprehend() {
 		return COMPREHEND_CLIENT;
 	}
