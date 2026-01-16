@@ -23,6 +23,8 @@ public class GrammarMessage {
 	private String correctedContent;
 	private String errorsJson;
 	private Integer grammarScore;
+	private String feedback;
+	private Boolean isCorrect;
 	private String createdAt;
 	private Long ttl;
 

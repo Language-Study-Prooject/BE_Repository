@@ -162,6 +162,8 @@ public class GrammarConversationService {
 				.correctedContent(grammarCheck != null ? grammarCheck.getCorrectedSentence() : null)
 				.errorsJson(grammarCheck != null ? gson.toJson(grammarCheck.getErrors()) : null)
 				.grammarScore(grammarCheck != null ? grammarCheck.getScore() : null)
+				.feedback(grammarCheck != null ? grammarCheck.getFeedback() : null)
+				.isCorrect(grammarCheck != null ? grammarCheck.getIsCorrect() : null)
 				.createdAt(now)
 				.ttl(ttl)
 				.build();
