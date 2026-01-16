@@ -312,10 +312,20 @@ public class GameService {
 			return finishGame(room, "COMPLETED");
 		}
 
-		// 다음 라운드 준비
+		// 현재 접속 중인 사용자 목록 조회
+		List<Connection> connections = connectionRepository.findByRoomId(roomId);
+		Set<String> connectedUserIds = connections.stream()
+				.map(Connection::getUserId)
+				.collect(Collectors.toSet());
+
+		// 접속자가 2명 미만이면 게임 종료
+		if (connectedUserIds.size() < 2) {
+			return finishGame(room, "NOT_ENOUGH_PLAYERS");
+		}
+
+		// 다음 라운드 준비 - 접속 중인 사용자 중에서만 출제자 선택
 		int nextRound = currentRound + 1;
-		int drawerIndex = (nextRound - 1) % room.getDrawerOrder().size();
-		String nextDrawer = room.getDrawerOrder().get(drawerIndex);
+		String nextDrawer = selectNextDrawer(room.getDrawerOrder(), connectedUserIds, nextRound);
 
 		// 다음 단어 추출
 		String level = room.getLevel() != null ? room.getLevel() : "beginner";
@@ -418,6 +428,26 @@ public class GameService {
 		logger.info("Game finished: roomId={}, reason={}", room.getRoomId(), reason);
 
 		return CommandResult.success(MessageType.GAME_END, sb.toString(), room.getScores());
+	}
+
+	/**
+	 * 접속 중인 사용자 중에서 다음 출제자 선택
+	 */
+	private String selectNextDrawer(List<String> drawerOrder, Set<String> connectedUserIds, int roundNumber) {
+		// 원래 순서에서 시작 인덱스 계산
+		int startIndex = (roundNumber - 1) % drawerOrder.size();
+
+		// 접속 중인 사용자를 찾을 때까지 순회
+		for (int i = 0; i < drawerOrder.size(); i++) {
+			int index = (startIndex + i) % drawerOrder.size();
+			String candidate = drawerOrder.get(index);
+			if (connectedUserIds.contains(candidate)) {
+				return candidate;
+			}
+		}
+
+		// 원래 순서에 있는 사람이 모두 나갔으면, 접속 중인 아무나 선택
+		return connectedUserIds.iterator().next();
 	}
 
 	/**
