@@ -9,15 +9,15 @@ User Server는 영어 회화 학습 플랫폼의 사용자 인증 및 프로필 
 
 ### 1.2 주요 기능
 
-| 기능     | 설명                                               |
-|--------|--------------------------------------------------|
-| 회원가입   | Cognito 기반 이메일 회원가입                              |
-| 이메일 인증 | Cognito 자동 인증 코드 발송                              |
-| 로그인    | JWT 토큰 발급 (IdToken, AccessToken, RefreshToken)   |
-| 프로필 조회 | 인증된 사용자 정보 조회                                    |
-| 프로필 수정     | 닉네임, 레벨 변경                                       |
+| 기능          | 설명                                               |
+|-------------|--------------------------------------------------|
+| 회원가입        | Cognito 기반 이메일 회원가입                              |
+| 이메일 인증      | Cognito 자동 인증 코드 발송                              |
+| 로그인         | JWT 토큰 발급 (IdToken, AccessToken, RefreshToken)   |
+| 프로필 조회      | 인증된 사용자 정보 조회                                    |
+| 프로필 수정      | 닉네임, 레벨 변경                                       |
 | 프로필 이미지 업로드 | S3 Presigned URL 발급 및 이미지 업로드                    |
-| 기본값 설정 | PreSignUp 트리거로 nickname, level, profileUrl 자동 설정 |
+| 기본값 설정      | PreSignUp 트리거로 nickname, level, profileUrl 자동 설정 |
 
 ### 1.3 기술 스택
 
@@ -334,10 +334,11 @@ aws cognito-idp initiate-auth \
 **Headers**
 
 | Header        | 값                | 필수 |
-|---------------|------------------|-----|
-| Authorization | Bearer {IdToken} | Y   |
+|---------------|------------------|----|
+| Authorization | Bearer {IdToken} | Y  |
 
 **Response (200 OK)**
+
 ```json
 {
     "isSuccess": true,
@@ -361,11 +362,12 @@ aws cognito-idp initiate-auth \
 **Headers**
 
 | Header        | 값                | 필수 |
-|---------------|------------------|-----|
-| Authorization | Bearer {IdToken} | Y   |
-| Content-Type  | application/json | Y   |
+|---------------|------------------|----|
+| Authorization | Bearer {IdToken} | Y  |
+| Content-Type  | application/json | Y  |
 
 **Request Body**
+
 ```json
 {
     "nickname": "새닉네임",
@@ -373,12 +375,13 @@ aws cognito-idp initiate-auth \
 }
 ```
 
-| 필드      | 타입     | 필수 | 설명                                    |
-|---------|--------|-----|---------------------------------------|
-| nickname | String | N   | 닉네임 (2~20자)                          |
-| level    | String | N   | BEGINNER / INTERMEDIATE / ADVANCED    |
+| 필드       | 타입     | 필수 | 설명                                 |
+|----------|--------|----|------------------------------------|
+| nickname | String | N  | 닉네임 (2~20자)                        |
+| level    | String | N  | BEGINNER / INTERMEDIATE / ADVANCED |
 
 **Response (200 OK)**
+
 ```json
 {
     "isSuccess": true,
@@ -402,11 +405,12 @@ aws cognito-idp initiate-auth \
 **Headers**
 
 | Header        | 값                | 필수 |
-|---------------|------------------|-----|
-| Authorization | Bearer {IdToken} | Y   |
-| Content-Type  | application/json | Y   |
+|---------------|------------------|----|
+| Authorization | Bearer {IdToken} | Y  |
+| Content-Type  | application/json | Y  |
 
 **Request Body**
+
 ```json
 {
     "fileName": "profile.jpg",
@@ -414,12 +418,13 @@ aws cognito-idp initiate-auth \
 }
 ```
 
-| 필드         | 타입     | 필수 | 설명                                      |
-|------------|--------|-----|------------------------------------------|
-| fileName   | String | Y   | 파일명                                     |
-| contentType | String | Y   | image/jpeg, image/png, image/gif, image/webp |
+| 필드          | 타입     | 필수 | 설명                                           |
+|-------------|--------|----|----------------------------------------------|
+| fileName    | String | Y  | 파일명                                          |
+| contentType | String | Y  | image/jpeg, image/png, image/gif, image/webp |
 
 **Response (200 OK)**
+
 ```json
 {
     "isSuccess": true,
@@ -432,6 +437,7 @@ aws cognito-idp initiate-auth \
 ```
 
 **이미지 업로드 방법 (클라이언트)**
+
 ```
 PUT {uploadUrl}
 Content-Type: {요청 시 보낸 contentType과 동일}
@@ -485,18 +491,19 @@ Body: Binary (이미지 파일)
 
 ### 6.2 API 에러
 
-| HTTP Code | Error Code | 메시지                          |
-|-----------|------------|-------------------------------|
-| 400       | USER_002   | 닉네임은 2~20자여야 합니다              |
-| 400       | USER_003   | 유효하지 않은 레벨입니다                 |
-| 400       | USER_004   | 지원하지 않는 이미지 형식입니다             |
-| 401       | AUTH_001   | 인증이 필요합니다                     |
-| 401       | AUTH_003   | 유효하지 않은 토큰입니다                 |
-| 401       | AUTH_004   | 토큰이 만료되었습니다                   |
-| 404       | USER_001   | 사용자를 찾을 수 없습니다                |
-| 500       | USER_005   | 이미지 업로드에 실패했습니다               |
-| 500       | USER_006   | Cognito 동기화에 실패했습니다           |
-| 500       | SYSTEM_001 | 내부 서버 오류가 발생했습니다              |
+| HTTP Code | Error Code | 메시지                 |
+|-----------|------------|---------------------|
+| 400       | USER_002   | 닉네임은 2~20자여야 합니다    |
+| 400       | USER_003   | 유효하지 않은 레벨입니다       |
+| 400       | USER_004   | 지원하지 않는 이미지 형식입니다   |
+| 401       | AUTH_001   | 인증이 필요합니다           |
+| 401       | AUTH_003   | 유효하지 않은 토큰입니다       |
+| 401       | AUTH_004   | 토큰이 만료되었습니다         |
+| 404       | USER_001   | 사용자를 찾을 수 없습니다      |
+| 500       | USER_005   | 이미지 업로드에 실패했습니다     |
+| 500       | USER_006   | Cognito 동기화에 실패했습니다 |
+| 500       | SYSTEM_001 | 내부 서버 오류가 발생했습니다    |
+
 ### 6.3 에러 응답 형식
 
 ```json
