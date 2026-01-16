@@ -1499,6 +1499,61 @@ Resources:
               - kinesis:DescribeStream
             Resource: !GetAtt RankingEventStream.Arn
 
+  # Ranking API Handler - 랭킹 조회 API
+  RankingFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-ranking-handler"
+      CodeUri: .
+      Handler: com.mzc.secondproject.serverless.domain.ranking.handler.RankingHandler::handleRequest
+      Description: Handle ranking API endpoints
+      SnapStart:
+        ApplyOn: PublishedVersions
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref VocabTable
+      Events:
+        GetDailyRanking:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /ranking/daily
+            Method: GET
+            Auth:
+              Authorizer: CognitoAuthorizer
+        GetWeeklyRanking:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /ranking/weekly
+            Method: GET
+            Auth:
+              Authorizer: CognitoAuthorizer
+        GetMonthlyRanking:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /ranking/monthly
+            Method: GET
+            Auth:
+              Authorizer: CognitoAuthorizer
+        GetTotalRanking:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /ranking/total
+            Method: GET
+            Auth:
+              Authorizer: CognitoAuthorizer
+        GetMyRanking:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /ranking/me
+            Method: GET
+            Auth:
+              Authorizer: CognitoAuthorizer
+
   # Kinesis Ranking Consumer - 랭킹 이벤트 소비 및 점수 업데이트
   KinesisRankingConsumerFunction:
     Type: AWS::Serverless::Function
