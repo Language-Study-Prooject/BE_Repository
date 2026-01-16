@@ -12,10 +12,10 @@ import java.util.UUID;
  * 객체 생성 로직을 중앙 집중화하여 일관성 유지
  */
 public class WordFactory {
-
+	
 	private static final String DEFAULT_LEVEL = "BEGINNER";
 	private static final String DEFAULT_CATEGORY = "DAILY";
-
+	
 	/**
 	 * 새 Word 엔티티 생성
 	 */
@@ -24,7 +24,7 @@ public class WordFactory {
 		String now = Instant.now().toString();
 		String resolvedLevel = level != null ? level : DEFAULT_LEVEL;
 		String resolvedCategory = category != null ? category : DEFAULT_CATEGORY;
-
+		
 		return Word.builder()
 				.pk(VocabKey.wordPk(wordId))
 				.sk(DynamoDbKey.METADATA)
@@ -41,14 +41,14 @@ public class WordFactory {
 				.createdAt(now)
 				.build();
 	}
-
+	
 	/**
 	 * 기본값으로 Word 생성
 	 */
 	public Word create(String english, String korean, String example) {
 		return create(english, korean, example, DEFAULT_LEVEL, DEFAULT_CATEGORY);
 	}
-
+	
 	/**
 	 * Word 엔티티 업데이트 (GSI 키 자동 갱신)
 	 */
