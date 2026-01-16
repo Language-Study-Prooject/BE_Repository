@@ -30,7 +30,7 @@ public class UserStatsHandler implements RequestHandler<APIGatewayProxyRequestEv
 	private final UserStatsRepository statsRepository;
 	private final DailyStudyRepository dailyStudyRepository;
 	private final HandlerRouter router;
-
+	
 	public UserStatsHandler() {
 		this.statsRepository = new UserStatsRepository();
 		this.dailyStudyRepository = new DailyStudyRepository();
@@ -121,14 +121,14 @@ public class UserStatsHandler implements RequestHandler<APIGatewayProxyRequestEv
 	private APIGatewayProxyResponseEvent getStatsHistory(APIGatewayProxyRequestEvent request, String userId) {
 		Map<String, String> queryParams = request.getQueryStringParameters();
 		String cursor = queryParams != null ? queryParams.get("cursor") : null;
-
+		
 		int limit = 7;  // 기본 7일
 		if (queryParams != null && queryParams.get("limit") != null) {
 			limit = Math.min(Integer.parseInt(queryParams.get("limit")), 100);
 		}
-
+		
 		PaginatedResult<UserStats> result = statsRepository.findRecentDailyStats(userId, limit, cursor);
-
+		
 		// 각 날짜별 isCompleted 정보 조회 및 응답 구성
 		List<Map<String, Object>> historyWithCompletion = result.items().stream()
 				.map(stats -> {
@@ -141,20 +141,20 @@ public class UserStatsHandler implements RequestHandler<APIGatewayProxyRequestEv
 					item.put("successRate", calculateSuccessRate(stats));
 					item.put("newWordsLearned", stats.getNewWordsLearned() != null ? stats.getNewWordsLearned() : 0);
 					item.put("wordsReviewed", stats.getWordsReviewed() != null ? stats.getWordsReviewed() : 0);
-
+					
 					// DailyStudy에서 isCompleted 조회
 					Optional<DailyStudy> dailyStudy = dailyStudyRepository.findByUserIdAndDate(userId, stats.getPeriod());
 					item.put("isCompleted", dailyStudy.map(ds -> ds.getIsCompleted() != null && ds.getIsCompleted()).orElse(false));
-
+					
 					return item;
 				})
 				.collect(Collectors.toList());
-
+		
 		Map<String, Object> response = new HashMap<>();
 		response.put("history", historyWithCompletion);
 		response.put("nextCursor", result.nextCursor());
 		response.put("hasMore", result.hasMore());
-
+		
 		return ResponseGenerator.ok("Stats history retrieved", response);
 	}
 	
