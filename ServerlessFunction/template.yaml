@@ -20,6 +20,7 @@ Globals:
         PROFILE_BUCKET_NAME: group2-englishstudy
         AWS_REGION_NAME: !Ref AWS::Region
         ROOM_TOKEN_TTL_SECONDS: "300"
+        RANKING_STREAM_NAME: !Ref RankingEventStream
   Api:
     TracingEnabled: true
 
@@ -414,6 +415,7 @@ Resources:
               Action:
                 - execute-api:ManageConnections
               Resource: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${WebSocketApi}/*"
+        - !Ref KinesisProducerPolicy
       Events:
         StartGame:
           Type: Api
@@ -624,6 +626,7 @@ Resources:
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref VocabTable
+        - !Ref KinesisProducerPolicy
       Events:
         GetWrongAnswers:
           Type: Api
@@ -756,6 +759,7 @@ Resources:
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref VocabTable
+        - !Ref KinesisProducerPolicy
       Events:
         GetDailyWords:
           Type: Api
@@ -791,6 +795,7 @@ Resources:
             TableName: !Ref VocabTable
         - SNSPublishMessagePolicy:
             TopicName: !GetAtt TestResultTopic.TopicName
+        - !Ref KinesisProducerPolicy
       Events:
         StartTest:
           Type: Api
@@ -1053,6 +1058,7 @@ Resources:
                 - comprehend:DetectKeyPhrases
                 - comprehend:DetectDominantLanguage
               Resource: "*"
+        - !Ref KinesisProducerPolicy
       Events:
         GrammarCheck:
           Type: Api
@@ -1465,6 +1471,122 @@ Resources:
       Endpoint: !GetAtt StatisticsQueue.Arn
       RawMessageDelivery: true
 
+  #############################################
+  # Kinesis Data Streams (Ranking Events)
+  #############################################
+
+  RankingEventStream:
+    Type: AWS::Kinesis::Stream
+    Properties:
+      Name: !Sub "${AWS::StackName}-ranking-events"
+      ShardCount: 2
+      RetentionPeriodHours: 24
+      StreamModeDetails:
+        StreamMode: PROVISIONED
+
+  # Kinesis Producer Policy - 랭킹 이벤트 발행용
+  KinesisProducerPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      ManagedPolicyName: !Sub "${AWS::StackName}-kinesis-producer-policy"
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action:
+              - kinesis:PutRecord
+              - kinesis:PutRecords
+              - kinesis:DescribeStream
+            Resource: !GetAtt RankingEventStream.Arn
+
+  # Ranking API Handler - 랭킹 조회 API
+  RankingFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-ranking-handler"
+      CodeUri: .
+      Handler: com.mzc.secondproject.serverless.domain.ranking.handler.RankingHandler::handleRequest
+      Description: Handle ranking API endpoints
+      SnapStart:
+        ApplyOn: PublishedVersions
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref VocabTable
+      Events:
+        GetDailyRanking:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /ranking/daily
+            Method: GET
+            Auth:
+              Authorizer: CognitoAuthorizer
+        GetWeeklyRanking:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /ranking/weekly
+            Method: GET
+            Auth:
+              Authorizer: CognitoAuthorizer
+        GetMonthlyRanking:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /ranking/monthly
+            Method: GET
+            Auth:
+              Authorizer: CognitoAuthorizer
+        GetTotalRanking:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /ranking/total
+            Method: GET
+            Auth:
+              Authorizer: CognitoAuthorizer
+        GetMyRanking:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /ranking/me
+            Method: GET
+            Auth:
+              Authorizer: CognitoAuthorizer
+
+  # Kinesis Ranking Consumer - 랭킹 이벤트 소비 및 점수 업데이트
+  KinesisRankingConsumerFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-ranking-consumer"
+      CodeUri: .
+      Handler: com.mzc.secondproject.serverless.domain.ranking.handler.KinesisRankingConsumer::handleRequest
+      Description: Consume ranking events from Kinesis and update scores
+      Timeout: 60
+      MemorySize: 512
+      SnapStart:
+        ApplyOn: PublishedVersions
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref VocabTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - kinesis:GetRecords
+                - kinesis:GetShardIterator
+                - kinesis:DescribeStream
+                - kinesis:DescribeStreamSummary
+                - kinesis:ListShards
+              Resource: !GetAtt RankingEventStream.Arn
+      Events:
+        KinesisEvent:
+          Type: Kinesis
+          Properties:
+            Stream: !GetAtt RankingEventStream.Arn
+            StartingPosition: LATEST
+            BatchSize: 100
+            MaximumBatchingWindowInSeconds: 5
+
   # Statistics Processor Lambda - SQS에서 메시지 소비하여 통계 업데이트
   StatisticsProcessorFunction:
     Type: AWS::Serverless::Function
@@ -1524,3 +1646,11 @@ Outputs:
   CognitoUserPoolClientId:
     Description: Cognito User Pool Client ID
     Value: !Ref CognitoUserPoolClient
+
+  RankingStreamName:
+    Description: Kinesis Data Stream for ranking events
+    Value: !Ref RankingEventStream
+
+  RankingStreamArn:
+    Description: Kinesis Data Stream ARN
+    Value: !GetAtt RankingEventStream.Arn
