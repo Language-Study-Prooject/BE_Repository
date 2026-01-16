@@ -248,7 +248,9 @@ public class BedrockGrammarCheckFactory implements GrammarCheckFactory {
 				        "type": "VERB_TENSE",
 				        "original": "goed",
 				        "corrected": "went",
-				        "explanation": "explanation here"
+				        "explanation": "explanation here",
+				        "startIndex": 2,
+				        "endIndex": 6
 				      }
 				    ],
 				    "feedback": "brief grammar feedback"
