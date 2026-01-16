@@ -28,12 +28,12 @@ public class WebSocketDisconnectHandler implements RequestHandler<Map<String, Ob
 	@Override
 	public Map<String, Object> handleRequest(Map<String, Object> event, Context context) {
 		logger.info("WebSocket disconnect event: {}", event);
-
+		
 		try {
 			String connectionId = WebSocketEventUtil.extractConnectionId(event);
-
+			
 			Optional<Connection> connection = connectionRepository.findByConnectionId(connectionId);
-
+			
 			if (connection.isPresent()) {
 				Connection conn = connection.get();
 				connectionRepository.delete(connectionId);
@@ -42,9 +42,9 @@ public class WebSocketDisconnectHandler implements RequestHandler<Map<String, Ob
 			} else {
 				logger.warn("Connection not found for deletion: connectionId={}", connectionId);
 			}
-
+			
 			return WebSocketEventUtil.ok("Disconnected");
-
+			
 		} catch (Exception e) {
 			logger.error("Error handling disconnect: {}", e.getMessage(), e);
 			return WebSocketEventUtil.serverError("Internal server error");
