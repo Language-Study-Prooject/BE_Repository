@@ -16,6 +16,7 @@ import com.mzc.secondproject.serverless.domain.vocabulary.exception.VocabularyEr
 import com.mzc.secondproject.serverless.domain.vocabulary.model.UserWord;
 import com.mzc.secondproject.serverless.domain.vocabulary.service.UserWordCommandService;
 import com.mzc.secondproject.serverless.domain.vocabulary.service.UserWordQueryService;
+import com.mzc.secondproject.serverless.domain.ranking.service.KinesisEventPublisher;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -29,11 +30,13 @@ public class UserWordHandler implements RequestHandler<APIGatewayProxyRequestEve
 	
 	private final UserWordCommandService commandService;
 	private final UserWordQueryService queryService;
+	private final KinesisEventPublisher eventPublisher;
 	private final HandlerRouter router;
-	
+
 	public UserWordHandler() {
 		this.commandService = new UserWordCommandService();
 		this.queryService = new UserWordQueryService();
+		this.eventPublisher = new KinesisEventPublisher();
 		this.router = initRouter();
 	}
 	
@@ -108,18 +111,23 @@ public class UserWordHandler implements RequestHandler<APIGatewayProxyRequestEve
 	
 	private APIGatewayProxyResponseEvent updateWordStatus(APIGatewayProxyRequestEvent request, String userId) {
 		String wordId = request.getPathParameters().get("wordId");
-		
+
 		Map<String, String> body = ResponseGenerator.gson().fromJson(request.getBody(),
 				new TypeToken<Map<String, String>>() {
 				}.getType());
-		
+
 		String status = body != null ? body.get("status") : null;
 		if (status == null || status.isEmpty()) {
 			return ResponseGenerator.fail(CommonErrorCode.REQUIRED_FIELD_MISSING);
 		}
-		
+
 		try {
 			UserWord userWord = commandService.updateWordStatus(userId, wordId, status);
+
+			if ("MASTERED".equalsIgnoreCase(status)) {
+				eventPublisher.publishWordMastered(userId, wordId);
+			}
+
 			return ResponseGenerator.ok("Word status updated", userWord);
 		} catch (IllegalArgumentException e) {
 			return ResponseGenerator.fail(VocabularyErrorCode.INVALID_WORD_STATUS);

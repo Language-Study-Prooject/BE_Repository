@@ -20,6 +20,7 @@ import com.mzc.secondproject.serverless.domain.chatting.model.Connection;
 import com.mzc.secondproject.serverless.domain.chatting.repository.ChatRoomRepository;
 import com.mzc.secondproject.serverless.domain.chatting.repository.ConnectionRepository;
 import com.mzc.secondproject.serverless.domain.chatting.service.GameService;
+import com.mzc.secondproject.serverless.domain.ranking.service.KinesisEventPublisher;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -37,6 +38,7 @@ public class GameHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
 	private final ChatRoomRepository chatRoomRepository;
 	private final ConnectionRepository connectionRepository;
 	private final WebSocketBroadcaster broadcaster;
+	private final KinesisEventPublisher eventPublisher;
 	private final HandlerRouter router;
 
 	public GameHandler() {
@@ -44,6 +46,7 @@ public class GameHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
 		this.chatRoomRepository = new ChatRoomRepository();
 		this.connectionRepository = new ConnectionRepository();
 		this.broadcaster = new WebSocketBroadcaster();
+		this.eventPublisher = new KinesisEventPublisher();
 		this.router = initRouter();
 	}
 
@@ -87,16 +90,57 @@ public class GameHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
 	private APIGatewayProxyResponseEvent stopGame(APIGatewayProxyRequestEvent request, String userId) {
 		String roomId = request.getPathParameters().get("roomId");
 
+		// 게임 종료 전 점수 조회 (이벤트 발행용)
+		Optional<ChatRoom> optRoom = chatRoomRepository.findById(roomId);
+		Map<String, Integer> scoresBeforeStop = optRoom.map(ChatRoom::getScores).orElse(Map.of());
+
 		CommandResult result = gameService.stopGame(roomId, userId);
 
 		if (!result.success()) {
 			return ResponseGenerator.fail(ChattingErrorCode.GAME_STOP_FAILED, result.message());
 		}
 
+		// 랭킹 이벤트 발행
+		publishGameEndEvents(roomId, scoresBeforeStop);
+
 		// WebSocket으로 게임 종료 알림 브로드캐스트
 		broadcastSystemMessage(roomId, result.message(), MessageType.GAME_END);
 
 		return ResponseGenerator.ok("Game stopped", Map.of("message", result.message()));
+	}
+
+	/**
+	 * 게임 종료 시 랭킹 이벤트 발행
+	 */
+	private void publishGameEndEvents(String roomId, Map<String, Integer> scores) {
+		if (scores == null || scores.isEmpty()) {
+			return;
+		}
+
+		// 1등 찾기
+		String winnerId = null;
+		int maxScore = 0;
+		for (Map.Entry<String, Integer> entry : scores.entrySet()) {
+			if (entry.getValue() > maxScore) {
+				maxScore = entry.getValue();
+				winnerId = entry.getKey();
+			}
+		}
+
+		// 각 참가자에게 GAME_PLAYED 이벤트 발행
+		for (Map.Entry<String, Integer> entry : scores.entrySet()) {
+			String participantId = entry.getKey();
+			int score = entry.getValue();
+
+			eventPublisher.publishGamePlayed(participantId, roomId, score);
+
+			// 1등에게 GAME_WON 이벤트 추가 발행
+			if (participantId.equals(winnerId) && score > 0) {
+				eventPublisher.publishGameWon(participantId, roomId, score);
+			}
+		}
+
+		logger.info("Game end events published: roomId={}, participants={}", roomId, scores.size());
 	}
 
 	/**

@@ -10,6 +10,7 @@ import com.mzc.secondproject.serverless.common.util.ResponseGenerator;
 import com.mzc.secondproject.serverless.domain.vocabulary.exception.VocabularyErrorCode;
 import com.mzc.secondproject.serverless.domain.vocabulary.service.DailyStudyCommandService;
 import com.mzc.secondproject.serverless.domain.vocabulary.service.DailyStudyQueryService;
+import com.mzc.secondproject.serverless.domain.ranking.service.KinesisEventPublisher;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -22,11 +23,13 @@ public class DailyStudyHandler implements RequestHandler<APIGatewayProxyRequestE
 	
 	private final DailyStudyCommandService commandService;
 	private final DailyStudyQueryService queryService;
+	private final KinesisEventPublisher eventPublisher;
 	private final HandlerRouter router;
-	
+
 	public DailyStudyHandler() {
 		this.commandService = new DailyStudyCommandService();
 		this.queryService = new DailyStudyQueryService();
+		this.eventPublisher = new KinesisEventPublisher();
 		this.router = initRouter();
 	}
 	
@@ -89,8 +92,11 @@ public class DailyStudyHandler implements RequestHandler<APIGatewayProxyRequestE
 	
 	private APIGatewayProxyResponseEvent markWordLearned(APIGatewayProxyRequestEvent request, String userId) {
 		String wordId = request.getPathParameters().get("wordId");
-		
+
 		Map<String, Object> progress = commandService.markWordLearned(userId, wordId);
+
+		eventPublisher.publishWordLearned(userId, wordId);
+
 		return ResponseGenerator.ok("Word marked as learned", progress);
 	}
 }
