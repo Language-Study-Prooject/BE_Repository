@@ -16,6 +16,7 @@ import com.mzc.secondproject.serverless.domain.grammar.model.GrammarSession;
 import com.mzc.secondproject.serverless.domain.grammar.service.GrammarCheckService;
 import com.mzc.secondproject.serverless.domain.grammar.service.GrammarConversationService;
 import com.mzc.secondproject.serverless.domain.grammar.service.GrammarSessionQueryService;
+import com.mzc.secondproject.serverless.domain.ranking.service.KinesisEventPublisher;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -29,12 +30,14 @@ public class GrammarHandler implements RequestHandler<APIGatewayProxyRequestEven
 	private final GrammarCheckService grammarCheckService;
 	private final GrammarConversationService conversationService;
 	private final GrammarSessionQueryService sessionQueryService;
+	private final KinesisEventPublisher eventPublisher;
 	private final HandlerRouter router;
 
 	public GrammarHandler() {
 		this.grammarCheckService = new GrammarCheckService();
 		this.conversationService = new GrammarConversationService();
 		this.sessionQueryService = new GrammarSessionQueryService();
+		this.eventPublisher = new KinesisEventPublisher();
 		this.router = initRouter();
 	}
 
@@ -59,6 +62,8 @@ public class GrammarHandler implements RequestHandler<APIGatewayProxyRequestEven
 
 		return BeanValidator.validateAndExecute(req, dto -> {
 			GrammarCheckResponse result = grammarCheckService.checkGrammar(dto);
+
+			eventPublisher.publishGrammarCheck(userId, null);
 
 			Map<String, Object> response = new HashMap<>();
 			response.put("originalSentence", result.getOriginalSentence());
