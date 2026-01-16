@@ -1,5 +1,6 @@
 package com.mzc.secondproject.serverless.domain.badge.service;
 
+import com.mzc.secondproject.serverless.common.util.S3PresignUtil;
 import com.mzc.secondproject.serverless.domain.badge.constants.BadgeKey;
 import com.mzc.secondproject.serverless.domain.badge.enums.BadgeType;
 import com.mzc.secondproject.serverless.domain.badge.model.UserBadge;
@@ -53,7 +54,7 @@ public class BadgeService {
 					type.name(),
 					type.getName(),
 					type.getDescription(),
-					type.getImageUrl(),
+					S3PresignUtil.getBadgeImageUrl(type.getImageFile()),
 					type.getCategory(),
 					type.getThreshold(),
 					currentProgress,
@@ -121,7 +122,7 @@ public class BadgeService {
 				.badgeType(type.name())
 				.name(type.getName())
 				.description(type.getDescription())
-				.imageUrl(type.getImageUrl())
+				.imageUrl(S3PresignUtil.getBadgeImageUrl(type.getImageFile()))
 				.category(type.getCategory())
 				.threshold(type.getThreshold())
 				.earnedAt(now)
