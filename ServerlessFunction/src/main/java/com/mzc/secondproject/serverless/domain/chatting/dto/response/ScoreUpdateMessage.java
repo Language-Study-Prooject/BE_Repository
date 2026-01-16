@@ -1,6 +1,9 @@
 package com.mzc.secondproject.serverless.domain.chatting.dto.response;
 
-import lombok.*;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
 import java.util.List;
 import java.util.Map;
@@ -22,22 +25,11 @@ public class ScoreUpdateMessage {
 	private Integer currentRound;
 	private Integer totalRounds;
 	private String timestamp;
-
-	@Data
-	@Builder
-	@NoArgsConstructor
-	@AllArgsConstructor
-	public static class RankEntry {
-		private Integer rank;
-		private String userId;
-		private Integer score;
-		private Integer change;
-	}
-
+	
 	public static ScoreUpdateMessage from(String roomId, String scorerId, int scoreGained,
-	                                       Map<String, Integer> scores, int currentRound, int totalRounds) {
+	                                      Map<String, Integer> scores, int currentRound, int totalRounds) {
 		List<RankEntry> ranking = buildRanking(scores);
-
+		
 		return ScoreUpdateMessage.builder()
 				.messageType("SCORE_UPDATE")
 				.roomId(roomId)
@@ -50,16 +42,16 @@ public class ScoreUpdateMessage {
 				.timestamp(java.time.Instant.now().toString())
 				.build();
 	}
-
+	
 	private static List<RankEntry> buildRanking(Map<String, Integer> scores) {
 		if (scores == null || scores.isEmpty()) {
 			return List.of();
 		}
-
+		
 		List<Map.Entry<String, Integer>> sorted = scores.entrySet().stream()
 				.sorted(Map.Entry.<String, Integer>comparingByValue().reversed())
 				.toList();
-
+		
 		return java.util.stream.IntStream.range(0, sorted.size())
 				.mapToObj(i -> RankEntry.builder()
 						.rank(i + 1)
@@ -68,5 +60,16 @@ public class ScoreUpdateMessage {
 						.change(0)
 						.build())
 				.toList();
+	}
+	
+	@Data
+	@Builder
+	@NoArgsConstructor
+	@AllArgsConstructor
+	public static class RankEntry {
+		private Integer rank;
+		private String userId;
+		private Integer score;
+		private Integer change;
 	}
 }
