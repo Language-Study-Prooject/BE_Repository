@@ -1,7 +1,5 @@
 package com.mzc.secondproject.serverless.domain.chatting.constants;
 
-import com.mzc.secondproject.serverless.common.constants.DynamoDbKey;
-
 public final class ChatKey {
 	
 	// Prefixes
@@ -16,15 +14,15 @@ public final class ChatKey {
 	}
 	
 	// Key Builders (userPk는 DynamoDbKey.userPk() 사용)
-
+	
 	public static String roomPk(String roomId) {
 		return ROOM + roomId;
 	}
-
+	
 	public static String messageSk(String messageId) {
 		return MESSAGE + messageId;
 	}
-
+	
 	public static String connectionPk(String connectionId) {
 		return CONNECTION + connectionId;
 	}

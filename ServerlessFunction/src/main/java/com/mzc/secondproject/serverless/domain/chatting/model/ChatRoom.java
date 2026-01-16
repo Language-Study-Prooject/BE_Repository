@@ -34,7 +34,7 @@ public class ChatRoom {
 	private String lastMessageAt;
 	private List<String> memberIds; // 참여 멤버 목록
 	private Long ttl;
-
+	
 	// 게임 관련 필드
 	private String gameStatus;          // NONE, WAITING, PLAYING, ROUND_END, FINISHED
 	private String gameStartedBy;       // 게임 시작한 사용자 ID

@@ -24,7 +24,7 @@ public final class VocabKey {
 	}
 	
 	// Key Builders (userPk는 DynamoDbKey.userPk() 사용)
-
+	
 	public static String wordPk(String wordId) {
 		return WORD + wordId;
 	}

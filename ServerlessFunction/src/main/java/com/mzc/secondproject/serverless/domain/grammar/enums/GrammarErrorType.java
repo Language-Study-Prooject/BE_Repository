@@ -13,19 +13,19 @@ public enum GrammarErrorType {
 	WORD_CHOICE("어휘 선택", "Word Choice"),
 	SENTENCE_STRUCTURE("문장 구조", "Sentence Structure"),
 	OTHER("기타", "Other");
-
+	
 	private final String koreanName;
 	private final String englishName;
-
+	
 	GrammarErrorType(String koreanName, String englishName) {
 		this.koreanName = koreanName;
 		this.englishName = englishName;
 	}
-
+	
 	public String getKoreanName() {
 		return koreanName;
 	}
-
+	
 	public String getEnglishName() {
 		return englishName;
 	}

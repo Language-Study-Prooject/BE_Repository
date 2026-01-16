@@ -14,19 +14,19 @@ import java.util.Optional;
  * Grammar WebSocket 연결 정보 Repository
  */
 public class GrammarConnectionRepository {
-
+	
 	private static final Logger logger = LoggerFactory.getLogger(GrammarConnectionRepository.class);
 	private static final String TABLE_NAME = System.getenv("CHAT_TABLE_NAME");
-
+	
 	private final DynamoDbTable<GrammarConnection> table;
-
+	
 	public GrammarConnectionRepository() {
 		this.table = AwsClients.dynamoDbEnhanced().table(
 				TABLE_NAME,
 				TableSchema.fromBean(GrammarConnection.class)
 		);
 	}
-
+	
 	/**
 	 * 연결 정보 저장
 	 */
@@ -35,7 +35,7 @@ public class GrammarConnectionRepository {
 		logger.info("Connection saved: connectionId={}, userId={}",
 				connection.getConnectionId(), connection.getUserId());
 	}
-
+	
 	/**
 	 * connectionId로 연결 정보 조회
 	 */
@@ -44,11 +44,11 @@ public class GrammarConnectionRepository {
 				.partitionValue(GrammarConnection.PK_PREFIX + connectionId)
 				.sortValue(GrammarConnection.SK_METADATA)
 				.build();
-
+		
 		GrammarConnection connection = table.getItem(key);
 		return Optional.ofNullable(connection);
 	}
-
+	
 	/**
 	 * 연결 정보 삭제
 	 */
@@ -57,7 +57,7 @@ public class GrammarConnectionRepository {
 				.partitionValue(GrammarConnection.PK_PREFIX + connectionId)
 				.sortValue(GrammarConnection.SK_METADATA)
 				.build();
-
+		
 		table.deleteItem(key);
 		logger.info("Connection deleted: connectionId={}", connectionId);
 	}

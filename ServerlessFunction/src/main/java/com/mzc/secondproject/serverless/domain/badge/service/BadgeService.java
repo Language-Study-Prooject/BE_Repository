@@ -1,5 +1,6 @@
 package com.mzc.secondproject.serverless.domain.badge.service;
 
+import com.mzc.secondproject.serverless.common.util.S3PresignUtil;
 import com.mzc.secondproject.serverless.domain.badge.constants.BadgeKey;
 import com.mzc.secondproject.serverless.domain.badge.enums.BadgeType;
 import com.mzc.secondproject.serverless.domain.badge.model.UserBadge;
@@ -53,7 +54,7 @@ public class BadgeService {
 					type.name(),
 					type.getName(),
 					type.getDescription(),
-					type.getImageUrl(),
+					S3PresignUtil.getBadgeImageUrl(type.getImageFile()),
 					type.getCategory(),
 					type.getThreshold(),
 					currentProgress,
@@ -121,7 +122,7 @@ public class BadgeService {
 				.badgeType(type.name())
 				.name(type.getName())
 				.description(type.getDescription())
-				.imageUrl(type.getImageUrl())
+				.imageUrl(S3PresignUtil.getBadgeImageUrl(type.getImageFile()))
 				.category(type.getCategory())
 				.threshold(type.getThreshold())
 				.earnedAt(now)
@@ -131,7 +132,7 @@ public class BadgeService {
 	
 	private boolean checkBadgeCondition(BadgeType type, UserStats stats) {
 		if (stats == null) return false;
-
+		
 		return switch (type.getCategory()) {
 			case "FIRST_STUDY" -> stats.getTestsCompleted() != null && stats.getTestsCompleted() >= 1;
 			case "STREAK" -> stats.getCurrentStreak() != null && stats.getCurrentStreak() >= type.getThreshold();
@@ -148,14 +149,10 @@ public class BadgeService {
 				double accuracy = (stats.getCorrectAnswers() * 100.0) / stats.getQuestionsAnswered();
 				yield accuracy >= type.getThreshold();
 			}
-			case "GAMES_PLAYED" ->
-					stats.getGamesPlayed() != null && stats.getGamesPlayed() >= type.getThreshold();
-			case "GAMES_WON" ->
-					stats.getGamesWon() != null && stats.getGamesWon() >= type.getThreshold();
-			case "QUICK_GUESSES" ->
-					stats.getQuickGuesses() != null && stats.getQuickGuesses() >= type.getThreshold();
-			case "PERFECT_DRAWS" ->
-					stats.getPerfectDraws() != null && stats.getPerfectDraws() >= type.getThreshold();
+			case "GAMES_PLAYED" -> stats.getGamesPlayed() != null && stats.getGamesPlayed() >= type.getThreshold();
+			case "GAMES_WON" -> stats.getGamesWon() != null && stats.getGamesWon() >= type.getThreshold();
+			case "QUICK_GUESSES" -> stats.getQuickGuesses() != null && stats.getQuickGuesses() >= type.getThreshold();
+			case "PERFECT_DRAWS" -> stats.getPerfectDraws() != null && stats.getPerfectDraws() >= type.getThreshold();
 			case "ALL_BADGES" -> false; // 별도 로직 필요
 			default -> false;
 		};
@@ -163,7 +160,7 @@ public class BadgeService {
 	
 	private int calculateProgress(BadgeType type, UserStats stats) {
 		if (stats == null) return 0;
-
+		
 		return switch (type.getCategory()) {
 			case "FIRST_STUDY" -> stats.getTestsCompleted() != null && stats.getTestsCompleted() >= 1 ? 1 : 0;
 			case "STREAK" -> stats.getCurrentStreak() != null ? stats.getCurrentStreak() : 0;

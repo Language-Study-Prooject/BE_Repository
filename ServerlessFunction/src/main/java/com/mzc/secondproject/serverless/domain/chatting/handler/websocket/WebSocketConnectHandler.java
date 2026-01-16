@@ -34,32 +34,32 @@ public class WebSocketConnectHandler implements RequestHandler<Map<String, Objec
 	@Override
 	public Map<String, Object> handleRequest(Map<String, Object> event, Context context) {
 		logger.info("WebSocket connect event: {}", event);
-
+		
 		try {
 			String connectionId = WebSocketEventUtil.extractConnectionId(event);
 			Map<String, String> queryParams = WebSocketEventUtil.extractQueryStringParameters(event);
-
+			
 			String roomToken = queryParams.get("roomToken");
-
+			
 			if (roomToken == null || roomToken.isEmpty()) {
 				logger.warn("Missing roomToken parameter");
 				return WebSocketEventUtil.unauthorized("roomToken is required");
 			}
-
+			
 			// 토큰 검증
 			Optional<RoomToken> optToken = roomTokenService.validateToken(roomToken);
 			if (optToken.isEmpty()) {
 				logger.warn("Invalid or expired roomToken: {}", roomToken);
 				return WebSocketEventUtil.unauthorized("Invalid or expired token");
 			}
-
+			
 			RoomToken token = optToken.get();
 			String userId = token.getUserId();
 			String roomId = token.getRoomId();
-
+			
 			String now = Instant.now().toString();
 			long ttl = Instant.now().plusSeconds(WebSocketConfig.connectionTtlSeconds()).getEpochSecond();
-
+			
 			Connection connection = Connection.builder()
 					.pk("CONN#" + connectionId)
 					.sk("METADATA")
@@ -73,12 +73,12 @@ public class WebSocketConnectHandler implements RequestHandler<Map<String, Objec
 					.connectedAt(now)
 					.ttl(ttl)
 					.build();
-
+			
 			connectionRepository.save(connection);
-
+			
 			logger.info("Connection saved: connectionId={}, userId={}, roomId={}", connectionId, userId, roomId);
 			return WebSocketEventUtil.ok("Connected");
-
+			
 		} catch (Exception e) {
 			logger.error("Error handling connect: {}", e.getMessage(), e);
 			return WebSocketEventUtil.serverError("Internal server error");

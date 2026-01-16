@@ -5,7 +5,7 @@ package com.mzc.secondproject.serverless.common.constants;
  * 모든 도메인에서 공통으로 사용되는 키 패턴 정의
  */
 public final class DynamoDbKey {
-
+	
 	// Partition/Sort Key Attributes
 	public static final String PK = "PK";
 	public static final String SK = "SK";
@@ -24,10 +24,10 @@ public final class DynamoDbKey {
 	public static final String METADATA = "METADATA";
 	// 공용 Entity Prefix
 	public static final String USER = "USER#";
-
+	
 	private DynamoDbKey() {
 	}
-
+	
 	/**
 	 * 사용자 PK 생성 (공통)
 	 * 여러 도메인에서 동일한 패턴으로 사용
