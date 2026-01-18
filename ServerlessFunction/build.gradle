@@ -33,6 +33,7 @@ dependencies {
     implementation 'software.amazon.awssdk:comprehend'
     implementation 'software.amazon.awssdk:apigatewaymanagementapi'
     implementation 'software.amazon.awssdk:url-connection-client'
+    implementation 'software.amazon.awssdk:ssm'
 
     // AWS X-Ray SDK (다운스트림 서비스 추적용)
     implementation 'com.amazonaws:aws-xray-recorder-sdk-core:2.15.0'
