@@ -196,6 +196,61 @@ public class OPIcRepository {
         logger.info("Question saved: {}", question.getQuestionId());
     }
 
+    // ==================== Answer ====================
+
+    /**
+     * 답변 저장
+     */
+    public void saveAnswer(OPIcAnswer answer) {
+        answer.setPk("SESSION#" + answer.getSessionId());
+        answer.setSk(String.format("Q#%02d", answer.getQuestionIndex()));
+
+        if (answer.getCreatedAt() == null) {
+            answer.setCreatedAt(Instant.now());
+        }
+
+        answerTable.putItem(answer);
+        logger.debug("Answer saved: session={}, questionIndex={}",
+                answer.getSessionId(), answer.getQuestionIndex());
+    }
+
+    /**
+     * 세션의 특정 질문 답변 조회
+     */
+    public Optional<OPIcAnswer> findAnswer(String sessionId, int questionIndex) {
+        Key key = Key.builder()
+                .partitionValue("SESSION#" + sessionId)
+                .sortValue(String.format("Q#%02d", questionIndex))
+                .build();
+
+        return Optional.ofNullable(answerTable.getItem(key));
+    }
+
+    /**
+     * 세션의 모든 답변 조회
+     */
+    public List<OPIcAnswer> findAnswersBySessionId(String sessionId) {
+        QueryConditional queryConditional = QueryConditional.sortBeginsWith(
+                Key.builder()
+                        .partitionValue("SESSION#" + sessionId)
+                        .sortValue("Q#")
+                        .build()
+        );
+
+        return answerTable.query(queryConditional)
+                .stream()
+                .flatMap(page -> page.items().stream())
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * 답변 업데이트 (피드백 추가 등)
+     */
+    public void updateAnswer(OPIcAnswer answer) {
+        answerTable.putItem(answer);
+        logger.debug("Answer updated: session={}, questionIndex={}",
+                answer.getSessionId(), answer.getQuestionIndex());
+    }
 
 
 }
