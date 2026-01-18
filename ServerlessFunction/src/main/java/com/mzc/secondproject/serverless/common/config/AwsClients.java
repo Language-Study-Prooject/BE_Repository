@@ -11,6 +11,7 @@ import software.amazon.awssdk.services.polly.PollyClient;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.sns.SnsClient;
+import software.amazon.awssdk.services.ssm.SsmClient;
 
 /**
  * AWS SDK 클라이언트 싱글톤 관리
@@ -54,6 +55,11 @@ public final class AwsClients {
 	private static final ComprehendClient COMPREHEND_CLIENT = ComprehendClient.builder()
 			.overrideConfiguration(XRAY_CONFIG)
 			.build();
+
+	// SSM (Parameter Store)
+	private static final SsmClient SSM_CLIENT = SsmClient.builder()
+			.overrideConfiguration(XRAY_CONFIG)
+			.build();
 	
 	private AwsClients() {
 		// 인스턴스화 방지
@@ -94,4 +100,6 @@ public final class AwsClients {
 	public static ComprehendClient comprehend() {
 		return COMPREHEND_CLIENT;
 	}
+
+	public static SsmClient ssm() { return SSM_CLIENT; }
 }
