@@ -15,12 +15,15 @@ Globals:
         USER_TABLE_NAME: !Ref UserTable
         CHAT_TABLE_NAME: !Ref ChatTable
         VOCAB_TABLE_NAME: !Ref VocabTable
+        OPIC_TABLE_NAME: !Ref OPIcTable
         BUCKET_NAME: group2-englishstudy
         CHAT_BUCKET_NAME: group2-englishstudy
         VOCAB_BUCKET_NAME: group2-englishstudy
         PROFILE_BUCKET_NAME: group2-englishstudy
+        OPIC_BUCKET_NAME: group2-englishstudy
         AWS_REGION_NAME: !Ref AWS::Region
         ROOM_TOKEN_TTL_SECONDS: "300"
+        TRANSCRIBE_PROXY_URL: "https://tfo1zm7vec.execute-api.ap-northeast-2.amazonaws.com/prod/transcribe"
   Api:
     TracingEnabled: true
 
@@ -1263,6 +1266,112 @@ Resources:
             Enabled: true
 
   #############################################
+  # OPIc Lambda Functions
+  #############################################
+
+  OPIcSessionFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: group2-englishstudy-opic-session-handler
+      CodeUri: .
+      Handler: com.mzc.secondproject.serverless.domain.opic.handler.OPIcSessionHandler::handleRequest
+      Description: Handle OPIc speaking practice sessions
+      Timeout: 180
+      MemorySize: 1024
+      SnapStart:
+        ApplyOn: PublishedVersions
+      Environment:
+        Variables:
+          TRANSCRIBE_API_KEY_PARAM: "/opic/transcribe-proxy-api-key"
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref OPIcTable
+        - S3CrudPolicy:
+            BucketName: group2-englishstudy
+        - Statement:
+            - Effect: Allow
+              Action:
+                - bedrock:InvokeModel
+                - bedrock:InvokeModelWithResponseStream
+              Resource: "*"
+        - Statement:
+            - Effect: Allow
+              Action:
+                - polly:SynthesizeSpeech
+                - polly:DescribeVoices
+              Resource: "*"
+        # Parameter Store 읽기 권한 추가
+        - Statement:
+            - Effect: Allow
+              Action:
+                - ssm:GetParameter
+              Resource: !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/opic/*"
+      Events:
+        # 세션 생성
+        CreateSession:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /opic/sessions
+            Method: POST
+            Auth:
+              Authorizer: CognitoAuthorizer
+        # 세션 조회
+        GetSession:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /opic/sessions/{sessionId}
+            Method: GET
+            Auth:
+              Authorizer: CognitoAuthorizer
+        # 세션 목록 조회
+        GetSessions:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /opic/sessions
+            Method: GET
+            Auth:
+              Authorizer: CognitoAuthorizer
+        # 다음 질문 조회
+        GetNextQuestion:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /opic/sessions/{sessionId}/questions/next
+            Method: GET
+            Auth:
+              Authorizer: CognitoAuthorizer
+        # 답변 제출
+        SubmitAnswer:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /opic/sessions/{sessionId}/answers
+            Method: POST
+            Auth:
+              Authorizer: CognitoAuthorizer
+        # 세션 완료
+        CompleteSession:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /opic/sessions/{sessionId}/complete
+            Method: POST
+            Auth:
+              Authorizer: CognitoAuthorizer
+        # 음성 업로드 Presigned URL
+        GetUploadUrl:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /opic/sessions/{sessionId}/upload-url
+            Method: GET
+            Auth:
+              Authorizer: CognitoAuthorizer
+
+  #############################################
   # DynamoDB Tables
   #############################################
 
@@ -1415,6 +1524,38 @@ Resources:
         AttributeName: ttl
         Enabled: true
 
+  OPIcTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: group2-englishstudy-opic
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: PK
+          AttributeType: S
+        - AttributeName: SK
+          AttributeType: S
+        - AttributeName: GSI1PK
+          AttributeType: S
+        - AttributeName: GSI1SK
+          AttributeType: S
+      KeySchema:
+        - AttributeName: PK
+          KeyType: HASH
+        - AttributeName: SK
+          KeyType: RANGE
+      GlobalSecondaryIndexes:
+        - IndexName: GSI1
+          KeySchema:
+            - AttributeName: GSI1PK
+              KeyType: HASH
+            - AttributeName: GSI1SK
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+
   #############################################
   # SNS / SQS for Async Statistics Processing
   #############################################
@@ -1527,3 +1668,7 @@ Outputs:
   CognitoUserPoolClientId:
     Description: Cognito User Pool Client ID
     Value: !Ref CognitoUserPoolClient
+
+  OPIcTableName:
+    Description: OPIc DynamoDB Table Name
+    Value: !Ref OPIcTable
