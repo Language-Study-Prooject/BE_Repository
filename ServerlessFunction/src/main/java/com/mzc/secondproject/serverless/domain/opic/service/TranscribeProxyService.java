@@ -6,6 +6,8 @@ import com.google.gson.JsonParser;
 import com.mzc.secondproject.serverless.domain.opic.exception.OPIcException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import software.amazon.awssdk.services.ssm.SsmClient;
+import software.amazon.awssdk.services.ssm.model.GetParameterRequest;
 
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -22,18 +24,23 @@ public class TranscribeProxyService {
     private static final Logger logger = LoggerFactory.getLogger(TranscribeProxyService.class);
     private static final Gson gson = new Gson();
 
+    private static final SsmClient ssmClient = SsmClient.builder().build();
+
+    // API Key 캐싱 (Lambda 인스턴스 재사용 시 SSM 호출 최소화)
+    private static String cachedApiKey = null;
+
     private final String proxyUrl;
-    private final String apiKey;
+    private final String apiKeyParamName;
     private final HttpClient httpClient;
 
     public TranscribeProxyService() {
         this.proxyUrl = System.getenv("TRANSCRIBE_PROXY_URL");
-        this.apiKey = System.getenv("TRANSCRIBE_API_KEY");
+        this.apiKeyParamName = System.getenv("TRANSCRIBE_API_KEY");
         this.httpClient = HttpClient.newBuilder()
                 .connectTimeout(Duration.ofSeconds(10))
                 .build();
 
-        if (proxyUrl == null || apiKey == null) {
+        if (proxyUrl == null || apiKeyParamName == null) {
             logger.warn("TRANSCRIBE_PROXY_URL or TRANSCRIBE_API_KEY is not set");
         }
     }
@@ -41,17 +48,45 @@ public class TranscribeProxyService {
     // 테스트용 생성자
     public TranscribeProxyService(String proxyUrl, String apiKey) {
         this.proxyUrl = proxyUrl;
-        this.apiKey = apiKey;
+        this.apiKeyParamName = apiKey;
         this.httpClient = HttpClient.newBuilder()
                 .connectTimeout(Duration.ofSeconds(10))
                 .build();
     }
 
     /**
+     * API Key 조회 (Parameter Store에서 + 캐싱)
+     */
+    private String getApiKey() {
+        if (cachedApiKey != null) {
+            return cachedApiKey;
+        }
+
+        try {
+            logger.debug("Fetching API Key from Parameter Store: {}", apiKeyParamName);
+
+            var response = ssmClient.getParameter(
+                    GetParameterRequest.builder()
+                            .name(apiKeyParamName)
+                            .withDecryption(true)
+                            .build()
+            );
+
+            cachedApiKey = response.parameter().value();
+            logger.info("API Key loaded from Parameter Store");
+
+            return cachedApiKey;
+        } catch (Exception e) {
+            logger.error("Failed to get API Key from Parameter Store", e);
+            throw new OPIcException.TranscribeException("API Key 로드 실패", e);
+        }
+    }
+
+    /**
      * 음성 파일을 텍스트로 변환
      *
      * @param audioBase64 Base64 인코딩된 음성 데이터
-     * @param sessionId   세션 ID (작업 추적용)
+     * @param sessionId   세션 ID
      * @return 변환된 텍스트 결과
      */
     public TranscribeResult transcribe(String audioBase64, String sessionId) {
@@ -62,7 +97,7 @@ public class TranscribeProxyService {
      * 음성 파일을 텍스트로 변환 (언어 지정)
      *
      * @param audioBase64  Base64 인코딩된 음성 데이터
-     * @param sessionId    세션 ID (작업 추적용)
+     * @param sessionId    세션 ID
      * @param languageCode 언어 코드 (en-US, ko-KR 등)
      * @return 변환된 텍스트 결과
      */
@@ -70,6 +105,9 @@ public class TranscribeProxyService {
         logger.info("Transcribe 요청 시작 - sessionId: {}, language: {}", sessionId, languageCode);
 
         try {
+            // API Key 조회
+            String apiKey = getApiKey();
+
             // 요청 바디 생성
             JsonObject requestBody = new JsonObject();
             requestBody.addProperty("audio_data", audioBase64);
