@@ -3,6 +3,7 @@ package com.mzc.secondproject.serverless.domain.opic.service;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import com.mzc.secondproject.serverless.domain.opic.exception.OPIcException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -100,7 +101,7 @@ public class TranscribeProxyService {
             if (response.statusCode() != 200) {
                 logger.error("Transcribe 실패 - status: {}, body: {}",
                         response.statusCode(), response.body());
-                throw new TranscribeException("Transcribe 실패: " + response.statusCode());
+                throw new OPIcException.TranscribeException("Transcribe 실패: " + response.statusCode());
             }
 
             // JSON 파싱
@@ -115,11 +116,11 @@ public class TranscribeProxyService {
 
             return new TranscribeResult(transcript, jobName, confidence);
 
-        } catch (TranscribeException e) {
+        } catch (OPIcException.TranscribeException e) {
             throw e;
         } catch (Exception e) {
             logger.error("Transcribe 호출 중 오류 발생", e);
-            throw new TranscribeException("음성 변환 실패: " + e.getMessage(), e);
+            throw new OPIcException.TranscribeException("음성 변환 실패: " + e.getMessage(), e);
         }
     }
 
@@ -132,16 +133,4 @@ public class TranscribeProxyService {
             double confidence
     ) {}
 
-    /**
-     * Transcribe 예외
-     */
-    public static class TranscribeException extends RuntimeException {
-        public TranscribeException(String message) {
-            super(message);
-        }
-
-        public TranscribeException(String message, Throwable cause) {
-            super(message, cause);
-        }
-    }
 }
