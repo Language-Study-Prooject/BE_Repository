@@ -137,4 +137,65 @@ public class OPIcRepository {
         logger.info("Session completed: {}", session.getSessionId());
     }
 
+
+    // ==================== Question ====================
+
+    /**
+     * 질문 ID로 조회
+     */
+    public Optional<OPIcQuestion> findQuestionById(String questionId) {
+        Key key = Key.builder()
+                .partitionValue("QUESTION#" + questionId)
+                .sortValue("METADATA")
+                .build();
+
+        return Optional.ofNullable(questionTable.getItem(key));
+    }
+
+    /**
+     * 주제 + 레벨로 질문 조회 (GSI1)
+     */
+    public List<OPIcQuestion> findQuestionsByTopicAndLevel(String topic, String level) {
+        DynamoDbIndex<OPIcQuestion> gsi1 = questionTable.index("GSI1");
+
+        QueryConditional queryConditional = QueryConditional.keyEqualTo(
+                Key.builder()
+                        .partitionValue("TOPIC#" + topic)
+                        .sortValue("LEVEL#" + level)
+                        .build()
+        );
+
+        return gsi1.query(queryConditional)
+                .stream()
+                .flatMap(page -> page.items().stream())
+                .filter(OPIcQuestion::isActive)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * 여러 질문 ID로 조회
+     */
+    public List<OPIcQuestion> findQuestionsByIds(List<String> questionIds) {
+        return questionIds.stream()
+                .map(this::findQuestionById)
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * 질문 저장 (마스터 데이터 등록용)
+     */
+    public void saveQuestion(OPIcQuestion question) {
+        question.setPk("QUESTION#" + question.getQuestionId());
+        question.setSk("METADATA");
+        question.setGsi1pk("TOPIC#" + question.getTopic());
+        question.setGsi1sk("LEVEL#" + question.getLevel());
+
+        questionTable.putItem(question);
+        logger.info("Question saved: {}", question.getQuestionId());
+    }
+
+
+
 }
