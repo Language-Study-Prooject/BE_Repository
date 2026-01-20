@@ -11,4 +11,3 @@ public record FeedbackResponse (
         return new FeedbackResponse(List.of(), answer, sampleAnswer);
     }
 }
-가
