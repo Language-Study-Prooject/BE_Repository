@@ -110,6 +110,8 @@ Resources:
       CodeUri: .
       Handler: com.mzc.secondproject.serverless.domain.user.handler.PostConfirmationHandler::handleRequest
       Description: Handle user registration - save to DynamoDB
+      MemorySize: 1024
+      Timeout: 5
       SnapStart:
         ApplyOn: PublishedVersions
       Policies:
