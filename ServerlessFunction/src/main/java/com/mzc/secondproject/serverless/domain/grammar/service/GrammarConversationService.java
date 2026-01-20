@@ -67,10 +67,10 @@ public class GrammarConversationService {
 		);
 		
 		// 사용자 메시지 저장
-		saveUserMessage(session, request.getMessage(), response.getGrammarCheck());
-		
+		saveMessage("USER", session, request.getMessage(), response.getGrammarCheck());
+
 		// AI 응답 메시지 저장
-		saveAssistantMessage(session, response.getAiResponse());
+		saveMessage("ASSISTANT", session, response.getAiResponse(), null);
 		
 		// 세션 업데이트
 		updateSession(session, request.getMessage());
@@ -144,11 +144,11 @@ public class GrammarConversationService {
 		}
 	}
 	
-	private void saveUserMessage(GrammarSession session, String content, GrammarCheckResponse grammarCheck) {
+	private void saveMessage(String role, GrammarSession session, String content, GrammarCheckResponse grammarCheck) {
 		String now = Instant.now().toString();
 		String messageId = UUID.randomUUID().toString();
 		long ttl = Instant.now().plus(SESSION_TTL_DAYS, ChronoUnit.DAYS).getEpochSecond();
-		
+
 		GrammarMessage message = GrammarMessage.builder()
 				.pk(GrammarKey.sessionPk(session.getUserId()))
 				.sk(GrammarKey.messageSk(now, messageId))
@@ -157,7 +157,7 @@ public class GrammarConversationService {
 				.messageId(messageId)
 				.sessionId(session.getSessionId())
 				.userId(session.getUserId())
-				.role("USER")
+				.role(role)
 				.content(content)
 				.correctedContent(grammarCheck != null ? grammarCheck.getCorrectedSentence() : null)
 				.errorsJson(grammarCheck != null ? gson.toJson(grammarCheck.getErrors()) : null)
@@ -167,29 +167,7 @@ public class GrammarConversationService {
 				.createdAt(now)
 				.ttl(ttl)
 				.build();
-		
-		repository.saveMessage(message);
-	}
-	
-	private void saveAssistantMessage(GrammarSession session, String content) {
-		String now = Instant.now().toString();
-		String messageId = UUID.randomUUID().toString();
-		long ttl = Instant.now().plus(SESSION_TTL_DAYS, ChronoUnit.DAYS).getEpochSecond();
-		
-		GrammarMessage message = GrammarMessage.builder()
-				.pk(GrammarKey.sessionPk(session.getUserId()))
-				.sk(GrammarKey.messageSk(now, messageId))
-				.gsi1pk(GrammarKey.messageGsi1Pk(session.getSessionId()))
-				.gsi1sk(GrammarKey.messageGsi1Sk(now))
-				.messageId(messageId)
-				.sessionId(session.getSessionId())
-				.userId(session.getUserId())
-				.role("ASSISTANT")
-				.content(content)
-				.createdAt(now)
-				.ttl(ttl)
-				.build();
-		
+
 		repository.saveMessage(message);
 	}
 	
@@ -264,9 +242,9 @@ public class GrammarConversationService {
 					@Override
 					public void onComplete(ConversationResponse response) {
 						// 사용자 메시지 저장
-						saveUserMessage(session, message, response.getGrammarCheck());
+						saveMessage("USER", session, message, response.getGrammarCheck());
 						// AI 응답 메시지 저장
-						saveAssistantMessage(session, response.getAiResponse());
+						saveMessage("ASSISTANT", session, response.getAiResponse(), null);
 						// 세션 업데이트
 						updateSession(session, message);
 						// 완료 콜백 호출
