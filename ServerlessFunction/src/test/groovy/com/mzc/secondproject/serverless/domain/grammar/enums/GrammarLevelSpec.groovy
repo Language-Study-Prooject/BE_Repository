@@ -69,9 +69,9 @@ class GrammarLevelSpec extends Specification {
         GrammarLevel.fromStringOrDefault(value, defaultValue) == expected
 
         where:
-        value      | defaultValue            | expected
-        "BEGINNER" | GrammarLevel.ADVANCED   | GrammarLevel.BEGINNER
-        null       | GrammarLevel.BEGINNER   | GrammarLevel.BEGINNER
+        value      | defaultValue              | expected
+        "BEGINNER" | GrammarLevel.ADVANCED     | GrammarLevel.BEGINNER
+        null       | GrammarLevel.BEGINNER     | GrammarLevel.BEGINNER
         "INVALID"  | GrammarLevel.INTERMEDIATE | GrammarLevel.INTERMEDIATE
     }
 
