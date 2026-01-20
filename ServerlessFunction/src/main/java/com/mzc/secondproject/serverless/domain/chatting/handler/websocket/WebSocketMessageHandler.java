@@ -311,38 +311,118 @@ public class WebSocketMessageHandler implements RequestHandler<Map<String, Objec
 	private Map<String, Object> handleCommandResult(CommandResult result, String roomId, String userId) {
 		String messageId = UUID.randomUUID().toString();
 		String now = Instant.now().toString();
-		
-		// 시스템 메시지 생성
-		ChatMessage systemMessage = ChatMessage.builder()
-				.pk("ROOM#" + roomId)
-				.sk("MSG#" + now + "#" + messageId)
-				.gsi1pk("SYSTEM")
-				.gsi1sk("MSG#" + now)
-				.gsi2pk("MSG#" + messageId)
-				.gsi2sk("ROOM#" + roomId)
-				.messageId(messageId)
-				.roomId(roomId)
-				.userId("SYSTEM")
-				.content(result.message())
-				.messageType(result.messageType().getCode())
-				.createdAt(now)
-				.build();
-		
-		// 명령어 결과는 저장하지 않고 브로드캐스트만 수행
+
 		List<Connection> connections = connectionRepository.findByRoomId(roomId);
-		String broadcastPayload = gson.toJson(systemMessage);
-		List<String> failedConnections = broadcaster.broadcast(connections, broadcastPayload);
-		
-		// 실패한 연결 정리
-		for (String failedConnectionId : failedConnections) {
-			connectionRepository.delete(failedConnectionId);
-			logger.info("Deleted stale connection: {}", failedConnectionId);
+
+		// GAME_START인 경우 게임 데이터 포함하여 전송
+		if (result.messageType() == MessageType.GAME_START && result.data() instanceof GameService.GameStartResult gameResult) {
+			broadcastGameStart(connections, result, gameResult, messageId, roomId, now);
+		} else if (result.messageType() == MessageType.ROUND_END && result.data() instanceof Map) {
+			broadcastRoundEnd(connections, result, messageId, roomId, now);
+		} else {
+			// 일반 시스템 메시지
+			Map<String, Object> systemMessage = new HashMap<>();
+			systemMessage.put("messageId", messageId);
+			systemMessage.put("roomId", roomId);
+			systemMessage.put("userId", "SYSTEM");
+			systemMessage.put("content", result.message());
+			systemMessage.put("messageType", result.messageType().getCode());
+			systemMessage.put("createdAt", now);
+
+			String broadcastPayload = gson.toJson(systemMessage);
+			List<String> failedConnections = broadcaster.broadcast(connections, broadcastPayload);
+			cleanupFailedConnections(failedConnections);
 		}
-		
+
 		logger.info("Command result broadcasted: type={}, roomId={}", result.messageType(), roomId);
 		return WebSocketEventUtil.ok("Command executed");
 	}
-	
+
+	/**
+	 * GAME_START 메시지 브로드캐스트 - 출제자에게만 제시어 포함
+	 */
+	private void broadcastGameStart(List<Connection> connections, CommandResult result,
+			GameService.GameStartResult gameResult, String messageId, String roomId, String now) {
+
+		String currentDrawerId = gameResult.room().getCurrentDrawerId();
+
+		for (Connection conn : connections) {
+			Map<String, Object> message = new HashMap<>();
+			message.put("messageId", messageId);
+			message.put("roomId", roomId);
+			message.put("userId", "SYSTEM");
+			message.put("content", result.message());
+			message.put("messageType", result.messageType().getCode());
+			message.put("createdAt", now);
+
+			// 게임 상태 정보 추가
+			message.put("gameStatus", gameResult.room().getGameStatus());
+			message.put("currentRound", gameResult.room().getCurrentRound());
+			message.put("totalRounds", gameResult.room().getTotalRounds());
+			message.put("currentDrawerId", currentDrawerId);
+			message.put("drawerOrder", gameResult.drawerOrder());
+			message.put("roundTimeLimit", gameResult.room().getRoundTimeLimit());
+			message.put("roundStartTime", gameResult.room().getRoundStartTime());
+
+			// 출제자에게만 제시어 전송
+			if (conn.getUserId().equals(currentDrawerId) && gameResult.firstWord() != null) {
+				Map<String, String> wordInfo = new HashMap<>();
+				wordInfo.put("wordId", gameResult.firstWord().getWordId());
+				wordInfo.put("korean", gameResult.firstWord().getKorean());
+				wordInfo.put("english", gameResult.firstWord().getEnglish());
+				message.put("currentWord", wordInfo);
+			}
+
+			String payload = gson.toJson(message);
+			try {
+				broadcaster.sendToConnection(conn.getConnectionId(), payload);
+			} catch (Exception e) {
+				logger.warn("Failed to send to connection: {}", conn.getConnectionId());
+				connectionRepository.delete(conn.getConnectionId());
+			}
+		}
+	}
+
+	/**
+	 * ROUND_END 메시지 브로드캐스트 - 다음 출제자에게만 다음 제시어 포함
+	 */
+	@SuppressWarnings("unchecked")
+	private void broadcastRoundEnd(List<Connection> connections, CommandResult result,
+			String messageId, String roomId, String now) {
+
+		Map<String, Object> data = (Map<String, Object>) result.data();
+		String nextDrawer = (String) data.get("nextDrawer");
+
+		for (Connection conn : connections) {
+			Map<String, Object> message = new HashMap<>();
+			message.put("messageId", messageId);
+			message.put("roomId", roomId);
+			message.put("userId", "SYSTEM");
+			message.put("content", result.message());
+			message.put("messageType", result.messageType().getCode());
+			message.put("createdAt", now);
+			message.put("data", data);
+
+			// 다음 출제자에게만 다음 제시어 전송
+			if (conn.getUserId().equals(nextDrawer) && data.containsKey("nextWord")) {
+				// nextWord는 이미 data에 포함되어 있음
+			} else {
+				// 다음 출제자가 아니면 nextWord 제거
+				Map<String, Object> filteredData = new HashMap<>(data);
+				filteredData.remove("nextWord");
+				message.put("data", filteredData);
+			}
+
+			String payload = gson.toJson(message);
+			try {
+				broadcaster.sendToConnection(conn.getConnectionId(), payload);
+			} catch (Exception e) {
+				logger.warn("Failed to send to connection: {}", conn.getConnectionId());
+				connectionRepository.delete(conn.getConnectionId());
+			}
+		}
+	}
+
 	/**
 	 * 메시지 페이로드 DTO
 	 */
