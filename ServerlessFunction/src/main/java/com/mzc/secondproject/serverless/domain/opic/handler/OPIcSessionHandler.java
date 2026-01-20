@@ -332,9 +332,22 @@ public class OPIcSessionHandler implements RequestHandler<APIGatewayProxyRequest
                 .orElseThrow(() -> new RuntimeException("질문을 찾을 수 없습니다."));
 
         // Transcribe Proxy 호출 (음성 → 텍스트)
-        logger.info("STT 변환 시작: sessionId={}", sessionId);
+        logger.info("S3에서 오디오 파일 로드: {}", request.audioS3Key());
+
+        byte[] audioBytes = AwsClients.s3().getObjectAsBytes(
+                software.amazon.awssdk.services.s3.model.GetObjectRequest.builder()
+                        .bucket(OPIC_BUCKET)
+                        .key(request.audioS3Key())
+                        .build()
+        ).asByteArray();
+
+        String audioBase64 = java.util.Base64.getEncoder().encodeToString(audioBytes);
+        logger.info("오디오 파일 Base64 변환 완료: {} bytes → {} chars",
+                audioBytes.length, audioBase64.length());
+
+        // 4. Transcribe Proxy 호출 (Base64 데이터 전송)
         TranscribeProxyService.TranscribeResult transcribeResult =
-                transcribeService.transcribe(request.audioS3Key(), sessionId);
+                transcribeService.transcribe(audioBase64, sessionId);
 
         String transcript = transcribeResult.transcript();
         logger.info("STT 변환 완료: transcript 길이={}", transcript.length());
