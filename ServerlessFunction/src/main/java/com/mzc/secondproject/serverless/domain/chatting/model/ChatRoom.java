@@ -36,7 +36,13 @@ public class ChatRoom {
 
 	// 게임 세션 참조 (게임 상태는 GameSession으로 분리됨)
 	private String activeGameSessionId; // 현재 진행중인 게임 세션 ID (nullable)
-	
+
+	private String type;           // CHAT, GAME (기본값: CHAT)
+	private String gameType;       // CATCHMIND (nullable, GAME 타입일 때만)
+	private GameSettings gameSettings;  // 게임 설정 (nullable)
+	private String status;         // WAITING, PLAYING, FINISHED (기본값: WAITING)
+	private String hostId;         // 방장 userId (createdBy와 별도 관리)
+
 	@DynamoDbPartitionKey
 	@DynamoDbAttribute("PK")
 	public String getPk() {
