@@ -182,9 +182,21 @@ public class GameService {
 			return AnswerCheckResult.alreadyGuessedCorrect();
 		}
 		
-		// 정답 체크
-		String currentWord = room.getCurrentWord();
-		if (!isCorrectAnswer(answer, currentWord)) {
+		// 정답 체크 (한국어 또는 영어 둘 다 허용)
+		String koreanWord = room.getCurrentWord();
+		String englishWord = null;
+
+		// 영어 단어 조회
+		if (room.getCurrentWordId() != null) {
+			englishWord = wordRepository.findById(room.getCurrentWordId())
+					.map(Word::getEnglish)
+					.orElse(null);
+		}
+
+		boolean isCorrect = isCorrectAnswer(answer, koreanWord) ||
+				(englishWord != null && isCorrectAnswer(answer, englishWord));
+
+		if (!isCorrect) {
 			return AnswerCheckResult.wrongAnswer();
 		}
 		
@@ -235,20 +247,19 @@ public class GameService {
 	}
 	
 	/**
-	 * 라운드 스킵
+	 * 라운드 스킵 (누구나 가능)
 	 */
 	public CommandResult skipRound(String roomId, String userId) {
 		ChatRoom room = chatRoomRepository.findById(roomId)
 				.orElseThrow(() -> new IllegalArgumentException("채팅방을 찾을 수 없습니다."));
-		
+
 		if (!GameStatus.PLAYING.name().equals(room.getGameStatus())) {
 			return CommandResult.error("게임이 진행 중이 아닙니다.");
 		}
-		
-		if (!userId.equals(room.getCurrentDrawerId())) {
-			return CommandResult.error("출제자만 라운드를 스킵할 수 있습니다.");
-		}
-		
+
+		// 출제자 제한 제거 - 누구나 스킵 가능
+		logger.info("Round skipped by user: {} in room: {}", userId, roomId);
+
 		return endRound(room, "SKIP");
 	}
 	
