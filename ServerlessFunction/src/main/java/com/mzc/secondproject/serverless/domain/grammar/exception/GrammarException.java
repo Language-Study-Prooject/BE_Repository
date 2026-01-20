@@ -17,16 +17,16 @@ public class GrammarException extends ServerlessException {
 	}
 	
 	// === 요청 검증 관련 팩토리 메서드 ===
-
+	
 	public static GrammarException invalidRequest(String field, String reason) {
 		return (GrammarException) new GrammarException(GrammarErrorCode.INVALID_REQUEST,
 				String.format("잘못된 요청입니다: %s", reason))
 				.addDetail("field", field)
 				.addDetail("reason", reason);
 	}
-
+	
 	// === 문법 체크 관련 팩토리 메서드 ===
-
+	
 	public static GrammarException invalidSentence(String sentence) {
 		return (GrammarException) new GrammarException(GrammarErrorCode.INVALID_SENTENCE,
 				"유효하지 않은 문장입니다. 문장을 확인해주세요.")
