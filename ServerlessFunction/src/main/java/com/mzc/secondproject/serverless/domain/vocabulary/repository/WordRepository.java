@@ -102,7 +102,7 @@ public class WordRepository {
 	 */
 	public PaginatedResult<Word> findByLevelWithPagination(String level, int limit, String cursor) {
 		QueryConditional queryConditional = QueryConditional
-				.keyEqualTo(Key.builder().partitionValue("LEVEL#" + level).build());
+				.keyEqualTo(Key.builder().partitionValue("LEVEL#" + level.toUpperCase()).build());
 		
 		QueryEnhancedRequest.Builder requestBuilder = QueryEnhancedRequest.builder()
 				.queryConditional(queryConditional)
