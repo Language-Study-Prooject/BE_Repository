@@ -1,6 +1,7 @@
 package com.mzc.secondproject.serverless.domain.chatting.repository;
 
 import com.mzc.secondproject.serverless.common.config.AwsClients;
+import com.mzc.secondproject.serverless.common.config.EnvConfig;
 import com.mzc.secondproject.serverless.common.dto.PaginatedResult;
 import com.mzc.secondproject.serverless.common.util.CursorUtil;
 import com.mzc.secondproject.serverless.domain.chatting.model.ChatMessage;
@@ -21,7 +22,7 @@ import java.util.Optional;
 public class ChatMessageRepository {
 	
 	private static final Logger logger = LoggerFactory.getLogger(ChatMessageRepository.class);
-	private static final String TABLE_NAME = System.getenv("CHAT_TABLE_NAME");
+	private static final String TABLE_NAME = EnvConfig.getRequired("CHAT_TABLE_NAME");
 	
 	private final DynamoDbTable<ChatMessage> table;
 	

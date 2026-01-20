@@ -3,6 +3,7 @@ package com.mzc.secondproject.serverless.domain.stats.handler;
 import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.lambda.runtime.RequestHandler;
 import com.amazonaws.services.lambda.runtime.events.ScheduledEvent;
+import com.mzc.secondproject.serverless.common.config.EnvConfig;
 import com.mzc.secondproject.serverless.domain.stats.repository.UserStatsRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -18,7 +19,7 @@ import java.time.LocalDate;
 public class ScheduledStatsHandler implements RequestHandler<ScheduledEvent, String> {
 	
 	private static final Logger logger = LoggerFactory.getLogger(ScheduledStatsHandler.class);
-	private static final String TABLE_NAME = System.getenv("VOCAB_TABLE_NAME");
+	private static final String TABLE_NAME = EnvConfig.getRequired("VOCAB_TABLE_NAME");
 	
 	private final UserStatsRepository userStatsRepository;
 	

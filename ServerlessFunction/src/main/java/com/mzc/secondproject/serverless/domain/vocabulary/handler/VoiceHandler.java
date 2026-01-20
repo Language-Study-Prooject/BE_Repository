@@ -4,6 +4,7 @@ import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.lambda.runtime.RequestHandler;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyRequestEvent;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyResponseEvent;
+import com.mzc.secondproject.serverless.common.config.EnvConfig;
 import com.mzc.secondproject.serverless.common.exception.CommonErrorCode;
 import com.mzc.secondproject.serverless.common.service.PollyService;
 import com.mzc.secondproject.serverless.common.util.ResponseGenerator;
@@ -22,7 +23,7 @@ import java.util.Optional;
 public class VoiceHandler implements RequestHandler<APIGatewayProxyRequestEvent, APIGatewayProxyResponseEvent> {
 	
 	private static final Logger logger = LoggerFactory.getLogger(VoiceHandler.class);
-	private static final String BUCKET_NAME = System.getenv("VOCAB_BUCKET_NAME");
+	private static final String BUCKET_NAME = EnvConfig.getRequired("VOCAB_BUCKET_NAME");
 	
 	private final WordRepository wordRepository;
 	private final PollyService pollyService;
