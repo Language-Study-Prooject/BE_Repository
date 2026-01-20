@@ -5,6 +5,7 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.mzc.secondproject.serverless.common.config.AwsClients;
+import com.mzc.secondproject.serverless.domain.grammar.config.GrammarConfig;
 import com.mzc.secondproject.serverless.domain.grammar.dto.response.ConversationResponse;
 import com.mzc.secondproject.serverless.domain.grammar.dto.response.GrammarCheckResponse;
 import com.mzc.secondproject.serverless.domain.grammar.dto.response.GrammarError;
@@ -31,7 +32,6 @@ public class BedrockGrammarCheckFactory implements GrammarCheckFactory {
 	private static final Gson gson = new Gson();
 	
 	private static final String MODEL_ID = "anthropic.claude-3-haiku-20240307-v1:0";
-	private static final int MAX_TOKENS = 2048;
 	
 	@Override
 	public GrammarCheckResponse checkGrammar(String sentence, GrammarLevel level) {
@@ -131,7 +131,7 @@ public class BedrockGrammarCheckFactory implements GrammarCheckFactory {
 	private JsonObject buildRequestBody(String userPrompt, String systemPrompt) {
 		JsonObject requestBody = new JsonObject();
 		requestBody.addProperty("anthropic_version", "bedrock-2023-05-31");
-		requestBody.addProperty("max_tokens", MAX_TOKENS);
+		requestBody.addProperty("max_tokens", GrammarConfig.maxTokens());
 		requestBody.addProperty("system", systemPrompt);
 		
 		JsonArray messages = new JsonArray();
@@ -570,7 +570,7 @@ public class BedrockGrammarCheckFactory implements GrammarCheckFactory {
 	private JsonObject buildStreamingRequestBody(String userPrompt, String systemPrompt) {
 		JsonObject requestBody = new JsonObject();
 		requestBody.addProperty("anthropic_version", "bedrock-2023-05-31");
-		requestBody.addProperty("max_tokens", MAX_TOKENS);
+		requestBody.addProperty("max_tokens", GrammarConfig.maxTokens());
 		requestBody.addProperty("system", systemPrompt);
 		// Streaming을 위해 stop_sequences 추가하지 않음
 		
