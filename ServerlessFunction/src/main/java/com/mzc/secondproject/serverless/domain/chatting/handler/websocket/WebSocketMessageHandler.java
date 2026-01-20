@@ -6,6 +6,7 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.mzc.secondproject.serverless.common.util.WebSocketBroadcaster;
 import com.mzc.secondproject.serverless.common.util.WebSocketEventUtil;
+import com.mzc.secondproject.serverless.common.util.WebSocketMessageHelper;
 import com.mzc.secondproject.serverless.domain.chatting.dto.response.CommandResult;
 import com.mzc.secondproject.serverless.domain.chatting.dto.response.ScoreUpdateMessage;
 import com.mzc.secondproject.serverless.domain.chatting.enums.MessageType;
@@ -93,11 +94,13 @@ public class WebSocketMessageHandler implements RequestHandler<Map<String, Objec
 		
 		// 그림 데이터 메시지 생성 (저장 안 함)
 		Map<String, Object> drawingMessage = new HashMap<>();
+		drawingMessage.put("domain", WebSocketMessageHelper.DOMAIN_GAME);
 		drawingMessage.put("messageType", messageType);
 		drawingMessage.put("roomId", payload.roomId);
 		drawingMessage.put("userId", payload.userId);
 		drawingMessage.put("content", payload.content);
 		drawingMessage.put("createdAt", Instant.now().toString());
+		drawingMessage.put("timestamp", System.currentTimeMillis());
 		
 		// 본인 제외 브로드캐스트
 		List<Connection> connections = connectionRepository.findByRoomId(payload.roomId);
@@ -147,7 +150,7 @@ public class WebSocketMessageHandler implements RequestHandler<Map<String, Objec
 		// 일반 메시지 저장 및 브로드캐스트
 		String messageId = UUID.randomUUID().toString();
 		String now = Instant.now().toString();
-		
+
 		ChatMessage message = ChatMessage.builder()
 				.pk("ROOM#" + payload.roomId)
 				.sk("MSG#" + now + "#" + messageId)
@@ -162,23 +165,33 @@ public class WebSocketMessageHandler implements RequestHandler<Map<String, Objec
 				.messageType(messageType)
 				.createdAt(now)
 				.build();
-		
+
 		ChatMessage savedMessage = chatMessageService.saveMessage(message);
 		chatRoomRepository.updateLastMessageAt(payload.roomId, now);
-		
+
 		logger.info("Message saved: messageId={}, roomId={}", messageId, payload.roomId);
-		
-		// 브로드캐스트
+
+		// 브로드캐스트 (domain 필드 포함을 위해 Map으로 변환)
+		Map<String, Object> broadcastMessage = new HashMap<>();
+		broadcastMessage.put("domain", WebSocketMessageHelper.DOMAIN_CHAT);
+		broadcastMessage.put("messageId", savedMessage.getMessageId());
+		broadcastMessage.put("roomId", savedMessage.getRoomId());
+		broadcastMessage.put("userId", savedMessage.getUserId());
+		broadcastMessage.put("content", savedMessage.getContent());
+		broadcastMessage.put("messageType", savedMessage.getMessageType());
+		broadcastMessage.put("createdAt", savedMessage.getCreatedAt());
+		broadcastMessage.put("timestamp", System.currentTimeMillis());
+
 		List<Connection> connections = connectionRepository.findByRoomId(payload.roomId);
-		String broadcastPayload = gson.toJson(savedMessage);
+		String broadcastPayload = gson.toJson(broadcastMessage);
 		List<String> failedConnections = broadcaster.broadcast(connections, broadcastPayload);
-		
+
 		// 실패한 연결 정리
 		for (String failedConnectionId : failedConnections) {
 			connectionRepository.delete(failedConnectionId);
 			logger.info("Deleted stale connection: {}", failedConnectionId);
 		}
-		
+
 		return WebSocketEventUtil.ok("Message sent");
 	}
 	
@@ -191,12 +204,14 @@ public class WebSocketMessageHandler implements RequestHandler<Map<String, Objec
 		
 		// 추측 메시지 생성 (저장하지 않음)
 		Map<String, Object> guessMessage = new HashMap<>();
+		guessMessage.put("domain", WebSocketMessageHelper.DOMAIN_GAME);
 		guessMessage.put("messageId", messageId);
 		guessMessage.put("roomId", payload.roomId);
 		guessMessage.put("userId", payload.userId);
 		guessMessage.put("content", payload.content);
 		guessMessage.put("messageType", "GUESS");
 		guessMessage.put("createdAt", now);
+		guessMessage.put("timestamp", System.currentTimeMillis());
 		
 		List<Connection> connections = connectionRepository.findByRoomId(payload.roomId);
 		String broadcastPayload = gson.toJson(guessMessage);
@@ -238,24 +253,20 @@ public class WebSocketMessageHandler implements RequestHandler<Map<String, Objec
 	private void broadcastCorrectAnswerMessage(MessagePayload payload, GameService.AnswerCheckResult result, List<Connection> connections) {
 		String messageId = UUID.randomUUID().toString();
 		String now = Instant.now().toString();
-		
+
 		String message = String.format("🎉 %s님이 정답을 맞췄습니다! (+%d점)", payload.userId, result.score());
-		
-		ChatMessage correctMessage = ChatMessage.builder()
-				.pk("ROOM#" + payload.roomId)
-				.sk("MSG#" + now + "#" + messageId)
-				.gsi1pk("SYSTEM")
-				.gsi1sk("MSG#" + now)
-				.gsi2pk("MSG#" + messageId)
-				.gsi2sk("ROOM#" + payload.roomId)
-				.messageId(messageId)
-				.roomId(payload.roomId)
-				.userId("SYSTEM")
-				.content(message)
-				.messageType(MessageType.CORRECT_ANSWER.getCode())
-				.createdAt(now)
-				.build();
-		
+
+		// domain 필드 포함을 위해 Map으로 생성
+		Map<String, Object> correctMessage = new HashMap<>();
+		correctMessage.put("domain", WebSocketMessageHelper.DOMAIN_GAME);
+		correctMessage.put("messageId", messageId);
+		correctMessage.put("roomId", payload.roomId);
+		correctMessage.put("userId", "SYSTEM");
+		correctMessage.put("content", message);
+		correctMessage.put("messageType", MessageType.CORRECT_ANSWER.getCode());
+		correctMessage.put("createdAt", now);
+		correctMessage.put("timestamp", System.currentTimeMillis());
+
 		String broadcastPayload = gson.toJson(correctMessage);
 		List<String> failedConnections = broadcaster.broadcast(connections, broadcastPayload);
 		cleanupFailedConnections(failedConnections);
@@ -325,24 +336,20 @@ public class WebSocketMessageHandler implements RequestHandler<Map<String, Objec
 			return WebSocketEventUtil.ok("Command executed");
 		}
 
-		// 일반 시스템 메시지
+		// 일반 시스템 메시지 (게임 관련 명령어 결과)
 		String messageId = UUID.randomUUID().toString();
 		String now = Instant.now().toString();
 
-		ChatMessage systemMessage = ChatMessage.builder()
-				.pk("ROOM#" + roomId)
-				.sk("MSG#" + now + "#" + messageId)
-				.gsi1pk("SYSTEM")
-				.gsi1sk("MSG#" + now)
-				.gsi2pk("MSG#" + messageId)
-				.gsi2sk("ROOM#" + roomId)
-				.messageId(messageId)
-				.roomId(roomId)
-				.userId("SYSTEM")
-				.content(result.message())
-				.messageType(result.messageType().getCode())
-				.createdAt(now)
-				.build();
+		// domain 필드 포함을 위해 Map으로 생성
+		Map<String, Object> systemMessage = new HashMap<>();
+		systemMessage.put("domain", WebSocketMessageHelper.DOMAIN_GAME);
+		systemMessage.put("messageId", messageId);
+		systemMessage.put("roomId", roomId);
+		systemMessage.put("userId", "SYSTEM");
+		systemMessage.put("content", result.message());
+		systemMessage.put("messageType", result.messageType().getCode());
+		systemMessage.put("createdAt", now);
+		systemMessage.put("timestamp", System.currentTimeMillis());
 
 		String broadcastPayload = gson.toJson(systemMessage);
 		List<String> failedConnections = broadcaster.broadcast(connections, broadcastPayload);
@@ -365,12 +372,14 @@ public class WebSocketMessageHandler implements RequestHandler<Map<String, Objec
 
 		for (Connection conn : connections) {
 			Map<String, Object> message = new HashMap<>();
+			message.put("domain", WebSocketMessageHelper.DOMAIN_GAME);
 			message.put("messageId", messageId);
 			message.put("roomId", roomId);
 			message.put("userId", "SYSTEM");
 			message.put("content", result.message());
 			message.put("messageType", result.messageType().getCode());
 			message.put("createdAt", now);
+			message.put("timestamp", serverTime);
 
 			// 게임 상태 정보
 			message.put("gameStatus", gameResult.room().getGameStatus());
@@ -418,12 +427,14 @@ public class WebSocketMessageHandler implements RequestHandler<Map<String, Objec
 
 		for (Connection conn : connections) {
 			Map<String, Object> message = new HashMap<>();
+			message.put("domain", WebSocketMessageHelper.DOMAIN_GAME);
 			message.put("messageId", messageId);
 			message.put("roomId", roomId);
 			message.put("userId", "SYSTEM");
 			message.put("content", result.message());
 			message.put("messageType", result.messageType().getCode());
 			message.put("createdAt", now);
+			message.put("timestamp", serverTime);
 
 			// 기본 데이터 복사 (nextWord 제외)
 			Map<String, Object> messageData = new HashMap<>();
