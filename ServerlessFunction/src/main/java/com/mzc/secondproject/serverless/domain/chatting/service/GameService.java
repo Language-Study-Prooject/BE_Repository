@@ -64,11 +64,50 @@ public class GameService {
 	}
 
 	/**
+	 * 게임 재시작
+	 */
+	public GameStartResult restartGame(String roomId, String userId) {
+		ChatRoom room = chatRoomRepository.findById(roomId)
+				.orElseThrow(() -> new IllegalArgumentException("채팅방을 찾을 수 없습니다."));
+
+		// 방장 권한 확인
+		if (!userId.equals(room.getHostId()) && !userId.equals(room.getCreatedBy())) {
+			return GameStartResult.error("방장만 게임을 시작할 수 있습니다.");
+		}
+
+		// 방 타입 검증
+		if (room.getType() == null || !"GAME".equalsIgnoreCase(room.getType())) {
+			return GameStartResult.error("게임은 게임 방에서만 시작할 수 있습니다.");
+		}
+
+		// FINISHED 상태인지 확인 (이미 게임이 끝났어야 재시작 가능)
+		Optional<GameSession> existingSession = gameSessionRepository.findActiveByRoomId(roomId);
+		if (existingSession.isPresent()) {
+			return GameStartResult.error("게임 진행 중에는 재시작할 수 없습니다.");
+		}
+
+		// 접속자 확인
+		List<Connection> connections = connectionRepository.findByRoomId(roomId);
+		if (connections.size() < 2) {
+			return GameStartResult.error("최소 2명 이상 접속해야 게임을 시작할 수 있습니다.");
+		}
+
+		// 기존 startGame 로직 재사용 - 내부적으로 startGame 호출
+		return startGame(roomId, userId);
+	}
+
+	/**
 	 * 게임 시작
 	 */
 	public GameStartResult startGame(String roomId, String userId) {
 		ChatRoom room = chatRoomRepository.findById(roomId)
 				.orElseThrow(() -> new IllegalArgumentException("채팅방을 찾을 수 없습니다."));
+
+		// 방 타입 검증 - GAME 타입만 게임 시작 가능
+		String roomType = room.getType();
+		if (roomType == null || !"GAME".equalsIgnoreCase(roomType)) {
+			return GameStartResult.error("게임은 게임 방에서만 시작할 수 있습니다.");
+		}
 
 		// 이미 활성 게임 세션이 있는지 확인
 		Optional<GameSession> existingSession = gameSessionRepository.findActiveByRoomId(roomId);

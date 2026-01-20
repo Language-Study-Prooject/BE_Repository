@@ -40,11 +40,15 @@ class ChattingErrorCodeSpec extends Specification {
         ChattingErrorCode.GAME_NOT_IN_PROGRESS    | "GAME_003"      | 400
         ChattingErrorCode.GAME_ALREADY_IN_PROGRESS| "GAME_004"      | 409
         ChattingErrorCode.NOT_GAME_STARTER        | "GAME_005"      | 403
+        ChattingErrorCode.GAME_NOT_FOUND          | "GAME_006"      | 404
+        ChattingErrorCode.GAME_NOT_ALLOWED_IN_CHAT_ROOM | "GAME_007" | 400
+        ChattingErrorCode.GAME_RESTART_NOT_ALLOWED | "GAME_008"     | 400
+        ChattingErrorCode.GAME_START_NOT_HOST     | "GAME_009"      | 403
     }
 
     def "모든 에러 코드 개수 확인"() {
-        expect: "20개의 에러 코드 존재"
-        ChattingErrorCode.values().length == 20
+        expect: "24개의 에러 코드 존재"
+        ChattingErrorCode.values().length == 24
     }
 
     def "채팅방 관련 에러 코드들 (ROOM_XXX)"() {
@@ -71,5 +75,9 @@ class ChattingErrorCodeSpec extends Specification {
         ChattingErrorCode.GAME_NOT_IN_PROGRESS.getCode().startsWith("GAME_")
         ChattingErrorCode.GAME_ALREADY_IN_PROGRESS.getCode().startsWith("GAME_")
         ChattingErrorCode.NOT_GAME_STARTER.getCode().startsWith("GAME_")
+        ChattingErrorCode.GAME_NOT_FOUND.getCode().startsWith("GAME_")
+        ChattingErrorCode.GAME_NOT_ALLOWED_IN_CHAT_ROOM.getCode().startsWith("GAME_")
+        ChattingErrorCode.GAME_RESTART_NOT_ALLOWED.getCode().startsWith("GAME_")
+        ChattingErrorCode.GAME_START_NOT_HOST.getCode().startsWith("GAME_")
     }
 }
