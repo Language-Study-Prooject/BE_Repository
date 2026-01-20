@@ -19,15 +19,15 @@ class GrammarErrorCodeSpec extends Specification {
         !errorCode.getMessage().isEmpty()
 
         where:
-        errorCode                                        | expectedCode     | expectedStatusCode
-        GrammarErrorCode.INVALID_REQUEST                 | "GRAMMAR_000"    | 400
-        GrammarErrorCode.INVALID_SENTENCE                | "GRAMMAR_001"    | 400
-        GrammarErrorCode.GRAMMAR_CHECK_FAILED            | "GRAMMAR_002"    | 500
-        GrammarErrorCode.INVALID_LEVEL                   | "GRAMMAR_003"    | 400
-        GrammarErrorCode.BEDROCK_API_ERROR               | "GRAMMAR_004"    | 502
-        GrammarErrorCode.BEDROCK_RESPONSE_PARSE_ERROR    | "GRAMMAR_005"    | 500
-        GrammarErrorCode.SESSION_NOT_FOUND               | "GRAMMAR_006"    | 404
-        GrammarErrorCode.SESSION_EXPIRED                 | "GRAMMAR_007"    | 410
+        errorCode                                     | expectedCode  | expectedStatusCode
+        GrammarErrorCode.INVALID_REQUEST              | "GRAMMAR_000" | 400
+        GrammarErrorCode.INVALID_SENTENCE             | "GRAMMAR_001" | 400
+        GrammarErrorCode.GRAMMAR_CHECK_FAILED         | "GRAMMAR_002" | 500
+        GrammarErrorCode.INVALID_LEVEL                | "GRAMMAR_003" | 400
+        GrammarErrorCode.BEDROCK_API_ERROR            | "GRAMMAR_004" | 502
+        GrammarErrorCode.BEDROCK_RESPONSE_PARSE_ERROR | "GRAMMAR_005" | 500
+        GrammarErrorCode.SESSION_NOT_FOUND            | "GRAMMAR_006" | 404
+        GrammarErrorCode.SESSION_EXPIRED              | "GRAMMAR_007" | 410
     }
 
     def "모든 에러 코드 개수 확인"() {
