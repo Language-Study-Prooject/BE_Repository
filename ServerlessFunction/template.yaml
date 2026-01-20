@@ -1282,7 +1282,7 @@ Resources:
         ApplyOn: PublishedVersions
       Environment:
         Variables:
-          TRANSCRIBE_API_KEY_PARAM: "/opic/transcribe-proxy-api-key"
+          TRANSCRIBE_API_KEY: "/opic/transcribe-proxy-api-key"
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref OPIcTable
