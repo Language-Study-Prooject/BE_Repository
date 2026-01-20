@@ -1,6 +1,7 @@
 package com.mzc.secondproject.serverless.domain.opic.model;
 
 import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbAttribute;
+import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbBean;
 import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbPartitionKey;
 import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbSortKey;
 
@@ -9,6 +10,7 @@ import java.time.Instant;
 /**
  * OPIc 답변 + 피드백
  */
+@DynamoDbBean
 public class OPIcAnswer {
 
     private String pk;                    // SESSION#sessionId
