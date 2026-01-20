@@ -1,6 +1,7 @@
 package com.mzc.secondproject.serverless.domain.vocabulary.service;
 
 import com.mzc.secondproject.serverless.common.config.AwsClients;
+import com.mzc.secondproject.serverless.common.config.EnvConfig;
 import com.mzc.secondproject.serverless.common.dto.PaginatedResult;
 import com.mzc.secondproject.serverless.common.util.ResponseGenerator;
 import com.mzc.secondproject.serverless.domain.vocabulary.model.DailyStudy;
@@ -21,7 +22,7 @@ import java.util.stream.Collectors;
 public class TestService {
 	
 	private static final Logger logger = LoggerFactory.getLogger(TestService.class);
-	private static final String TEST_RESULT_TOPIC_ARN = System.getenv("TEST_RESULT_TOPIC_ARN");
+	private static final String TEST_RESULT_TOPIC_ARN = EnvConfig.getRequired("TEST_RESULT_TOPIC_ARN");
 	
 	private final TestResultRepository testResultRepository;
 	private final DailyStudyRepository dailyStudyRepository;
