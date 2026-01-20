@@ -9,13 +9,13 @@ import org.slf4j.LoggerFactory;
  * - Lambda 시작 시 설정 오류를 빠르게 감지
  */
 public final class EnvConfig {
-
+	
 	private static final Logger logger = LoggerFactory.getLogger(EnvConfig.class);
-
+	
 	private EnvConfig() {
 		// 유틸리티 클래스 - 인스턴스화 방지
 	}
-
+	
 	/**
 	 * 필수 환경 변수를 가져옵니다.
 	 * 환경 변수가 설정되지 않았거나 빈 문자열인 경우 IllegalStateException을 발생시킵니다.
@@ -33,12 +33,12 @@ public final class EnvConfig {
 		}
 		return value;
 	}
-
+	
 	/**
 	 * 선택적 환경 변수를 가져옵니다.
 	 * 환경 변수가 설정되지 않은 경우 기본값을 반환합니다.
 	 *
-	 * @param name 환경 변수 이름
+	 * @param name         환경 변수 이름
 	 * @param defaultValue 기본값
 	 * @return 환경 변수 값 또는 기본값
 	 */
@@ -50,12 +50,12 @@ public final class EnvConfig {
 		}
 		return value;
 	}
-
+	
 	/**
 	 * 선택적 환경 변수를 정수로 가져옵니다.
 	 * 환경 변수가 설정되지 않거나 파싱에 실패한 경우 기본값을 반환합니다.
 	 *
-	 * @param name 환경 변수 이름
+	 * @param name         환경 변수 이름
 	 * @param defaultValue 기본값
 	 * @return 환경 변수 값 또는 기본값
 	 */
@@ -71,11 +71,11 @@ public final class EnvConfig {
 			return defaultValue;
 		}
 	}
-
+	
 	/**
 	 * 선택적 환경 변수를 long으로 가져옵니다.
 	 *
-	 * @param name 환경 변수 이름
+	 * @param name         환경 변수 이름
 	 * @param defaultValue 기본값
 	 * @return 환경 변수 값 또는 기본값
 	 */
