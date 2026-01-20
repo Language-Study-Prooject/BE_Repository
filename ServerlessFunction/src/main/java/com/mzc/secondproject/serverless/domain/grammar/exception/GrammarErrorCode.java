@@ -6,7 +6,7 @@ public enum GrammarErrorCode implements DomainErrorCode {
 	
 	// 요청 검증 관련 에러
 	INVALID_REQUEST("GRAMMAR_000", "잘못된 요청입니다", 400),
-
+	
 	// 문법 체크 관련 에러
 	INVALID_SENTENCE("GRAMMAR_001", "유효하지 않은 문장입니다", 400),
 	GRAMMAR_CHECK_FAILED("GRAMMAR_002", "문법 체크에 실패했습니다", 500),
