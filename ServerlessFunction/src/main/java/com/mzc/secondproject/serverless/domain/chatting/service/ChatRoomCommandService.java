@@ -1,11 +1,18 @@
 package com.mzc.secondproject.serverless.domain.chatting.service;
 
+import com.mzc.secondproject.serverless.common.util.ResponseGenerator;
+import com.mzc.secondproject.serverless.common.util.WebSocketBroadcaster;
+import com.mzc.secondproject.serverless.common.util.WebSocketMessageHelper;
 import com.mzc.secondproject.serverless.domain.chatting.dto.response.JoinRoomResponse;
 import com.mzc.secondproject.serverless.domain.chatting.exception.ChattingException;
 import com.mzc.secondproject.serverless.domain.chatting.model.ChatRoom;
+import com.mzc.secondproject.serverless.domain.chatting.model.Connection;
 import com.mzc.secondproject.serverless.domain.chatting.model.GameSettings;
 import com.mzc.secondproject.serverless.domain.chatting.model.RoomToken;
 import com.mzc.secondproject.serverless.domain.chatting.repository.ChatRoomRepository;
+import com.mzc.secondproject.serverless.domain.chatting.repository.ConnectionRepository;
+import com.mzc.secondproject.serverless.domain.user.model.User;
+import com.mzc.secondproject.serverless.domain.user.repository.UserRepository;
 import org.mindrot.jbcrypt.BCrypt;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -13,6 +20,7 @@ import org.slf4j.LoggerFactory;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -22,13 +30,19 @@ import java.util.UUID;
 public class ChatRoomCommandService {
 	
 	private static final Logger logger = LoggerFactory.getLogger(ChatRoomCommandService.class);
-	
+
 	private final ChatRoomRepository roomRepository;
 	private final RoomTokenService roomTokenService;
-	
+	private final ConnectionRepository connectionRepository;
+	private final WebSocketBroadcaster broadcaster;
+	private final UserRepository userRepository;
+
 	public ChatRoomCommandService() {
 		this.roomRepository = new ChatRoomRepository();
 		this.roomTokenService = new RoomTokenService();
+		this.connectionRepository = new ConnectionRepository();
+		this.broadcaster = new WebSocketBroadcaster();
+		this.userRepository = new UserRepository();
 	}
 	
 	public ChatRoom createRoom(String name, String description, String level, Integer maxMembers,
@@ -140,6 +154,26 @@ public class ChatRoomCommandService {
 
 		roomRepository.save(room);
 		logger.info("User {} left room {}", userId, roomId);
+
+		// 방장이 나갔으면 다음 멤버에게 방장 이전 후 WebSocket 알림
+		if (userId.equals(oldHostId) && newHostId != null) {
+			// 새 방장 닉네임 조회
+			String newHostNickname = userRepository.findByCognitoSub(newHostId)
+					.map(User::getNickname)
+					.orElse(newHostId);
+
+			// WebSocket 알림 브로드캐스트
+			try {
+				List<Connection> connections = connectionRepository.findByRoomId(roomId);
+				Map<String, Object> message = WebSocketMessageHelper.buildHostChangeMessage(
+						roomId, newHostId, newHostNickname);
+				String json = ResponseGenerator.gson().toJson(message);
+				broadcaster.broadcast(connections, json);
+				logger.info("Broadcasted host change: roomId={}, newHostId={}", roomId, newHostId);
+			} catch (Exception e) {
+				logger.error("Failed to broadcast host change: {}", e.getMessage());
+			}
+		}
 
 		return new LeaveResult(false, room, newHostId);
 	}
