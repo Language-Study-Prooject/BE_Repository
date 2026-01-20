@@ -11,8 +11,8 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class SpeakingError {
-    private SpeakingErrorType type;
-    private String original;
-    private String corrected;
-    private String explanation;
+	private SpeakingErrorType type;
+	private String original;
+	private String corrected;
+	private String explanation;
 }
