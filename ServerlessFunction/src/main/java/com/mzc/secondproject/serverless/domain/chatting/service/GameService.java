@@ -1,6 +1,7 @@
 package com.mzc.secondproject.serverless.domain.chatting.service;
 
 import com.mzc.secondproject.serverless.common.dto.PaginatedResult;
+import com.mzc.secondproject.serverless.domain.chatting.config.GameConfig;
 import com.mzc.secondproject.serverless.domain.chatting.dto.response.CommandResult;
 import com.mzc.secondproject.serverless.domain.chatting.enums.GameStatus;
 import com.mzc.secondproject.serverless.domain.chatting.enums.MessageType;
@@ -25,8 +26,6 @@ import java.util.stream.Collectors;
 public class GameService {
 	
 	private static final Logger logger = LoggerFactory.getLogger(GameService.class);
-	private static final int DEFAULT_TOTAL_ROUNDS = 5;
-	private static final int DEFAULT_ROUND_TIME_LIMIT = 60; // 초
 	
 	private final ChatRoomRepository chatRoomRepository;
 	private final ConnectionRepository connectionRepository;
@@ -82,9 +81,9 @@ public class GameService {
 		
 		// 제시어 추출 (난이도별)
 		String level = room.getLevel() != null ? room.getLevel() : "beginner";
-		List<Word> words = getRandomWords(level, DEFAULT_TOTAL_ROUNDS);
+		List<Word> words = getRandomWords(level, GameConfig.totalRounds());
 		
-		if (words.size() < DEFAULT_TOTAL_ROUNDS) {
+		if (words.size() < GameConfig.totalRounds()) {
 			return GameStartResult.error("단어가 부족합니다. 관리자에게 문의하세요.");
 		}
 		
@@ -92,11 +91,11 @@ public class GameService {
 		room.setGameStatus(GameStatus.PLAYING.name());
 		room.setGameStartedBy(userId);
 		room.setCurrentRound(1);
-		room.setTotalRounds(DEFAULT_TOTAL_ROUNDS);
+		room.setTotalRounds(GameConfig.totalRounds());
 		room.setDrawerOrder(drawerOrder);
 		room.setScores(new HashMap<>());
 		room.setStreaks(new HashMap<>());
-		room.setRoundTimeLimit(DEFAULT_ROUND_TIME_LIMIT);
+		room.setRoundTimeLimit(GameConfig.roundTimeLimit());
 		
 		// 첫 라운드 설정
 		String firstDrawer = drawerOrder.get(0);
@@ -132,7 +131,7 @@ public class GameService {
 		
 		gameRoundRepository.save(firstRound);
 		
-		logger.info("Game started: roomId={}, starter={}, rounds={}", roomId, userId, DEFAULT_TOTAL_ROUNDS);
+		logger.info("Game started: roomId={}, starter={}, rounds={}", roomId, userId, GameConfig.totalRounds());
 		
 		return GameStartResult.success(room, firstWord, drawerOrder);
 	}
@@ -486,7 +485,7 @@ public class GameService {
 		
 		// 시간 보너스 (빨리 맞출수록 높은 점수): (제한시간 - 경과시간) * 0.5
 		int elapsedSeconds = (int) (elapsedTimeMs / 1000);
-		int timeLimit = room.getRoundTimeLimit() != null ? room.getRoundTimeLimit() : DEFAULT_ROUND_TIME_LIMIT;
+		int timeLimit = room.getRoundTimeLimit() != null ? room.getRoundTimeLimit() : GameConfig.roundTimeLimit();
 		int timeBonus = Math.max(0, (int) ((timeLimit - elapsedSeconds) * 0.5));
 		
 		// 연속 정답 보너스: 연속정답수 * 2
