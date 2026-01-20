@@ -223,12 +223,10 @@ public class WebSocketMessageHandler implements RequestHandler<Map<String, Objec
 		});
 		
 		logger.info("Correct answer: roomId={}, userId={}, score={}", payload.roomId, payload.userId, result.score());
-		
-		// 전원 정답 시 라운드 종료 처리
-		if (result.allCorrect()) {
-			handleAllCorrect(payload.roomId);
-		}
-		
+
+		// 정답 맞추면 즉시 다음 라운드로 이동
+		endCurrentRound(payload.roomId, "CORRECT_ANSWER");
+
 		return WebSocketEventUtil.ok("Correct answer");
 	}
 	
@@ -296,11 +294,11 @@ public class WebSocketMessageHandler implements RequestHandler<Map<String, Objec
 	}
 	
 	/**
-	 * 전원 정답 시 라운드 종료
+	 * 현재 라운드 종료 및 다음 라운드 진행
 	 */
-	private void handleAllCorrect(String roomId) {
+	private void endCurrentRound(String roomId, String reason) {
 		chatRoomRepository.findById(roomId).ifPresent(room -> {
-			CommandResult endResult = gameService.endRound(room, "ALL_CORRECT");
+			CommandResult endResult = gameService.endRound(room, reason);
 			handleCommandResult(endResult, roomId, "SYSTEM");
 		});
 	}
