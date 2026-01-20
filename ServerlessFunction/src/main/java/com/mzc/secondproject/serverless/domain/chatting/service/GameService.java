@@ -36,6 +36,7 @@ public class GameService {
 	private final GameSessionRepository gameSessionRepository;
 	private final WordRepository wordRepository;
 	private final GameStatsService gameStatsService;
+	private final GameSchedulerClient gameSchedulerClient;
 
 	/**
 	 * 기본 생성자 (Lambda에서 사용)
@@ -43,7 +44,7 @@ public class GameService {
 	public GameService() {
 		this(new ChatRoomRepository(), new ConnectionRepository(),
 				new GameRoundRepository(), new GameSessionRepository(),
-				new WordRepository(), new GameStatsService());
+				new WordRepository(), new GameStatsService(), new GameSchedulerClient());
 	}
 
 	/**
@@ -51,13 +52,15 @@ public class GameService {
 	 */
 	public GameService(ChatRoomRepository chatRoomRepository, ConnectionRepository connectionRepository,
 	                   GameRoundRepository gameRoundRepository, GameSessionRepository gameSessionRepository,
-	                   WordRepository wordRepository, GameStatsService gameStatsService) {
+	                   WordRepository wordRepository, GameStatsService gameStatsService,
+	                   GameSchedulerClient gameSchedulerClient) {
 		this.chatRoomRepository = chatRoomRepository;
 		this.connectionRepository = connectionRepository;
 		this.gameRoundRepository = gameRoundRepository;
 		this.gameSessionRepository = gameSessionRepository;
 		this.wordRepository = wordRepository;
 		this.gameStatsService = gameStatsService;
+		this.gameSchedulerClient = gameSchedulerClient;
 	}
 
 	/**
@@ -128,6 +131,14 @@ public class GameService {
 				.build();
 
 		gameSessionRepository.save(session);
+
+		// 게임 자동 종료 스케줄 생성 (7분 후)
+		GameSchedulerClient.ScheduleResult scheduleResult = gameSchedulerClient.createGameEndSchedule(gameSessionId, roomId);
+		if (scheduleResult.success()) {
+			session.setScheduleRuleArn(scheduleResult.scheduleArn());
+			session.setGameEndScheduledAt(scheduleResult.scheduledAtMs());
+			gameSessionRepository.save(session);
+		}
 
 		// ChatRoom에 활성 게임 세션 ID 연결
 		room.setActiveGameSessionId(gameSessionId);
@@ -436,6 +447,11 @@ public class GameService {
 		long currentTime = System.currentTimeMillis();
 		long ttlSeconds = Instant.now().plusSeconds(30 * 24 * 60 * 60).getEpochSecond(); // 30일 보관
 
+		// 자동 종료 스케줄 취소 (TIME_EXPIRED가 아닌 경우에만)
+		if (!"TIME_EXPIRED".equals(reason)) {
+			gameSchedulerClient.cancelGameEndSchedule(session.getGameSessionId());
+		}
+
 		// 게임 세션 종료 처리
 		gameSessionRepository.finishGame(session.getGameSessionId(), currentTime, ttlSeconds);
 
@@ -477,6 +493,34 @@ public class GameService {
 				room.getRoomId(), session.getGameSessionId(), reason);
 
 		return CommandResult.success(MessageType.GAME_END, sb.toString(), session.getScores());
+	}
+
+	/**
+	 * 시간 만료로 인한 게임 자동 종료 (GameAutoCloseHandler에서 호출)
+	 */
+	public CommandResult finishGameByTimeout(String gameSessionId) {
+		GameSession session = gameSessionRepository.findById(gameSessionId).orElse(null);
+		if (session == null) {
+			logger.warn("Game session not found for auto-close: {}", gameSessionId);
+			return CommandResult.error("게임 세션을 찾을 수 없습니다.");
+		}
+
+		// 이미 종료된 게임이면 무시
+		if (!session.isActive()) {
+			logger.info("Game already finished, skipping auto-close: {}", gameSessionId);
+			return CommandResult.error("이미 종료된 게임입니다.");
+		}
+
+		ChatRoom room = chatRoomRepository.findById(session.getRoomId()).orElse(null);
+		if (room == null) {
+			logger.warn("Room not found for auto-close: {}", session.getRoomId());
+			return CommandResult.error("채팅방을 찾을 수 없습니다.");
+		}
+
+		logger.info("Auto-closing game due to time expiration: sessionId={}, roomId={}",
+				gameSessionId, session.getRoomId());
+
+		return finishGame(session, room, "TIME_EXPIRED");
 	}
 
 	/**
