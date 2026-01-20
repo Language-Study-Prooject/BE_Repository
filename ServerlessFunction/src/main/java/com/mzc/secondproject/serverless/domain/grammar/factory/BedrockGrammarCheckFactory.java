@@ -56,14 +56,12 @@ public class BedrockGrammarCheckFactory implements GrammarCheckFactory {
 			
 			String responseBody = response.body().asUtf8String();
 			JsonObject jsonResponse = gson.fromJson(responseBody, JsonObject.class);
-			
-			String content = jsonResponse.getAsJsonArray("content")
-					.get(0).getAsJsonObject()
-					.get("text").getAsString();
-			
+
+			String content = extractContentFromResponse(jsonResponse);
+
 			long processingTime = System.currentTimeMillis() - startTime;
 			logger.info("Grammar check completed in {}ms", processingTime);
-			
+
 			return parseGrammarResponse(sentence, content);
 			
 		} catch (GrammarException e) {
@@ -188,6 +186,46 @@ public class BedrockGrammarCheckFactory implements GrammarCheckFactory {
 		}
 		return element.getAsInt();
 	}
+
+	private String getStringOrDefault(JsonObject obj, String key, String defaultValue) {
+		JsonElement element = obj.get(key);
+		if (element == null || element.isJsonNull()) {
+			return defaultValue;
+		}
+		return element.getAsString();
+	}
+
+	private int getIntOrDefault(JsonObject obj, String key, int defaultValue) {
+		JsonElement element = obj.get(key);
+		if (element == null || element.isJsonNull()) {
+			return defaultValue;
+		}
+		return element.getAsInt();
+	}
+
+	private boolean getBooleanOrDefault(JsonObject obj, String key, boolean defaultValue) {
+		JsonElement element = obj.get(key);
+		if (element == null || element.isJsonNull()) {
+			return defaultValue;
+		}
+		return element.getAsBoolean();
+	}
+
+	private String extractContentFromResponse(JsonObject jsonResponse) {
+		JsonArray contentArray = jsonResponse.getAsJsonArray("content");
+		if (contentArray == null || contentArray.isEmpty()) {
+			throw GrammarException.bedrockResponseParseError("content array is null or empty");
+		}
+		JsonObject firstContent = contentArray.get(0).getAsJsonObject();
+		if (firstContent == null) {
+			throw GrammarException.bedrockResponseParseError("first content object is null");
+		}
+		JsonElement textElement = firstContent.get("text");
+		if (textElement == null || textElement.isJsonNull()) {
+			throw GrammarException.bedrockResponseParseError("text element is null");
+		}
+		return textElement.getAsString();
+	}
 	
 	public ConversationResponse generateConversation(String sessionId, String message, GrammarLevel level, String conversationHistory) {
 		logger.info("Generating conversation: sessionId={}, level={}", sessionId, level.name());
@@ -211,14 +249,12 @@ public class BedrockGrammarCheckFactory implements GrammarCheckFactory {
 			
 			String responseBody = response.body().asUtf8String();
 			JsonObject jsonResponse = gson.fromJson(responseBody, JsonObject.class);
-			
-			String content = jsonResponse.getAsJsonArray("content")
-					.get(0).getAsJsonObject()
-					.get("text").getAsString();
-			
+
+			String content = extractContentFromResponse(jsonResponse);
+
 			long processingTime = System.currentTimeMillis() - startTime;
 			logger.info("Conversation generated in {}ms", processingTime);
-			
+
 			return parseConversationResponse(sessionId, message, content);
 			
 		} catch (GrammarException e) {
@@ -307,20 +343,34 @@ public class BedrockGrammarCheckFactory implements GrammarCheckFactory {
 		try {
 			String jsonContent = extractJson(aiResponse);
 			JsonObject json = gson.fromJson(jsonContent, JsonObject.class);
-			
+
 			JsonObject grammarCheckObj = json.getAsJsonObject("grammarCheck");
-			GrammarCheckResponse grammarCheck = parseGrammarCheckFromJson(originalMessage, grammarCheckObj);
-			
-			String conversationResponse = json.get("aiResponse").getAsString();
-			String tip = json.get("conversationTip").getAsString();
-			
+			GrammarCheckResponse grammarCheck;
+			if (grammarCheckObj != null) {
+				grammarCheck = parseGrammarCheckFromJson(originalMessage, grammarCheckObj);
+			} else {
+				grammarCheck = GrammarCheckResponse.builder()
+						.originalSentence(originalMessage)
+						.correctedSentence(originalMessage)
+						.score(100)
+						.isCorrect(true)
+						.errors(new ArrayList<>())
+						.feedback("Perfect!")
+						.build();
+			}
+
+			String conversationResponse = getStringOrDefault(json, "aiResponse", "");
+			String tip = getStringOrDefault(json, "conversationTip", "");
+
 			return ConversationResponse.builder()
 					.sessionId(sessionId)
 					.grammarCheck(grammarCheck)
 					.aiResponse(conversationResponse)
 					.conversationTip(tip)
 					.build();
-			
+
+		} catch (GrammarException e) {
+			throw e;
 		} catch (Exception e) {
 			logger.error("Failed to parse conversation response: length={}",
 					aiResponse != null ? aiResponse.length() : 0, e);
@@ -332,28 +382,28 @@ public class BedrockGrammarCheckFactory implements GrammarCheckFactory {
 	}
 	
 	private GrammarCheckResponse parseGrammarCheckFromJson(String originalSentence, JsonObject json) {
-		String correctedSentence = json.get("correctedSentence").getAsString();
-		int score = json.get("score").getAsInt();
-		boolean isCorrect = json.get("isCorrect").getAsBoolean();
-		String feedback = json.get("feedback").getAsString();
-		
+		String correctedSentence = getStringOrDefault(json, "correctedSentence", originalSentence);
+		int score = getIntOrDefault(json, "score", 100);
+		boolean isCorrect = getBooleanOrDefault(json, "isCorrect", true);
+		String feedback = getStringOrDefault(json, "feedback", "");
+
 		List<GrammarError> errors = new ArrayList<>();
 		JsonArray errorsArray = json.getAsJsonArray("errors");
 		if (errorsArray != null) {
 			for (JsonElement element : errorsArray) {
 				JsonObject errorObj = element.getAsJsonObject();
 				GrammarError error = GrammarError.builder()
-						.type(parseErrorType(errorObj.get("type").getAsString()))
-						.original(errorObj.get("original").getAsString())
-						.corrected(errorObj.get("corrected").getAsString())
-						.explanation(errorObj.get("explanation").getAsString())
+						.type(parseErrorType(getStringOrDefault(errorObj, "type", "OTHER")))
+						.original(getStringOrDefault(errorObj, "original", ""))
+						.corrected(getStringOrDefault(errorObj, "corrected", ""))
+						.explanation(getStringOrDefault(errorObj, "explanation", ""))
 						.startIndex(getIntOrNull(errorObj, "startIndex"))
 						.endIndex(getIntOrNull(errorObj, "endIndex"))
 						.build();
 				errors.add(error);
 			}
 		}
-		
+
 		return GrammarCheckResponse.builder()
 				.originalSentence(originalSentence)
 				.correctedSentence(correctedSentence)
