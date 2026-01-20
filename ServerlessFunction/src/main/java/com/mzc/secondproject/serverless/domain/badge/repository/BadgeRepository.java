@@ -1,6 +1,7 @@
 package com.mzc.secondproject.serverless.domain.badge.repository;
 
 import com.mzc.secondproject.serverless.common.config.AwsClients;
+import com.mzc.secondproject.serverless.common.config.EnvConfig;
 import com.mzc.secondproject.serverless.domain.badge.constants.BadgeKey;
 import com.mzc.secondproject.serverless.domain.badge.model.UserBadge;
 import org.slf4j.Logger;
@@ -18,7 +19,7 @@ import java.util.Optional;
 public class BadgeRepository {
 	
 	private static final Logger logger = LoggerFactory.getLogger(BadgeRepository.class);
-	private static final String TABLE_NAME = System.getenv("VOCAB_TABLE_NAME");
+	private static final String TABLE_NAME = EnvConfig.getRequired("VOCAB_TABLE_NAME");
 	
 	private final DynamoDbTable<UserBadge> table;
 	

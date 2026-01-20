@@ -1,6 +1,7 @@
 package com.mzc.secondproject.serverless.common.util;
 
 import com.mzc.secondproject.serverless.common.config.AwsClients;
+import com.mzc.secondproject.serverless.common.config.EnvConfig;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
@@ -16,7 +17,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public class S3PresignUtil {
 	
 	private static final S3Presigner presigner = AwsClients.s3Presigner();
-	private static final String BUCKET_NAME = System.getenv("BUCKET_NAME");
+	private static final String BUCKET_NAME = EnvConfig.getRequired("BUCKET_NAME");
 	private static final Duration DEFAULT_DURATION = Duration.ofHours(24);
 	
 	// 캐시 (키: S3 key, 값: presigned URL, 만료시간)

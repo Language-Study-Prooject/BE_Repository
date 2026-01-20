@@ -1,6 +1,7 @@
 package com.mzc.secondproject.serverless.domain.vocabulary.repository;
 
 import com.mzc.secondproject.serverless.common.config.AwsClients;
+import com.mzc.secondproject.serverless.common.config.EnvConfig;
 import com.mzc.secondproject.serverless.common.dto.PaginatedResult;
 import com.mzc.secondproject.serverless.common.util.CursorUtil;
 import com.mzc.secondproject.serverless.domain.vocabulary.model.TestResult;
@@ -21,7 +22,7 @@ import java.util.Optional;
 public class TestResultRepository {
 	
 	private static final Logger logger = LoggerFactory.getLogger(TestResultRepository.class);
-	private static final String TABLE_NAME = System.getenv("VOCAB_TABLE_NAME");
+	private static final String TABLE_NAME = EnvConfig.getRequired("VOCAB_TABLE_NAME");
 	
 	private final DynamoDbTable<TestResult> table;
 	
