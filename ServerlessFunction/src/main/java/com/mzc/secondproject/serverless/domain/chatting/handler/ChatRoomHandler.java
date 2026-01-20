@@ -57,46 +57,50 @@ public class ChatRoomHandler implements RequestHandler<APIGatewayProxyRequestEve
 	
 	private APIGatewayProxyResponseEvent createRoom(APIGatewayProxyRequestEvent request, String userId) {
 		CreateRoomRequest req = ResponseGenerator.gson().fromJson(request.getBody(), CreateRoomRequest.class);
-		
+
 		return BeanValidator.validateAndExecute(req, dto -> {
 			String level = dto.getLevel() != null ? dto.getLevel() : "beginner";
 			Integer maxMembers = dto.getMaxMembers() != null ? dto.getMaxMembers() : 6;
 			Boolean isPrivate = dto.getIsPrivate() != null ? dto.getIsPrivate() : false;
-			
+
 			ChatRoom room = commandService.createRoom(
-					dto.getName(), dto.getDescription(), level, maxMembers, isPrivate, dto.getPassword(), userId);
+					dto.getName(), dto.getDescription(), level, maxMembers, isPrivate, dto.getPassword(), userId,
+					dto.getType(), dto.getGameType(), dto.getGameSettings());
 			room.setPassword(null);
-			
+
 			return ResponseGenerator.created("Room created", room);
 		});
 	}
 	
 	private APIGatewayProxyResponseEvent getRooms(APIGatewayProxyRequestEvent request, String userId) {
 		Map<String, String> queryParams = request.getQueryStringParameters();
-		
+
 		String level = queryParams != null ? queryParams.get("level") : null;
 		String joined = queryParams != null ? queryParams.get("joined") : null;
 		String cursor = queryParams != null ? queryParams.get("cursor") : null;
-		
+		String type = queryParams != null ? queryParams.get("type") : null;
+		String gameType = queryParams != null ? queryParams.get("gameType") : null;
+		String status = queryParams != null ? queryParams.get("status") : null;
+
 		int limit = 10;
 		if (queryParams != null && queryParams.get("limit") != null) {
 			limit = Math.min(Integer.parseInt(queryParams.get("limit")), 20);
 		}
-		
-		PaginatedResult<ChatRoom> roomPage = queryService.getRooms(level, limit, cursor);
+
+		PaginatedResult<ChatRoom> roomPage = queryService.getRooms(level, limit, cursor, type, gameType, status);
 		List<ChatRoom> rooms = roomPage.items();
-		
+
 		if ("true".equals(joined)) {
 			rooms = queryService.filterByJoinedUser(rooms, userId);
 		}
-		
+
 		rooms.forEach(room -> room.setPassword(null));
-		
+
 		Map<String, Object> result = new HashMap<>();
 		result.put("rooms", rooms);
 		result.put("nextCursor", roomPage.nextCursor());
 		result.put("hasMore", roomPage.hasMore());
-		
+
 		return ResponseGenerator.ok("Rooms retrieved", result);
 	}
 	

@@ -26,11 +26,27 @@ public class ChatRoomQueryService {
 		return roomRepository.findById(roomId);
 	}
 	
-	public PaginatedResult<ChatRoom> getRooms(String level, int limit, String cursor) {
+	public PaginatedResult<ChatRoom> getRooms(String level, int limit, String cursor, String type, String gameType, String status) {
+		PaginatedResult<ChatRoom> roomPage;
 		if (level != null && !level.isEmpty()) {
-			return roomRepository.findByLevelWithPagination(level, limit, cursor);
+			roomPage = roomRepository.findByLevelWithPagination(level, limit, cursor);
+		} else {
+			roomPage = roomRepository.findAllWithPagination(limit, cursor);
 		}
-		return roomRepository.findAllWithPagination(limit, cursor);
+
+		List<ChatRoom> rooms = roomPage.items();
+
+		if (type != null) {
+			rooms = rooms.stream().filter(r -> type.equalsIgnoreCase(r.getType())).toList();
+		}
+		if (gameType != null) {
+			rooms = rooms.stream().filter(r -> gameType.equalsIgnoreCase(r.getGameType())).toList();
+		}
+		if (status != null) {
+			rooms = rooms.stream().filter(r -> status.equalsIgnoreCase(r.getStatus())).toList();
+		}
+
+		return new PaginatedResult<>(rooms, roomPage.nextCursor());
 	}
 	
 	public List<ChatRoom> filterByJoinedUser(List<ChatRoom> rooms, String userId) {

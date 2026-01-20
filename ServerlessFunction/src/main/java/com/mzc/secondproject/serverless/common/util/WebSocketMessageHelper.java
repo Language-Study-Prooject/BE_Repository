@@ -13,6 +13,7 @@ public final class WebSocketMessageHelper {
 
 	public static final String DOMAIN_CHAT = "chat";
 	public static final String DOMAIN_GAME = "game";
+	public static final String DOMAIN_ROOM = "room";
 
 	private WebSocketMessageHelper() {
 	}
@@ -105,5 +106,61 @@ public final class WebSocketMessageHelper {
 	 */
 	public static Map<String, Object> buildSystemMessage(String roomId, String content, String messageType) {
 		return buildChatMessage(roomId, "SYSTEM", content, messageType);
+	}
+
+	/**
+	 * 방 상태 변경 메시지 생성
+	 *
+	 * @param roomId         방 ID
+	 * @param status         현재 상태
+	 * @param previousStatus 이전 상태
+	 * @return 방 상태 변경 메시지
+	 */
+	public static Map<String, Object> buildRoomStatusChangeMessage(
+			String roomId,
+			String status,
+			String previousStatus
+	) {
+		String messageId = UUID.randomUUID().toString();
+		String now = Instant.now().toString();
+
+		Map<String, Object> message = new HashMap<>();
+		message.put("domain", DOMAIN_ROOM);
+		message.put("messageType", "room_status_change");
+		message.put("messageId", messageId);
+		message.put("roomId", roomId);
+		message.put("status", status);
+		message.put("previousStatus", previousStatus);
+		message.put("createdAt", now);
+		message.put("timestamp", System.currentTimeMillis());
+		return message;
+	}
+
+	/**
+	 * 방장 변경 메시지 생성
+	 *
+	 * @param roomId           방 ID
+	 * @param newHostId        새 방장 ID
+	 * @param newHostNickname  새 방장 닉네임
+	 * @return 방장 변경 메시지
+	 */
+	public static Map<String, Object> buildHostChangeMessage(
+			String roomId,
+			String newHostId,
+			String newHostNickname
+	) {
+		String messageId = UUID.randomUUID().toString();
+		String now = Instant.now().toString();
+
+		Map<String, Object> message = new HashMap<>();
+		message.put("domain", DOMAIN_ROOM);
+		message.put("messageType", "host_change");
+		message.put("messageId", messageId);
+		message.put("roomId", roomId);
+		message.put("newHostId", newHostId);
+		message.put("newHostNickname", newHostNickname);
+		message.put("createdAt", now);
+		message.put("timestamp", System.currentTimeMillis());
+		return message;
 	}
 }

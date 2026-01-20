@@ -50,6 +50,7 @@ public class GameHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
 		return new HandlerRouter().addRoutes(
 				Route.postAuth("/rooms/{roomId}/game/start", this::startGame),
 				Route.postAuth("/rooms/{roomId}/game/stop", this::stopGame),
+				Route.postAuth("/rooms/{roomId}/game/restart", this::restartGame),
 				Route.getAuth("/rooms/{roomId}/game/status", this::getGameStatus),
 				Route.getAuth("/rooms/{roomId}/game/scores", this::getScores)
 		);
@@ -96,6 +97,25 @@ public class GameHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
 		broadcastSystemMessage(roomId, result.message(), MessageType.GAME_END);
 
 		return ResponseGenerator.ok("Game stopped", Map.of("message", result.message()));
+	}
+
+	/**
+	 * POST /rooms/{roomId}/game/restart - 게임 재시작
+	 */
+	private APIGatewayProxyResponseEvent restartGame(APIGatewayProxyRequestEvent request, String userId) {
+		String roomId = request.getPathParameters().get("roomId");
+
+		GameService.GameStartResult result = gameService.restartGame(roomId, userId);
+
+		if (!result.success()) {
+			return ResponseGenerator.fail(ChattingErrorCode.GAME_START_FAILED, result.error());
+		}
+
+		// WebSocket으로 게임 시작 알림 브로드캐스트
+		broadcastGameStart(roomId, result);
+
+		GameStatusResponse response = GameStatusResponse.from(result.session());
+		return ResponseGenerator.ok("Game restarted", response);
 	}
 
 	/**

@@ -3,6 +3,7 @@ package com.mzc.secondproject.serverless.domain.chatting.service;
 import com.mzc.secondproject.serverless.domain.chatting.dto.response.JoinRoomResponse;
 import com.mzc.secondproject.serverless.domain.chatting.exception.ChattingException;
 import com.mzc.secondproject.serverless.domain.chatting.model.ChatRoom;
+import com.mzc.secondproject.serverless.domain.chatting.model.GameSettings;
 import com.mzc.secondproject.serverless.domain.chatting.model.RoomToken;
 import com.mzc.secondproject.serverless.domain.chatting.repository.ChatRoomRepository;
 import org.mindrot.jbcrypt.BCrypt;
@@ -31,10 +32,11 @@ public class ChatRoomCommandService {
 	}
 	
 	public ChatRoom createRoom(String name, String description, String level, Integer maxMembers,
-	                           Boolean isPrivate, String password, String createdBy) {
+	                           Boolean isPrivate, String password, String createdBy,
+	                           String type, String gameType, GameSettings gameSettings) {
 		String roomId = UUID.randomUUID().toString();
 		String now = Instant.now().toString();
-		
+
 		ChatRoom room = ChatRoom.builder()
 				.pk("ROOM#" + roomId)
 				.sk("METADATA")
@@ -52,11 +54,16 @@ public class ChatRoomCommandService {
 				.createdAt(now)
 				.lastMessageAt(now)
 				.memberIds(new ArrayList<>(List.of(createdBy)))
+				.type(type != null ? type : "CHAT")
+				.gameType(gameType)
+				.gameSettings(gameSettings)
+				.status("WAITING")
+				.hostId(createdBy)
 				.build();
-		
+
 		roomRepository.save(room);
 		logger.info("Created room: {}", roomId);
-		
+
 		return room;
 	}
 	
@@ -102,24 +109,39 @@ public class ChatRoomCommandService {
 		if (optRoom.isEmpty()) {
 			throw ChattingException.roomNotFound(roomId);
 		}
-		
+
 		ChatRoom room = optRoom.get();
-		
+
 		if (room.getMemberIds() != null) {
 			room.getMemberIds().remove(userId);
 			room.setCurrentMembers(Math.max(0, room.getCurrentMembers() - 1));
 		}
-		
-		if (userId.equals(room.getCreatedBy()) || room.getCurrentMembers() <= 0) {
+
+		// 모든 참가자가 나갔으면 방 삭제
+		if (room.getCurrentMembers() <= 0 ||
+			(room.getMemberIds() != null && room.getMemberIds().isEmpty())) {
 			roomRepository.delete(roomId);
-			logger.info("Room {} deleted (owner left or empty)", roomId);
-			return new LeaveResult(true, null);
+			logger.info("Room {} deleted (empty)", roomId);
+			return new LeaveResult(true, null, null);
 		}
-		
+
+		// 방장이 나갔으면 다음 멤버에게 방장 이전
+		String oldHostId = room.getHostId() != null ? room.getHostId() : room.getCreatedBy();
+		String newHostId = null;
+
+		if (userId.equals(oldHostId)) {
+			// 첫 번째 남은 멤버가 새 방장
+			if (room.getMemberIds() != null && !room.getMemberIds().isEmpty()) {
+				newHostId = room.getMemberIds().get(0);
+				room.setHostId(newHostId);
+				logger.info("Host transferred from {} to {} in room {}", oldHostId, newHostId, roomId);
+			}
+		}
+
 		roomRepository.save(room);
 		logger.info("User {} left room {}", userId, roomId);
-		
-		return new LeaveResult(false, room);
+
+		return new LeaveResult(false, room, newHostId);
 	}
 	
 	public void deleteRoom(String roomId, String userId) {
@@ -137,6 +159,6 @@ public class ChatRoomCommandService {
 		logger.info("Deleted room: {} by owner: {}", roomId, userId);
 	}
 	
-	public record LeaveResult(boolean deleted, ChatRoom room) {
+	public record LeaveResult(boolean deleted, ChatRoom room, String newHostId) {
 	}
 }
