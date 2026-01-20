@@ -83,7 +83,7 @@ public class GrammarConversationService {
 			throw GrammarException.invalidSentence(request.getMessage());
 		}
 		if (request.getUserId() == null || request.getUserId().trim().isEmpty()) {
-			throw new IllegalArgumentException("userId is required");
+			throw GrammarException.invalidRequest("userId", "userId는 필수입니다");
 		}
 	}
 	
