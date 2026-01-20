@@ -13,19 +13,19 @@ class BadgeTypeSpec extends Specification {
         BadgeType.fromString(value) == expected
 
         where:
-        value         | expected
-        "FIRST_STEP"  | BadgeType.FIRST_STEP
-        "first_step"  | BadgeType.FIRST_STEP
-        "First_Step"  | BadgeType.FIRST_STEP
-        "STREAK_3"    | BadgeType.STREAK_3
-        "STREAK_7"    | BadgeType.STREAK_7
-        "STREAK_30"   | BadgeType.STREAK_30
-        "WORDS_100"   | BadgeType.WORDS_100
-        "WORDS_500"   | BadgeType.WORDS_500
-        "WORDS_1000"  | BadgeType.WORDS_1000
-        null          | null
-        "INVALID"     | null
-        ""            | null
+        value        | expected
+        "FIRST_STEP" | BadgeType.FIRST_STEP
+        "first_step" | BadgeType.FIRST_STEP
+        "First_Step" | BadgeType.FIRST_STEP
+        "STREAK_3"   | BadgeType.STREAK_3
+        "STREAK_7"   | BadgeType.STREAK_7
+        "STREAK_30"  | BadgeType.STREAK_30
+        "WORDS_100"  | BadgeType.WORDS_100
+        "WORDS_500"  | BadgeType.WORDS_500
+        "WORDS_1000" | BadgeType.WORDS_1000
+        null         | null
+        "INVALID"    | null
+        ""           | null
     }
 
     // ==================== Category Tests ====================
@@ -36,22 +36,22 @@ class BadgeTypeSpec extends Specification {
         badge.getCategory() == expectedCategory
 
         where:
-        badge                       | expectedCategory
-        BadgeType.FIRST_STEP        | "FIRST_STUDY"
-        BadgeType.STREAK_3          | "STREAK"
-        BadgeType.STREAK_7          | "STREAK"
-        BadgeType.STREAK_30         | "STREAK"
-        BadgeType.WORDS_100         | "WORDS_LEARNED"
-        BadgeType.WORDS_500         | "WORDS_LEARNED"
-        BadgeType.WORDS_1000        | "WORDS_LEARNED"
-        BadgeType.PERFECT_SCORE     | "PERFECT_TEST"
-        BadgeType.TEST_10           | "TESTS_COMPLETED"
-        BadgeType.ACCURACY_90       | "ACCURACY"
-        BadgeType.GAME_FIRST_PLAY   | "GAMES_PLAYED"
-        BadgeType.GAME_10_WINS      | "GAMES_WON"
-        BadgeType.QUICK_GUESSER     | "QUICK_GUESSES"
-        BadgeType.PERFECT_DRAWER    | "PERFECT_DRAWS"
-        BadgeType.MASTER            | "ALL_BADGES"
+        badge                     | expectedCategory
+        BadgeType.FIRST_STEP      | "FIRST_STUDY"
+        BadgeType.STREAK_3        | "STREAK"
+        BadgeType.STREAK_7        | "STREAK"
+        BadgeType.STREAK_30       | "STREAK"
+        BadgeType.WORDS_100       | "WORDS_LEARNED"
+        BadgeType.WORDS_500       | "WORDS_LEARNED"
+        BadgeType.WORDS_1000      | "WORDS_LEARNED"
+        BadgeType.PERFECT_SCORE   | "PERFECT_TEST"
+        BadgeType.TEST_10         | "TESTS_COMPLETED"
+        BadgeType.ACCURACY_90     | "ACCURACY"
+        BadgeType.GAME_FIRST_PLAY | "GAMES_PLAYED"
+        BadgeType.GAME_10_WINS    | "GAMES_WON"
+        BadgeType.QUICK_GUESSER   | "QUICK_GUESSES"
+        BadgeType.PERFECT_DRAWER  | "PERFECT_DRAWS"
+        BadgeType.MASTER          | "ALL_BADGES"
     }
 
     // ==================== Threshold Tests ====================
@@ -62,17 +62,17 @@ class BadgeTypeSpec extends Specification {
         badge.getThreshold() == expectedThreshold
 
         where:
-        badge                       | expectedThreshold
-        BadgeType.FIRST_STEP        | 1
-        BadgeType.STREAK_3          | 3
-        BadgeType.STREAK_7          | 7
-        BadgeType.STREAK_30         | 30
-        BadgeType.WORDS_100         | 100
-        BadgeType.WORDS_500         | 500
-        BadgeType.WORDS_1000        | 1000
-        BadgeType.TEST_10           | 10
-        BadgeType.ACCURACY_90       | 90
-        BadgeType.GAME_10_WINS      | 10
+        badge                  | expectedThreshold
+        BadgeType.FIRST_STEP   | 1
+        BadgeType.STREAK_3     | 3
+        BadgeType.STREAK_7     | 7
+        BadgeType.STREAK_30    | 30
+        BadgeType.WORDS_100    | 100
+        BadgeType.WORDS_500    | 500
+        BadgeType.WORDS_1000   | 1000
+        BadgeType.TEST_10      | 10
+        BadgeType.ACCURACY_90  | 90
+        BadgeType.GAME_10_WINS | 10
     }
 
     // ==================== Property Tests ====================
