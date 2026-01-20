@@ -12,6 +12,7 @@ import com.mzc.secondproject.serverless.common.validation.BeanValidator;
 import com.mzc.secondproject.serverless.domain.chatting.dto.request.CreateRoomRequest;
 import com.mzc.secondproject.serverless.domain.chatting.dto.request.JoinRoomRequest;
 import com.mzc.secondproject.serverless.domain.chatting.dto.response.JoinRoomResponse;
+import com.mzc.secondproject.serverless.domain.chatting.dto.response.RoomParticipant;
 import com.mzc.secondproject.serverless.domain.chatting.exception.ChattingErrorCode;
 import com.mzc.secondproject.serverless.domain.chatting.model.ChatRoom;
 import com.mzc.secondproject.serverless.domain.chatting.service.ChatRoomCommandService;
@@ -106,16 +107,25 @@ public class ChatRoomHandler implements RequestHandler<APIGatewayProxyRequestEve
 	
 	private APIGatewayProxyResponseEvent getRoom(APIGatewayProxyRequestEvent request, String userId) {
 		String roomId = request.getPathParameters().get("roomId");
-		
+
 		Optional<ChatRoom> optRoom = queryService.getRoom(roomId);
 		if (optRoom.isEmpty()) {
 			return ResponseGenerator.fail(ChattingErrorCode.ROOM_NOT_FOUND);
 		}
-		
+
 		ChatRoom room = optRoom.get();
 		room.setPassword(null);
-		
-		return ResponseGenerator.ok("Room retrieved", room);
+
+		// 참가자 정보와 방장 닉네임 추가
+		List<RoomParticipant> participants = queryService.getParticipantsWithNicknames(room);
+		String hostNickname = queryService.getHostNickname(room);
+
+		Map<String, Object> result = new HashMap<>();
+		result.put("room", room);
+		result.put("participants", participants);
+		result.put("hostNickname", hostNickname);
+
+		return ResponseGenerator.ok("Room retrieved", result);
 	}
 	
 	private APIGatewayProxyResponseEvent joinRoom(APIGatewayProxyRequestEvent request, String userId) {
