@@ -1,5 +1,6 @@
 package com.mzc.secondproject.serverless.domain.vocabulary.state;
 
+import com.mzc.secondproject.serverless.domain.vocabulary.config.VocabularyConfig;
 import com.mzc.secondproject.serverless.domain.vocabulary.enums.WordStatus;
 
 /**
@@ -9,7 +10,6 @@ import com.mzc.secondproject.serverless.domain.vocabulary.enums.WordStatus;
 public class ReviewingState implements WordState {
 	
 	private static final ReviewingState INSTANCE = new ReviewingState();
-	private static final int TRANSITION_TO_MASTERED_THRESHOLD = 5;
 	
 	private ReviewingState() {
 	}
@@ -24,7 +24,7 @@ public class ReviewingState implements WordState {
 		context.incrementRepetitions();
 		context.updateInterval(context.calculateNextInterval());
 		
-		if (context.getRepetitions() >= TRANSITION_TO_MASTERED_THRESHOLD) {
+		if (context.getRepetitions() >= VocabularyConfig.transitionToMasteredThreshold()) {
 			return MasteredState.getInstance();
 		}
 		return this;

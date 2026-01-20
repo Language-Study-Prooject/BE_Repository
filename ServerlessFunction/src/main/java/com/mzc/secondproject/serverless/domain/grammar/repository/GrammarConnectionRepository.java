@@ -1,6 +1,7 @@
 package com.mzc.secondproject.serverless.domain.grammar.repository;
 
 import com.mzc.secondproject.serverless.common.config.AwsClients;
+import com.mzc.secondproject.serverless.common.config.EnvConfig;
 import com.mzc.secondproject.serverless.domain.grammar.model.GrammarConnection;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -16,7 +17,7 @@ import java.util.Optional;
 public class GrammarConnectionRepository {
 	
 	private static final Logger logger = LoggerFactory.getLogger(GrammarConnectionRepository.class);
-	private static final String TABLE_NAME = System.getenv("CHAT_TABLE_NAME");
+	private static final String TABLE_NAME = EnvConfig.getRequired("CHAT_TABLE_NAME");
 	
 	private final DynamoDbTable<GrammarConnection> table;
 	

@@ -1,6 +1,7 @@
 package com.mzc.secondproject.serverless.domain.chatting.repository;
 
 import com.mzc.secondproject.serverless.common.config.AwsClients;
+import com.mzc.secondproject.serverless.common.config.EnvConfig;
 import com.mzc.secondproject.serverless.domain.chatting.model.GameRound;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -22,7 +23,7 @@ import java.util.stream.Collectors;
 public class GameRoundRepository {
 	
 	private static final Logger logger = LoggerFactory.getLogger(GameRoundRepository.class);
-	private static final String TABLE_NAME = System.getenv("CHAT_TABLE_NAME");
+	private static final String TABLE_NAME = EnvConfig.getRequired("CHAT_TABLE_NAME");
 	private static final int BATCH_SIZE = 25;  // DynamoDB BatchWriteItem 최대 25개
 	
 	private final DynamoDbEnhancedClient enhancedClient;

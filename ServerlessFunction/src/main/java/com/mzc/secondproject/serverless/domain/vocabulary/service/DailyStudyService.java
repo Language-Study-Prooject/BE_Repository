@@ -1,6 +1,7 @@
 package com.mzc.secondproject.serverless.domain.vocabulary.service;
 
 import com.mzc.secondproject.serverless.common.dto.PaginatedResult;
+import com.mzc.secondproject.serverless.domain.vocabulary.config.VocabularyConfig;
 import com.mzc.secondproject.serverless.domain.vocabulary.model.DailyStudy;
 import com.mzc.secondproject.serverless.domain.vocabulary.model.UserWord;
 import com.mzc.secondproject.serverless.domain.vocabulary.model.Word;
@@ -18,9 +19,6 @@ import java.util.stream.Collectors;
 public class DailyStudyService {
 	
 	private static final Logger logger = LoggerFactory.getLogger(DailyStudyService.class);
-	
-	private static final int NEW_WORDS_COUNT = 50;
-	private static final int REVIEW_WORDS_COUNT = 5;
 	
 	private final DailyStudyRepository dailyStudyRepository;
 	private final UserWordRepository userWordRepository;
@@ -87,12 +85,12 @@ public class DailyStudyService {
 	private DailyStudy createDailyStudy(String userId, String date, String level) {
 		String now = Instant.now().toString();
 		
-		PaginatedResult<UserWord> reviewPage = userWordRepository.findReviewDueWords(userId, date, REVIEW_WORDS_COUNT, null);
+		PaginatedResult<UserWord> reviewPage = userWordRepository.findReviewDueWords(userId, date, VocabularyConfig.reviewWordsCount(), null);
 		List<String> reviewWordIds = reviewPage.items().stream()
 				.map(UserWord::getWordId)
 				.collect(Collectors.toList());
 		
-		List<String> newWordIds = getNewWordsForUser(userId, level, NEW_WORDS_COUNT);
+		List<String> newWordIds = getNewWordsForUser(userId, level, VocabularyConfig.newWordsCount());
 		
 		DailyStudy dailyStudy = DailyStudy.builder()
 				.pk("DAILY#" + userId)

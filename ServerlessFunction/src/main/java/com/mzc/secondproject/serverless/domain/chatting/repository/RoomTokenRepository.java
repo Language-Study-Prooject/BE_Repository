@@ -1,6 +1,7 @@
 package com.mzc.secondproject.serverless.domain.chatting.repository;
 
 import com.mzc.secondproject.serverless.common.config.AwsClients;
+import com.mzc.secondproject.serverless.common.config.EnvConfig;
 import com.mzc.secondproject.serverless.domain.chatting.model.RoomToken;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -13,7 +14,7 @@ import java.util.Optional;
 public class RoomTokenRepository {
 	
 	private static final Logger logger = LoggerFactory.getLogger(RoomTokenRepository.class);
-	private static final String TABLE_NAME = System.getenv("CHAT_TABLE_NAME");
+	private static final String TABLE_NAME = EnvConfig.getRequired("CHAT_TABLE_NAME");
 	
 	private final DynamoDbTable<RoomToken> table;
 	

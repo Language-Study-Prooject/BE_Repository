@@ -1,6 +1,7 @@
 package com.mzc.secondproject.serverless.domain.vocabulary.state;
 
 import com.mzc.secondproject.serverless.common.config.StudyConfig;
+import com.mzc.secondproject.serverless.domain.vocabulary.config.VocabularyConfig;
 import com.mzc.secondproject.serverless.domain.vocabulary.enums.WordStatus;
 
 /**
@@ -10,8 +11,6 @@ import com.mzc.secondproject.serverless.domain.vocabulary.enums.WordStatus;
 public class LearningState implements WordState {
 	
 	private static final LearningState INSTANCE = new LearningState();
-	private static final int TRANSITION_TO_REVIEWING_THRESHOLD = 2;
-	private static final int SECOND_INTERVAL_DAYS = 6;
 	
 	private LearningState() {
 	}
@@ -29,12 +28,12 @@ public class LearningState implements WordState {
 		if (repetitions == 1) {
 			context.updateInterval(StudyConfig.INITIAL_INTERVAL_DAYS);
 		} else if (repetitions == 2) {
-			context.updateInterval(SECOND_INTERVAL_DAYS);
+			context.updateInterval(VocabularyConfig.secondIntervalDays());
 		} else {
 			context.updateInterval(context.calculateNextInterval());
 		}
 		
-		if (repetitions >= TRANSITION_TO_REVIEWING_THRESHOLD) {
+		if (repetitions >= VocabularyConfig.transitionToReviewingThreshold()) {
 			return ReviewingState.getInstance();
 		}
 		return this;
