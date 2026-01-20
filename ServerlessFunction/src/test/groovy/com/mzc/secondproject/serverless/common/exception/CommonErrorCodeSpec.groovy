@@ -14,22 +14,22 @@ class CommonErrorCodeSpec extends Specification {
         !errorCode.getMessage().isEmpty()
 
         where:
-        errorCode                                   | expectedCode       | expectedStatusCode
-        CommonErrorCode.UNAUTHORIZED                | "AUTH_001"         | 401
-        CommonErrorCode.FORBIDDEN                   | "AUTH_002"         | 403
-        CommonErrorCode.INVALID_TOKEN               | "AUTH_003"         | 401
-        CommonErrorCode.TOKEN_EXPIRED               | "AUTH_004"         | 401
-        CommonErrorCode.INVALID_INPUT               | "VALIDATION_001"   | 400
-        CommonErrorCode.REQUIRED_FIELD_MISSING      | "VALIDATION_002"   | 400
-        CommonErrorCode.INVALID_FORMAT              | "VALIDATION_003"   | 400
-        CommonErrorCode.VALUE_OUT_OF_RANGE          | "VALIDATION_004"   | 400
-        CommonErrorCode.RESOURCE_NOT_FOUND          | "RESOURCE_001"     | 404
-        CommonErrorCode.METHOD_NOT_ALLOWED          | "RESOURCE_003"     | 405
-        CommonErrorCode.RESOURCE_ALREADY_EXISTS     | "RESOURCE_002"     | 409
-        CommonErrorCode.INTERNAL_SERVER_ERROR       | "SYSTEM_001"       | 500
-        CommonErrorCode.DATABASE_ERROR              | "SYSTEM_002"       | 500
-        CommonErrorCode.EXTERNAL_API_ERROR          | "SYSTEM_003"       | 502
-        CommonErrorCode.SERVICE_UNAVAILABLE         | "SYSTEM_004"       | 503
+        errorCode                               | expectedCode     | expectedStatusCode
+        CommonErrorCode.UNAUTHORIZED            | "AUTH_001"       | 401
+        CommonErrorCode.FORBIDDEN               | "AUTH_002"       | 403
+        CommonErrorCode.INVALID_TOKEN           | "AUTH_003"       | 401
+        CommonErrorCode.TOKEN_EXPIRED           | "AUTH_004"       | 401
+        CommonErrorCode.INVALID_INPUT           | "VALIDATION_001" | 400
+        CommonErrorCode.REQUIRED_FIELD_MISSING  | "VALIDATION_002" | 400
+        CommonErrorCode.INVALID_FORMAT          | "VALIDATION_003" | 400
+        CommonErrorCode.VALUE_OUT_OF_RANGE      | "VALIDATION_004" | 400
+        CommonErrorCode.RESOURCE_NOT_FOUND      | "RESOURCE_001"   | 404
+        CommonErrorCode.METHOD_NOT_ALLOWED      | "RESOURCE_003"   | 405
+        CommonErrorCode.RESOURCE_ALREADY_EXISTS | "RESOURCE_002"   | 409
+        CommonErrorCode.INTERNAL_SERVER_ERROR   | "SYSTEM_001"     | 500
+        CommonErrorCode.DATABASE_ERROR          | "SYSTEM_002"     | 500
+        CommonErrorCode.EXTERNAL_API_ERROR      | "SYSTEM_003"     | 502
+        CommonErrorCode.SERVICE_UNAVAILABLE     | "SYSTEM_004"     | 503
     }
 
     def "인증 관련 에러 코드들은 4xx"() {
