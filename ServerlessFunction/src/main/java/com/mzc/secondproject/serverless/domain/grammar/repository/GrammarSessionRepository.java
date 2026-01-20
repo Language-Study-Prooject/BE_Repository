@@ -1,6 +1,7 @@
 package com.mzc.secondproject.serverless.domain.grammar.repository;
 
 import com.mzc.secondproject.serverless.common.config.AwsClients;
+import com.mzc.secondproject.serverless.common.config.EnvConfig;
 import com.mzc.secondproject.serverless.common.dto.PaginatedResult;
 import com.mzc.secondproject.serverless.common.util.CursorUtil;
 import com.mzc.secondproject.serverless.domain.grammar.constants.GrammarKey;
@@ -23,7 +24,7 @@ import java.util.Optional;
 public class GrammarSessionRepository {
 	
 	private static final Logger logger = LoggerFactory.getLogger(GrammarSessionRepository.class);
-	private static final String TABLE_NAME = System.getenv("CHAT_TABLE_NAME");
+	private static final String TABLE_NAME = EnvConfig.getRequired("CHAT_TABLE_NAME");
 	
 	private final DynamoDbTable<GrammarSession> sessionTable;
 	private final DynamoDbTable<GrammarMessage> messageTable;
