@@ -16,6 +16,7 @@ import com.mzc.secondproject.serverless.domain.chatting.repository.ConnectionRep
 import com.mzc.secondproject.serverless.domain.chatting.service.ChatMessageService;
 import com.mzc.secondproject.serverless.domain.chatting.service.CommandService;
 import com.mzc.secondproject.serverless.domain.chatting.service.GameService;
+import com.mzc.secondproject.serverless.domain.vocabulary.model.Word;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -362,12 +363,11 @@ public class WebSocketMessageHandler implements RequestHandler<Map<String, Objec
 			message.put("roundTimeLimit", gameResult.room().getRoundTimeLimit());
 			message.put("roundStartTime", gameResult.room().getRoundStartTime());
 
-			// 출제자에게만 제시어 전송
+			// 출제자에게만 제시어 전송 (영어 단어만)
 			if (conn.getUserId().equals(currentDrawerId) && gameResult.firstWord() != null) {
 				Map<String, String> wordInfo = new HashMap<>();
 				wordInfo.put("wordId", gameResult.firstWord().getWordId());
-				wordInfo.put("korean", gameResult.firstWord().getKorean());
-				wordInfo.put("english", gameResult.firstWord().getEnglish());
+				wordInfo.put("word", gameResult.firstWord().getEnglish());  // 영어 단어만 전송
 				message.put("currentWord", wordInfo);
 			}
 
@@ -390,6 +390,7 @@ public class WebSocketMessageHandler implements RequestHandler<Map<String, Objec
 
 		Map<String, Object> data = (Map<String, Object>) result.data();
 		String nextDrawer = (String) data.get("nextDrawer");
+		Word nextWord = (Word) data.get("nextWord");
 
 		for (Connection conn : connections) {
 			Map<String, Object> message = new HashMap<>();
@@ -399,17 +400,20 @@ public class WebSocketMessageHandler implements RequestHandler<Map<String, Objec
 			message.put("content", result.message());
 			message.put("messageType", result.messageType().getCode());
 			message.put("createdAt", now);
-			message.put("data", data);
 
-			// 다음 출제자에게만 다음 제시어 전송
-			if (conn.getUserId().equals(nextDrawer) && data.containsKey("nextWord")) {
-				// nextWord는 이미 data에 포함되어 있음
-			} else {
-				// 다음 출제자가 아니면 nextWord 제거
-				Map<String, Object> filteredData = new HashMap<>(data);
-				filteredData.remove("nextWord");
-				message.put("data", filteredData);
+			// 기본 데이터 복사 (nextWord 제외)
+			Map<String, Object> messageData = new HashMap<>(data);
+			messageData.remove("nextWord");
+
+			// 다음 출제자에게만 다음 제시어 전송 (영어 단어만)
+			if (conn.getUserId().equals(nextDrawer) && nextWord != null) {
+				Map<String, String> wordInfo = new HashMap<>();
+				wordInfo.put("wordId", nextWord.getWordId());
+				wordInfo.put("word", nextWord.getEnglish());  // 영어 단어만 전송
+				messageData.put("nextWord", wordInfo);
 			}
+
+			message.put("data", messageData);
 
 			String payload = gson.toJson(message);
 			try {
