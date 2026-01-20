@@ -12,8 +12,10 @@ import com.mzc.secondproject.serverless.domain.chatting.dto.response.ScoreUpdate
 import com.mzc.secondproject.serverless.domain.chatting.enums.MessageType;
 import com.mzc.secondproject.serverless.domain.chatting.model.ChatMessage;
 import com.mzc.secondproject.serverless.domain.chatting.model.Connection;
+import com.mzc.secondproject.serverless.domain.chatting.model.GameSession;
 import com.mzc.secondproject.serverless.domain.chatting.repository.ChatRoomRepository;
 import com.mzc.secondproject.serverless.domain.chatting.repository.ConnectionRepository;
+import com.mzc.secondproject.serverless.domain.chatting.repository.GameSessionRepository;
 import com.mzc.secondproject.serverless.domain.chatting.service.ChatMessageService;
 import com.mzc.secondproject.serverless.domain.chatting.service.CommandService;
 import com.mzc.secondproject.serverless.domain.chatting.service.GameService;
@@ -38,14 +40,16 @@ public class WebSocketMessageHandler implements RequestHandler<Map<String, Objec
 	private final ChatMessageService chatMessageService;
 	private final ChatRoomRepository chatRoomRepository;
 	private final ConnectionRepository connectionRepository;
+	private final GameSessionRepository gameSessionRepository;
 	private final WebSocketBroadcaster broadcaster;
 	private final CommandService commandService;
 	private final GameService gameService;
-	
+
 	public WebSocketMessageHandler() {
 		this.chatMessageService = new ChatMessageService();
 		this.chatRoomRepository = new ChatRoomRepository();
 		this.connectionRepository = new ConnectionRepository();
+		this.gameSessionRepository = new GameSessionRepository();
 		this.broadcaster = new WebSocketBroadcaster();
 		this.commandService = new CommandService();
 		this.gameService = new GameService();
@@ -227,23 +231,23 @@ public class WebSocketMessageHandler implements RequestHandler<Map<String, Objec
 	 */
 	private Map<String, Object> handleCorrectAnswer(MessagePayload payload, GameService.AnswerCheckResult result) {
 		List<Connection> connections = connectionRepository.findByRoomId(payload.roomId);
-		
+
 		// 1. 정답 알림 메시지 브로드캐스트
 		broadcastCorrectAnswerMessage(payload, result, connections);
-		
+
 		// 2. 점수 업데이트 메시지 브로드캐스트 (실시간 리더보드)
-		chatRoomRepository.findById(payload.roomId).ifPresent(room -> {
+		gameSessionRepository.findActiveByRoomId(payload.roomId).ifPresent(session -> {
 			broadcastScoreUpdate(payload.roomId, payload.userId, result.score(),
-					result.scores(), room.getCurrentRound(), room.getTotalRounds(), connections);
+					result.scores(), session.getCurrentRound(), session.getTotalRounds(), connections);
 		});
-		
+
 		logger.info("Correct answer: roomId={}, userId={}, score={}", payload.roomId, payload.userId, result.score());
-		
+
 		// 전원 정답 시 라운드 종료 처리
 		if (result.allCorrect()) {
 			handleAllCorrect(payload.roomId);
 		}
-		
+
 		return WebSocketEventUtil.ok("Correct answer");
 	}
 	
@@ -310,10 +314,10 @@ public class WebSocketMessageHandler implements RequestHandler<Map<String, Objec
 	 * 전원 정답 시 라운드 종료
 	 */
 	private void handleAllCorrect(String roomId) {
-		chatRoomRepository.findById(roomId).ifPresent(room -> {
-			CommandResult endResult = gameService.endRound(room, "ALL_CORRECT");
+		CommandResult endResult = gameService.endRound(roomId, "ALL_CORRECT");
+		if (endResult != null && !endResult.message().contains("진행 중인 게임이 없습니다")) {
 			handleCommandResult(endResult, roomId, "SYSTEM");
-		});
+		}
 	}
 	
 	/**
@@ -368,7 +372,8 @@ public class WebSocketMessageHandler implements RequestHandler<Map<String, Objec
 		String now = Instant.now().toString();
 		long serverTime = System.currentTimeMillis();
 
-		String currentDrawerId = gameResult.room().getCurrentDrawerId();
+		GameSession session = gameResult.session();
+		String currentDrawerId = session.getCurrentDrawerId();
 
 		for (Connection conn : connections) {
 			Map<String, Object> message = new HashMap<>();
@@ -382,16 +387,16 @@ public class WebSocketMessageHandler implements RequestHandler<Map<String, Objec
 			message.put("timestamp", serverTime);
 
 			// 게임 상태 정보
-			message.put("gameStatus", gameResult.room().getGameStatus());
-			message.put("currentRound", gameResult.room().getCurrentRound());
-			message.put("totalRounds", gameResult.room().getTotalRounds());
+			message.put("gameStatus", session.getStatus());
+			message.put("currentRound", session.getCurrentRound());
+			message.put("totalRounds", session.getTotalRounds());
 			message.put("currentDrawerId", currentDrawerId);
 			message.put("drawerOrder", gameResult.drawerOrder());
 
 			// 타이머 동기화용 필드 (핵심!)
-			message.put("roundStartTime", gameResult.room().getRoundStartTime());
+			message.put("roundStartTime", session.getRoundStartTime());
 			message.put("serverTime", serverTime);
-			message.put("roundDuration", gameResult.room().getRoundTimeLimit());
+			message.put("roundDuration", session.getRoundDuration());
 
 			// 출제자에게만 제시어 전송
 			if (conn.getUserId().equals(currentDrawerId) && gameResult.firstWord() != null) {
