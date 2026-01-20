@@ -56,12 +56,12 @@ public class BedrockGrammarCheckFactory implements GrammarCheckFactory {
 			
 			String responseBody = response.body().asUtf8String();
 			JsonObject jsonResponse = gson.fromJson(responseBody, JsonObject.class);
-
+			
 			String content = extractContentFromResponse(jsonResponse);
-
+			
 			long processingTime = System.currentTimeMillis() - startTime;
 			logger.info("Grammar check completed in {}ms", processingTime);
-
+			
 			return parseGrammarResponse(sentence, content);
 			
 		} catch (GrammarException e) {
@@ -186,7 +186,7 @@ public class BedrockGrammarCheckFactory implements GrammarCheckFactory {
 		}
 		return element.getAsInt();
 	}
-
+	
 	private String getStringOrDefault(JsonObject obj, String key, String defaultValue) {
 		JsonElement element = obj.get(key);
 		if (element == null || element.isJsonNull()) {
@@ -194,7 +194,7 @@ public class BedrockGrammarCheckFactory implements GrammarCheckFactory {
 		}
 		return element.getAsString();
 	}
-
+	
 	private int getIntOrDefault(JsonObject obj, String key, int defaultValue) {
 		JsonElement element = obj.get(key);
 		if (element == null || element.isJsonNull()) {
@@ -202,7 +202,7 @@ public class BedrockGrammarCheckFactory implements GrammarCheckFactory {
 		}
 		return element.getAsInt();
 	}
-
+	
 	private boolean getBooleanOrDefault(JsonObject obj, String key, boolean defaultValue) {
 		JsonElement element = obj.get(key);
 		if (element == null || element.isJsonNull()) {
@@ -210,7 +210,7 @@ public class BedrockGrammarCheckFactory implements GrammarCheckFactory {
 		}
 		return element.getAsBoolean();
 	}
-
+	
 	private String extractContentFromResponse(JsonObject jsonResponse) {
 		JsonArray contentArray = jsonResponse.getAsJsonArray("content");
 		if (contentArray == null || contentArray.isEmpty()) {
@@ -249,12 +249,12 @@ public class BedrockGrammarCheckFactory implements GrammarCheckFactory {
 			
 			String responseBody = response.body().asUtf8String();
 			JsonObject jsonResponse = gson.fromJson(responseBody, JsonObject.class);
-
+			
 			String content = extractContentFromResponse(jsonResponse);
-
+			
 			long processingTime = System.currentTimeMillis() - startTime;
 			logger.info("Conversation generated in {}ms", processingTime);
-
+			
 			return parseConversationResponse(sessionId, message, content);
 			
 		} catch (GrammarException e) {
@@ -343,7 +343,7 @@ public class BedrockGrammarCheckFactory implements GrammarCheckFactory {
 		try {
 			String jsonContent = extractJson(aiResponse);
 			JsonObject json = gson.fromJson(jsonContent, JsonObject.class);
-
+			
 			JsonObject grammarCheckObj = json.getAsJsonObject("grammarCheck");
 			GrammarCheckResponse grammarCheck;
 			if (grammarCheckObj != null) {
@@ -358,17 +358,17 @@ public class BedrockGrammarCheckFactory implements GrammarCheckFactory {
 						.feedback("Perfect!")
 						.build();
 			}
-
+			
 			String conversationResponse = getStringOrDefault(json, "aiResponse", "");
 			String tip = getStringOrDefault(json, "conversationTip", "");
-
+			
 			return ConversationResponse.builder()
 					.sessionId(sessionId)
 					.grammarCheck(grammarCheck)
 					.aiResponse(conversationResponse)
 					.conversationTip(tip)
 					.build();
-
+			
 		} catch (GrammarException e) {
 			throw e;
 		} catch (Exception e) {
@@ -386,7 +386,7 @@ public class BedrockGrammarCheckFactory implements GrammarCheckFactory {
 		int score = getIntOrDefault(json, "score", 100);
 		boolean isCorrect = getBooleanOrDefault(json, "isCorrect", true);
 		String feedback = getStringOrDefault(json, "feedback", "");
-
+		
 		List<GrammarError> errors = new ArrayList<>();
 		JsonArray errorsArray = json.getAsJsonArray("errors");
 		if (errorsArray != null) {
@@ -403,7 +403,7 @@ public class BedrockGrammarCheckFactory implements GrammarCheckFactory {
 				errors.add(error);
 			}
 		}
-
+		
 		return GrammarCheckResponse.builder()
 				.originalSentence(originalSentence)
 				.correctedSentence(correctedSentence)
