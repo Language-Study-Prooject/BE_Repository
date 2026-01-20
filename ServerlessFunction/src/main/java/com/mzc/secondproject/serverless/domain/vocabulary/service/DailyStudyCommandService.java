@@ -5,6 +5,7 @@ import com.mzc.secondproject.serverless.common.enums.StudyLevel;
 import com.mzc.secondproject.serverless.domain.badge.service.BadgeService;
 import com.mzc.secondproject.serverless.domain.stats.model.UserStats;
 import com.mzc.secondproject.serverless.domain.stats.repository.UserStatsRepository;
+import com.mzc.secondproject.serverless.domain.vocabulary.config.VocabularyConfig;
 import com.mzc.secondproject.serverless.domain.vocabulary.constants.VocabKey;
 import com.mzc.secondproject.serverless.domain.vocabulary.exception.VocabularyException;
 import com.mzc.secondproject.serverless.domain.vocabulary.model.DailyStudy;
@@ -27,9 +28,6 @@ import java.util.stream.Collectors;
 public class DailyStudyCommandService {
 	
 	private static final Logger logger = LoggerFactory.getLogger(DailyStudyCommandService.class);
-	
-	private static final int NEW_WORDS_COUNT = 50;
-	private static final int REVIEW_WORDS_COUNT = 5;
 	
 	private final DailyStudyRepository dailyStudyRepository;
 	private final UserWordRepository userWordRepository;
@@ -116,12 +114,12 @@ public class DailyStudyCommandService {
 	private DailyStudy createDailyStudy(String userId, String date, String level) {
 		String now = Instant.now().toString();
 		
-		PaginatedResult<UserWord> reviewPage = userWordRepository.findReviewDueWords(userId, date, REVIEW_WORDS_COUNT, null);
+		PaginatedResult<UserWord> reviewPage = userWordRepository.findReviewDueWords(userId, date, VocabularyConfig.reviewWordsCount(), null);
 		List<String> reviewWordIds = reviewPage.items().stream()
 				.map(UserWord::getWordId)
 				.collect(Collectors.toList());
 		
-		List<String> newWordIds = getNewWordsForUser(userId, level, NEW_WORDS_COUNT);
+		List<String> newWordIds = getNewWordsForUser(userId, level, VocabularyConfig.newWordsCount());
 		
 		DailyStudy dailyStudy = DailyStudy.builder()
 				.pk(VocabKey.dailyPk(userId))

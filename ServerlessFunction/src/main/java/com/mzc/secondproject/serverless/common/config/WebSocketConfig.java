@@ -12,23 +12,11 @@ public final class WebSocketConfig {
 	// 기본값
 	private static final long DEFAULT_CONNECTION_TTL_SECONDS = 600L; // 10분
 	// 캐시된 값 (Cold Start 최적화)
-	private static final long CONNECTION_TTL_SECONDS = parseConnectionTtl();
-	private static final String WEBSOCKET_ENDPOINT = System.getenv(ENV_WEBSOCKET_ENDPOINT);
+	private static final long CONNECTION_TTL_SECONDS = EnvConfig.getLongOrDefault(ENV_CONNECTION_TTL_SECONDS, DEFAULT_CONNECTION_TTL_SECONDS);
+	private static final String WEBSOCKET_ENDPOINT = EnvConfig.getRequired(ENV_WEBSOCKET_ENDPOINT);
 	
 	private WebSocketConfig() {
 		// 인스턴스화 방지
-	}
-	
-	private static long parseConnectionTtl() {
-		String value = System.getenv(ENV_CONNECTION_TTL_SECONDS);
-		if (value != null) {
-			try {
-				return Long.parseLong(value);
-			} catch (NumberFormatException ignored) {
-				// 파싱 실패 시 기본값 사용
-			}
-		}
-		return DEFAULT_CONNECTION_TTL_SECONDS;
 	}
 	
 	/**

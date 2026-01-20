@@ -2,6 +2,7 @@ package com.mzc.secondproject.serverless.domain.chatting.service;
 
 import com.mzc.secondproject.serverless.domain.badge.model.UserBadge;
 import com.mzc.secondproject.serverless.domain.badge.service.BadgeService;
+import com.mzc.secondproject.serverless.domain.chatting.config.GameConfig;
 import com.mzc.secondproject.serverless.domain.chatting.model.ChatRoom;
 import com.mzc.secondproject.serverless.domain.chatting.model.GameRound;
 import com.mzc.secondproject.serverless.domain.chatting.repository.GameRoundRepository;
@@ -18,7 +19,6 @@ import java.util.*;
 public class GameStatsService {
 	
 	private static final Logger logger = LoggerFactory.getLogger(GameStatsService.class);
-	private static final long QUICK_GUESS_THRESHOLD_MS = 5000; // 5초
 	
 	private final UserStatsRepository userStatsRepository;
 	private final GameRoundRepository gameRoundRepository;
@@ -83,7 +83,7 @@ public class GameStatsService {
 				// 빠른 정답 체크 (5초 이내)
 				if (round.getGuessTimes() != null) {
 					Long guessTime = round.getGuessTimes().get(userId);
-					if (guessTime != null && guessTime <= QUICK_GUESS_THRESHOLD_MS) {
+					if (guessTime != null && guessTime <= GameConfig.quickGuessThresholdMs()) {
 						quickGuesses++;
 					}
 				}
@@ -123,7 +123,7 @@ public class GameStatsService {
 	 * 정답 시 즉시 통계 업데이트 (빠른 정답 뱃지용)
 	 */
 	public List<UserBadge> updateOnCorrectAnswer(String userId, long elapsedTimeMs) {
-		if (elapsedTimeMs > QUICK_GUESS_THRESHOLD_MS) {
+		if (elapsedTimeMs > GameConfig.quickGuessThresholdMs()) {
 			return List.of();
 		}
 		
