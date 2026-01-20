@@ -383,7 +383,10 @@ public class GameService {
 		data.put("ranking", ranking);
 		data.put("currentRound", currentRound);
 		data.put("totalRounds", room.getTotalRounds());
-		
+		// 타이머 동기화용 필드 추가
+		data.put("roundStartTime", room.getRoundStartTime());
+		data.put("roundDuration", room.getRoundTimeLimit() != null ? room.getRoundTimeLimit() : GameConfig.roundTimeLimit());
+
 		return CommandResult.success(MessageType.ROUND_END, message, data);
 	}
 	
