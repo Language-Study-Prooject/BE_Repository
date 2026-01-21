@@ -24,12 +24,26 @@ public class StatsService {
 	private final DailyStudyRepository dailyStudyRepository;
 	private final TestResultRepository testResultRepository;
 	private final WordRepository wordRepository;
-	
+
+	/**
+	 * 기본 생성자 (Lambda에서 사용)
+	 */
 	public StatsService() {
-		this.userWordRepository = new UserWordRepository();
-		this.dailyStudyRepository = new DailyStudyRepository();
-		this.testResultRepository = new TestResultRepository();
-		this.wordRepository = new WordRepository();
+		this(new UserWordRepository(), new DailyStudyRepository(),
+				new TestResultRepository(), new WordRepository());
+	}
+
+	/**
+	 * 의존성 주입 생성자 (테스트 용이성)
+	 */
+	public StatsService(UserWordRepository userWordRepository,
+	                    DailyStudyRepository dailyStudyRepository,
+	                    TestResultRepository testResultRepository,
+	                    WordRepository wordRepository) {
+		this.userWordRepository = userWordRepository;
+		this.dailyStudyRepository = dailyStudyRepository;
+		this.testResultRepository = testResultRepository;
+		this.wordRepository = wordRepository;
 	}
 	
 	public Map<String, Object> getOverallStats(String userId) {

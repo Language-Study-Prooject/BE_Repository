@@ -28,9 +28,19 @@ public class WordGroupHandler implements RequestHandler<APIGatewayProxyRequestEv
 	private final WordGroupQueryService queryService;
 	private final HandlerRouter router;
 	
+	/**
+	 * 기본 생성자 (Lambda에서 사용)
+	 */
 	public WordGroupHandler() {
-		this.commandService = new WordGroupCommandService();
-		this.queryService = new WordGroupQueryService();
+		this(new WordGroupCommandService(), new WordGroupQueryService());
+	}
+
+	/**
+	 * 의존성 주입 생성자 (테스트 용이성)
+	 */
+	public WordGroupHandler(WordGroupCommandService commandService, WordGroupQueryService queryService) {
+		this.commandService = commandService;
+		this.queryService = queryService;
 		this.router = initRouter();
 	}
 	

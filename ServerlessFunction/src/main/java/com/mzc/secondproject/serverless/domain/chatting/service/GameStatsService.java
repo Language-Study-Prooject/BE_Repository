@@ -23,11 +23,23 @@ public class GameStatsService {
 	private final UserStatsRepository userStatsRepository;
 	private final GameRoundRepository gameRoundRepository;
 	private final BadgeService badgeService;
-	
+
+	/**
+	 * 기본 생성자 (Lambda에서 사용)
+	 */
 	public GameStatsService() {
-		this.userStatsRepository = new UserStatsRepository();
-		this.gameRoundRepository = new GameRoundRepository();
-		this.badgeService = new BadgeService();
+		this(new UserStatsRepository(), new GameRoundRepository(), new BadgeService());
+	}
+
+	/**
+	 * 의존성 주입 생성자 (테스트 용이성)
+	 */
+	public GameStatsService(UserStatsRepository userStatsRepository,
+	                        GameRoundRepository gameRoundRepository,
+	                        BadgeService badgeService) {
+		this.userStatsRepository = userStatsRepository;
+		this.gameRoundRepository = gameRoundRepository;
+		this.badgeService = badgeService;
 	}
 	
 	/**

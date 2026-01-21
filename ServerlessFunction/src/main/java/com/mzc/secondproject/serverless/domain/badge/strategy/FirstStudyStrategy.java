@@ -1,0 +1,25 @@
+package com.mzc.secondproject.serverless.domain.badge.strategy;
+
+import com.mzc.secondproject.serverless.domain.badge.enums.BadgeType;
+import com.mzc.secondproject.serverless.domain.stats.model.UserStats;
+
+/**
+ * 첫 학습 뱃지 조건 전략
+ */
+public class FirstStudyStrategy implements BadgeConditionStrategy {
+
+	@Override
+	public boolean checkCondition(BadgeType type, UserStats stats) {
+		return stats.getTestsCompleted() != null && stats.getTestsCompleted() >= 1;
+	}
+
+	@Override
+	public int calculateProgress(BadgeType type, UserStats stats) {
+		return (stats.getTestsCompleted() != null && stats.getTestsCompleted() >= 1) ? 1 : 0;
+	}
+
+	@Override
+	public String getCategory() {
+		return "FIRST_STUDY";
+	}
+}

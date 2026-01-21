@@ -37,12 +37,27 @@ public class ChatRoomCommandService {
 	private final WebSocketBroadcaster broadcaster;
 	private final UserRepository userRepository;
 
+	/**
+	 * 기본 생성자 (Lambda에서 사용)
+	 */
 	public ChatRoomCommandService() {
-		this.roomRepository = new ChatRoomRepository();
-		this.roomTokenService = new RoomTokenService();
-		this.connectionRepository = new ConnectionRepository();
-		this.broadcaster = new WebSocketBroadcaster();
-		this.userRepository = new UserRepository();
+		this(new ChatRoomRepository(), new RoomTokenService(), new ConnectionRepository(),
+				new WebSocketBroadcaster(), new UserRepository());
+	}
+
+	/**
+	 * 의존성 주입 생성자 (테스트 용이성)
+	 */
+	public ChatRoomCommandService(ChatRoomRepository roomRepository,
+	                              RoomTokenService roomTokenService,
+	                              ConnectionRepository connectionRepository,
+	                              WebSocketBroadcaster broadcaster,
+	                              UserRepository userRepository) {
+		this.roomRepository = roomRepository;
+		this.roomTokenService = roomTokenService;
+		this.connectionRepository = connectionRepository;
+		this.broadcaster = broadcaster;
+		this.userRepository = userRepository;
 	}
 	
 	public ChatRoom createRoom(String name, String description, String level, Integer maxMembers,

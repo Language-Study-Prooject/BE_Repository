@@ -31,10 +31,21 @@ public class GameAutoCloseHandler implements RequestHandler<Map<String, String>,
 	private final ConnectionRepository connectionRepository;
 	private final WebSocketBroadcaster broadcaster;
 
+	/**
+	 * 기본 생성자 (Lambda에서 사용)
+	 */
 	public GameAutoCloseHandler() {
-		this.gameService = new GameService();
-		this.connectionRepository = new ConnectionRepository();
-		this.broadcaster = new WebSocketBroadcaster();
+		this(new GameService(), new ConnectionRepository(), new WebSocketBroadcaster());
+	}
+
+	/**
+	 * 의존성 주입 생성자 (테스트 용이성)
+	 */
+	public GameAutoCloseHandler(GameService gameService, ConnectionRepository connectionRepository,
+								WebSocketBroadcaster broadcaster) {
+		this.gameService = gameService;
+		this.connectionRepository = connectionRepository;
+		this.broadcaster = broadcaster;
 	}
 
 	@Override
