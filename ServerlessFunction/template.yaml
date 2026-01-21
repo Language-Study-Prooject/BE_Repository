@@ -458,6 +458,8 @@ Resources:
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref ChatTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref VocabTable
         - Statement:
             - Effect: Allow
               Action:

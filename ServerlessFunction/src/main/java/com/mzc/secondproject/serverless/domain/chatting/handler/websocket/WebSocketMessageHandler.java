@@ -78,6 +78,7 @@ public class WebSocketMessageHandler implements RequestHandler<Map<String, Objec
 			// 메시지 타입별 처리
 			return switch (messageType.toUpperCase()) {
 				case "DRAWING", "DRAWING_CLEAR" -> handleDrawingMessage(connectionId, payload, messageType);
+				case "ROUND_TIMEOUT" -> handleRoundTimeout(payload);
 				default -> handleRegularMessage(connectionId, payload, messageType);
 			};
 			
@@ -318,6 +319,42 @@ public class WebSocketMessageHandler implements RequestHandler<Map<String, Objec
 		if (endResult != null && !endResult.message().contains("진행 중인 게임이 없습니다")) {
 			handleCommandResult(endResult, roomId, "SYSTEM");
 		}
+	}
+
+	/**
+	 * 라운드 타임아웃 처리 (프론트엔드에서 타이머 만료 시 호출)
+	 * - 실제 라운드 시간이 만료되었는지 서버에서 검증
+	 * - 검증 통과 시 라운드 종료 및 ROUND_END 브로드캐스트
+	 */
+	private Map<String, Object> handleRoundTimeout(MessagePayload payload) {
+		String roomId = payload.roomId;
+		logger.info("Round timeout request: roomId={}, userId={}", roomId, payload.userId);
+
+		// 활성 게임 세션 조회
+		GameSession session = gameSessionRepository.findActiveByRoomId(roomId).orElse(null);
+		if (session == null) {
+			logger.warn("No active game session for round timeout: roomId={}", roomId);
+			return WebSocketEventUtil.ok("No active game");
+		}
+
+		// 라운드 시간이 실제로 만료되었는지 검증 (5초 여유)
+		long elapsedMs = System.currentTimeMillis() - session.getRoundStartTime();
+		int roundDurationMs = (session.getRoundDuration() != null ? session.getRoundDuration() : 60) * 1000;
+
+		if (elapsedMs < roundDurationMs - 5000) {
+			logger.warn("Round timeout rejected - time not expired: elapsedMs={}, roundDurationMs={}",
+					elapsedMs, roundDurationMs);
+			return WebSocketEventUtil.ok("Round time not expired yet");
+		}
+
+		// 라운드 종료 처리
+		CommandResult endResult = gameService.endRound(roomId, "TIMEOUT");
+		if (endResult != null && endResult.success()) {
+			handleCommandResult(endResult, roomId, "SYSTEM");
+			logger.info("Round ended due to timeout: roomId={}", roomId);
+		}
+
+		return WebSocketEventUtil.ok("Round timeout processed");
 	}
 	
 	/**

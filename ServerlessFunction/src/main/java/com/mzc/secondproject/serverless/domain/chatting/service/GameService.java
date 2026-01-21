@@ -159,6 +159,7 @@ public class GameService {
 				.currentDrawerId(firstDrawer)
 				.currentWordId(firstWord.getWordId())
 				.currentWord(firstWord.getKorean())
+				.currentWordEnglish(firstWord.getEnglish())
 				.roundStartTime(currentTime)
 				.roundDuration(GameConfig.roundTimeLimit())
 				.scores(new HashMap<>())
@@ -259,9 +260,10 @@ public class GameService {
 			return AnswerCheckResult.alreadyGuessedCorrect();
 		}
 
-		// 정답 체크
-		String currentWord = session.getCurrentWord();
-		if (!isCorrectAnswer(answer, currentWord)) {
+		// 정답 체크 (한국어 또는 영어 둘 다 허용)
+		String koreanWord = session.getCurrentWord();
+		String englishWord = session.getCurrentWordEnglish();
+		if (!isCorrectAnswer(answer, koreanWord, englishWord)) {
 			return AnswerCheckResult.wrongAnswer();
 		}
 
@@ -411,6 +413,7 @@ public class GameService {
 		session.setCurrentDrawerId(nextDrawer);
 		session.setCurrentWordId(nextWord.getWordId());
 		session.setCurrentWord(nextWord.getKorean());
+		session.setCurrentWordEnglish(nextWord.getEnglish());
 		session.setRoundStartTime(currentTime);
 		session.setHintUsed(false);
 		session.setCorrectGuessers(new ArrayList<>());
@@ -584,24 +587,43 @@ public class GameService {
 
 	/**
 	 * 랜덤 단어 추출
+	 * VocabTable은 LEVEL#BEGINNER 형식(대문자)으로 저장되어 있으므로
+	 * ChatRoom의 level(소문자)을 대문자로 변환
 	 */
 	private List<Word> getRandomWords(String level, int count) {
-		PaginatedResult<Word> result = wordRepository.findByLevelWithPagination(level, 50, null);
+		// ChatRoom.level은 소문자(beginner), VocabTable GSI1PK는 대문자(BEGINNER)
+		String normalizedLevel = level != null ? level.toUpperCase() : "BEGINNER";
+		PaginatedResult<Word> result = wordRepository.findByLevelWithPagination(normalizedLevel, 50, null);
 		List<Word> words = new ArrayList<>(result.items());
 		Collections.shuffle(words);
 		return words.stream().limit(count).collect(Collectors.toList());
 	}
 
 	/**
-	 * 정답 체크 로직
+	 * 정답 체크 로직 (한국어 또는 영어 둘 다 허용)
 	 */
-	private boolean isCorrectAnswer(String input, String answer) {
-		if (input == null || answer == null) return false;
+	private boolean isCorrectAnswer(String input, String koreanAnswer, String englishAnswer) {
+		if (input == null) return false;
 
 		String normalizedInput = input.trim().toLowerCase().replace(" ", "");
-		String normalizedAnswer = answer.trim().toLowerCase().replace(" ", "");
 
-		return normalizedInput.equals(normalizedAnswer);
+		// 한국어 정답 체크
+		if (koreanAnswer != null) {
+			String normalizedKorean = koreanAnswer.trim().toLowerCase().replace(" ", "");
+			if (normalizedInput.equals(normalizedKorean)) {
+				return true;
+			}
+		}
+
+		// 영어 정답 체크
+		if (englishAnswer != null) {
+			String normalizedEnglish = englishAnswer.trim().toLowerCase().replace(" ", "");
+			if (normalizedInput.equals(normalizedEnglish)) {
+				return true;
+			}
+		}
+
+		return false;
 	}
 
 	/**

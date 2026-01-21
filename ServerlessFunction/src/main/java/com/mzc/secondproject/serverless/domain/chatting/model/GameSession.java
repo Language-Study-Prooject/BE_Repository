@@ -40,7 +40,8 @@ public class GameSession {
 	private Integer totalRounds;
 	private String currentDrawerId;
 	private String currentWordId;
-	private String currentWord;
+	private String currentWord;        // 한국어 뜻
+	private String currentWordEnglish; // 영어 단어 (정답 체크용)
 	private Long roundStartTime;
 	private Integer roundDuration;
 
