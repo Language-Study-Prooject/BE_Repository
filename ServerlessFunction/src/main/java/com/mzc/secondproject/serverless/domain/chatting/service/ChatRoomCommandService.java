@@ -51,11 +51,17 @@ public class ChatRoomCommandService {
 		String roomId = UUID.randomUUID().toString();
 		String now = Instant.now().toString();
 
+		// GSI1SK 포맷: {type}#{gameType}#{status}#{level}#{createdAt}
+		String roomType = type != null ? type : "CHAT";
+		String roomGameType = gameType != null ? gameType : "-";
+		String roomStatus = "WAITING";
+		String gsi1sk = String.format("%s#%s#%s#%s#%s", roomType, roomGameType, roomStatus, level, now);
+
 		ChatRoom room = ChatRoom.builder()
 				.pk("ROOM#" + roomId)
 				.sk("METADATA")
 				.gsi1pk("ROOMS")
-				.gsi1sk(level + "#" + now)
+				.gsi1sk(gsi1sk)
 				.roomId(roomId)
 				.name(name)
 				.description(description)

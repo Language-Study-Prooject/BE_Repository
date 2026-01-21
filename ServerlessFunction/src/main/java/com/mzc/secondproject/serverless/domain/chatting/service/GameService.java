@@ -179,9 +179,9 @@ public class GameService {
 			gameSessionRepository.save(session);
 		}
 
-		// ChatRoom에 활성 게임 세션 ID 연결
+		// ChatRoom에 활성 게임 세션 ID 연결 및 상태 업데이트 (GSI1SK 포함)
 		room.setActiveGameSessionId(gameSessionId);
-		chatRoomRepository.save(room);
+		chatRoomRepository.updateStatus(room, "PLAYING");
 
 		// 첫 라운드 기록 생성 (7일 후 자동 삭제)
 		long ttlSeconds = Instant.now().plusSeconds(7 * 24 * 60 * 60).getEpochSecond();
@@ -494,9 +494,9 @@ public class GameService {
 		// 게임 세션 종료 처리
 		gameSessionRepository.finishGame(session.getGameSessionId(), currentTime, ttlSeconds);
 
-		// ChatRoom에서 활성 게임 세션 참조 제거
+		// ChatRoom에서 활성 게임 세션 참조 제거 및 상태 업데이트 (GSI1SK 포함)
 		room.setActiveGameSessionId(null);
-		chatRoomRepository.save(room);
+		chatRoomRepository.updateStatus(room, "WAITING");
 
 		// 게임 통계 업데이트 및 뱃지 체크
 		try {
