@@ -31,27 +31,21 @@ public class ChatRoomQueryService {
 		return roomRepository.findById(roomId);
 	}
 	
+	/**
+	 * 필터 조건으로 방 목록 조회 (DB 레벨 필터링)
+	 * GSI1SK 포맷: {type}#{gameType}#{status}#{level}#{createdAt}
+	 *
+	 * @param level    레벨 필터 (beginner, intermediate, advanced)
+	 * @param limit    조회 개수
+	 * @param cursor   페이지네이션 커서
+	 * @param type     방 타입 (CHAT, GAME)
+	 * @param gameType 게임 타입 (CATCHMIND 등)
+	 * @param status   방 상태 (WAITING, PLAYING, FINISHED)
+	 * @return 필터링된 방 목록
+	 */
 	public PaginatedResult<ChatRoom> getRooms(String level, int limit, String cursor, String type, String gameType, String status) {
-		PaginatedResult<ChatRoom> roomPage;
-		if (level != null && !level.isEmpty()) {
-			roomPage = roomRepository.findByLevelWithPagination(level, limit, cursor);
-		} else {
-			roomPage = roomRepository.findAllWithPagination(limit, cursor);
-		}
-
-		List<ChatRoom> rooms = roomPage.items();
-
-		if (type != null) {
-			rooms = rooms.stream().filter(r -> type.equalsIgnoreCase(r.getType())).toList();
-		}
-		if (gameType != null) {
-			rooms = rooms.stream().filter(r -> gameType.equalsIgnoreCase(r.getGameType())).toList();
-		}
-		if (status != null) {
-			rooms = rooms.stream().filter(r -> status.equalsIgnoreCase(r.getStatus())).toList();
-		}
-
-		return new PaginatedResult<>(rooms, roomPage.nextCursor());
+		// DB 레벨에서 필터링 (메모리 필터링 제거)
+		return roomRepository.findByFilters(type, gameType, status, level, limit, cursor);
 	}
 	
 	public List<ChatRoom> filterByJoinedUser(List<ChatRoom> rooms, String userId) {
