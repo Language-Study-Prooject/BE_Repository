@@ -364,11 +364,19 @@ Resources:
       Description: Handle chat room CRUD operations
       SnapStart:
         ApplyOn: PublishedVersions
+      Environment:
+        Variables:
+          WEBSOCKET_ENDPOINT: !Sub "https://${WebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/dev"
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref ChatTable
         - DynamoDBReadPolicy:
             TableName: !Ref UserTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - execute-api:ManageConnections
+              Resource: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${WebSocketApi}/*
       Events:
         CreateRoom:
           Type: Api
