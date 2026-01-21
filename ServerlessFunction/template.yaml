@@ -234,9 +234,15 @@ Resources:
       Environment:
         Variables:
           WEBSOCKET_CONNECTION_TTL_SECONDS: "600"
+          WEBSOCKET_ENDPOINT: !Sub "https://${WebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/dev"
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref ChatTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - execute-api:ManageConnections
+              Resource: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${WebSocketApi}/*
 
   WebSocketConnectPermission:
     Type: AWS::Lambda::Permission
@@ -255,9 +261,17 @@ Resources:
       Description: Handle WebSocket $disconnect
       SnapStart:
         ApplyOn: PublishedVersions
+      Environment:
+        Variables:
+          WEBSOCKET_ENDPOINT: !Sub "https://${WebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/dev"
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref ChatTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - execute-api:ManageConnections
+              Resource: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${WebSocketApi}/*
 
   WebSocketDisconnectPermission:
     Type: AWS::Lambda::Permission
