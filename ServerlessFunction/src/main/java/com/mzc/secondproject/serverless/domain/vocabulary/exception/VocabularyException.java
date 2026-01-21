@@ -4,9 +4,9 @@ import com.mzc.secondproject.serverless.common.exception.ServerlessException;
 
 /**
  * 단어 학습 도메인 예외 클래스
- * <p>
+ *
  * 정적 팩토리 메서드를 통해 가독성 높은 예외 생성을 지원합니다.
- * <p>
+ *
  * 사용 예시:
  * throw VocabularyException.wordNotFound(wordId);
  * throw VocabularyException.invalidDifficulty("INVALID");
