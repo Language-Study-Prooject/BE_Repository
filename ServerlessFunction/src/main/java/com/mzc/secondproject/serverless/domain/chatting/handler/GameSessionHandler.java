@@ -37,11 +37,22 @@ public class GameSessionHandler implements RequestHandler<APIGatewayProxyRequest
 	private final WebSocketBroadcaster broadcaster;
 	private final HandlerRouter router;
 
+	/**
+	 * 기본 생성자 (Lambda에서 사용)
+	 */
 	public GameSessionHandler() {
-		this.gameService = new GameService();
-		this.gameSessionRepository = new GameSessionRepository();
-		this.connectionRepository = new ConnectionRepository();
-		this.broadcaster = new WebSocketBroadcaster();
+		this(new GameService(), new GameSessionRepository(), new ConnectionRepository(), new WebSocketBroadcaster());
+	}
+
+	/**
+	 * 의존성 주입 생성자 (테스트 용이성)
+	 */
+	public GameSessionHandler(GameService gameService, GameSessionRepository gameSessionRepository,
+							  ConnectionRepository connectionRepository, WebSocketBroadcaster broadcaster) {
+		this.gameService = gameService;
+		this.gameSessionRepository = gameSessionRepository;
+		this.connectionRepository = connectionRepository;
+		this.broadcaster = broadcaster;
 		this.router = initRouter();
 	}
 

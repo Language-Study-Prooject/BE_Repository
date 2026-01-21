@@ -27,9 +27,19 @@ public class StatsStreamHandler implements RequestHandler<DynamodbEvent, Void> {
 	private final UserStatsRepository userStatsRepository;
 	private final BadgeService badgeService;
 	
+	/**
+	 * 기본 생성자 (Lambda에서 사용)
+	 */
 	public StatsStreamHandler() {
-		this.userStatsRepository = new UserStatsRepository();
-		this.badgeService = new BadgeService();
+		this(new UserStatsRepository(), new BadgeService());
+	}
+
+	/**
+	 * 의존성 주입 생성자 (테스트 용이성)
+	 */
+	public StatsStreamHandler(UserStatsRepository userStatsRepository, BadgeService badgeService) {
+		this.userStatsRepository = userStatsRepository;
+		this.badgeService = badgeService;
 	}
 	
 	@Override

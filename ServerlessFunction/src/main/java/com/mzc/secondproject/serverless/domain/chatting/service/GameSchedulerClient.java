@@ -25,10 +25,22 @@ public class GameSchedulerClient {
 	private final String targetLambdaArn;
 	private final String roleArn;
 
+	/**
+	 * 기본 생성자 (Lambda에서 사용)
+	 */
 	public GameSchedulerClient() {
-		this.schedulerClient = SchedulerClient.create();
-		this.targetLambdaArn = EnvConfig.getOrDefault("GAME_AUTO_CLOSE_LAMBDA_ARN", null);
-		this.roleArn = EnvConfig.getOrDefault("SCHEDULER_ROLE_ARN", null);
+		this(SchedulerClient.create(),
+				EnvConfig.getOrDefault("GAME_AUTO_CLOSE_LAMBDA_ARN", null),
+				EnvConfig.getOrDefault("SCHEDULER_ROLE_ARN", null));
+	}
+
+	/**
+	 * 의존성 주입 생성자 (테스트 용이성)
+	 */
+	public GameSchedulerClient(SchedulerClient schedulerClient, String targetLambdaArn, String roleArn) {
+		this.schedulerClient = schedulerClient;
+		this.targetLambdaArn = targetLambdaArn;
+		this.roleArn = roleArn;
 	}
 
 	/**

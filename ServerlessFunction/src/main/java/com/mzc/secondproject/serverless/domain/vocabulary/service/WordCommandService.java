@@ -19,9 +19,19 @@ public class WordCommandService {
 	private static final Logger logger = LoggerFactory.getLogger(WordCommandService.class);
 	
 	private final WordRepository wordRepository;
-	
+
+	/**
+	 * 기본 생성자 (Lambda에서 사용)
+	 */
 	public WordCommandService() {
-		this.wordRepository = new WordRepository();
+		this(new WordRepository());
+	}
+
+	/**
+	 * 의존성 주입 생성자 (테스트 용이성)
+	 */
+	public WordCommandService(WordRepository wordRepository) {
+		this.wordRepository = wordRepository;
 	}
 	
 	public Word createWord(String english, String korean, String example, String level, String category) {

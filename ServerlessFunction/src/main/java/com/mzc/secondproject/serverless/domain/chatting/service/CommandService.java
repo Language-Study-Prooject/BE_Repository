@@ -23,10 +23,22 @@ public class CommandService {
 	private final GameSessionRepository gameSessionRepository;
 	private final GameService gameService;
 
+	/**
+	 * 기본 생성자 (Lambda에서 사용)
+	 */
 	public CommandService() {
-		this.connectionRepository = new ConnectionRepository();
-		this.gameSessionRepository = new GameSessionRepository();
-		this.gameService = new GameService();
+		this(new ConnectionRepository(), new GameSessionRepository(), new GameService());
+	}
+
+	/**
+	 * 의존성 주입 생성자 (테스트 용이성)
+	 */
+	public CommandService(ConnectionRepository connectionRepository,
+	                      GameSessionRepository gameSessionRepository,
+	                      GameService gameService) {
+		this.connectionRepository = connectionRepository;
+		this.gameSessionRepository = gameSessionRepository;
+		this.gameService = gameService;
 	}
 	
 	/**

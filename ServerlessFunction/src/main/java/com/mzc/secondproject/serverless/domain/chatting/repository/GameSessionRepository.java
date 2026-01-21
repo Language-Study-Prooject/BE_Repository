@@ -5,6 +5,7 @@ import com.mzc.secondproject.serverless.common.config.EnvConfig;
 import com.mzc.secondproject.serverless.domain.chatting.model.GameSession;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import software.amazon.awssdk.enhanced.dynamodb.DynamoDbEnhancedClient;
 import software.amazon.awssdk.enhanced.dynamodb.DynamoDbIndex;
 import software.amazon.awssdk.enhanced.dynamodb.DynamoDbTable;
 import software.amazon.awssdk.enhanced.dynamodb.Key;
@@ -30,8 +31,18 @@ public class GameSessionRepository {
 
 	private final DynamoDbTable<GameSession> table;
 
+	/**
+	 * 기본 생성자 (Lambda에서 사용)
+	 */
 	public GameSessionRepository() {
-		this.table = AwsClients.dynamoDbEnhanced().table(TABLE_NAME, TableSchema.fromBean(GameSession.class));
+		this(AwsClients.dynamoDbEnhanced());
+	}
+
+	/**
+	 * 의존성 주입 생성자 (테스트 용이성)
+	 */
+	public GameSessionRepository(DynamoDbEnhancedClient enhancedClient) {
+		this.table = enhancedClient.table(TABLE_NAME, TableSchema.fromBean(GameSession.class));
 	}
 
 	/**

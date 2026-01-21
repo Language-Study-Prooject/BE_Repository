@@ -31,9 +31,19 @@ public class UserStatsHandler implements RequestHandler<APIGatewayProxyRequestEv
 	private final DailyStudyRepository dailyStudyRepository;
 	private final HandlerRouter router;
 	
+	/**
+	 * 기본 생성자 (Lambda에서 사용)
+	 */
 	public UserStatsHandler() {
-		this.statsRepository = new UserStatsRepository();
-		this.dailyStudyRepository = new DailyStudyRepository();
+		this(new UserStatsRepository(), new DailyStudyRepository());
+	}
+
+	/**
+	 * 의존성 주입 생성자 (테스트 용이성)
+	 */
+	public UserStatsHandler(UserStatsRepository statsRepository, DailyStudyRepository dailyStudyRepository) {
+		this.statsRepository = statsRepository;
+		this.dailyStudyRepository = dailyStudyRepository;
 		this.router = initRouter();
 	}
 	

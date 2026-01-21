@@ -34,9 +34,19 @@ public class ChatRoomHandler implements RequestHandler<APIGatewayProxyRequestEve
 	private final ChatRoomQueryService queryService;
 	private final HandlerRouter router;
 	
+	/**
+	 * 기본 생성자 (Lambda에서 사용)
+	 */
 	public ChatRoomHandler() {
-		this.commandService = new ChatRoomCommandService();
-		this.queryService = new ChatRoomQueryService();
+		this(new ChatRoomCommandService(), new ChatRoomQueryService());
+	}
+
+	/**
+	 * 의존성 주입 생성자 (테스트 용이성)
+	 */
+	public ChatRoomHandler(ChatRoomCommandService commandService, ChatRoomQueryService queryService) {
+		this.commandService = commandService;
+		this.queryService = queryService;
 		this.router = initRouter();
 	}
 	

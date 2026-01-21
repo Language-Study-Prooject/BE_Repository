@@ -24,8 +24,18 @@ public class WordRepository {
 	private final DynamoDbEnhancedClient enhancedClient;
 	private final DynamoDbTable<Word> table;
 	
+	/**
+	 * 기본 생성자 (Lambda에서 사용)
+	 */
 	public WordRepository() {
-		this.enhancedClient = AwsClients.dynamoDbEnhanced();
+		this(AwsClients.dynamoDbEnhanced());
+	}
+
+	/**
+	 * 의존성 주입 생성자 (테스트 용이성)
+	 */
+	public WordRepository(DynamoDbEnhancedClient enhancedClient) {
+		this.enhancedClient = enhancedClient;
 		this.table = enhancedClient.table(TABLE_NAME, TableSchema.fromBean(Word.class));
 	}
 	

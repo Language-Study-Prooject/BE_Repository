@@ -33,12 +33,26 @@ public class TestCommandService {
 	private final DailyStudyRepository dailyStudyRepository;
 	private final WordRepository wordRepository;
 	private final UserWordCommandService userWordCommandService;
-	
+
+	/**
+	 * 기본 생성자 (Lambda에서 사용)
+	 */
 	public TestCommandService() {
-		this.testResultRepository = new TestResultRepository();
-		this.dailyStudyRepository = new DailyStudyRepository();
-		this.wordRepository = new WordRepository();
-		this.userWordCommandService = new UserWordCommandService();
+		this(new TestResultRepository(), new DailyStudyRepository(),
+				new WordRepository(), new UserWordCommandService());
+	}
+
+	/**
+	 * 의존성 주입 생성자 (테스트 용이성)
+	 */
+	public TestCommandService(TestResultRepository testResultRepository,
+	                          DailyStudyRepository dailyStudyRepository,
+	                          WordRepository wordRepository,
+	                          UserWordCommandService userWordCommandService) {
+		this.testResultRepository = testResultRepository;
+		this.dailyStudyRepository = dailyStudyRepository;
+		this.wordRepository = wordRepository;
+		this.userWordCommandService = userWordCommandService;
 	}
 	
 	public StartTestResult startTest(String userId, String testType) {
