@@ -12,6 +12,7 @@ import com.mzc.secondproject.serverless.common.validation.BeanValidator;
 import com.mzc.secondproject.serverless.domain.chatting.dto.request.CreateRoomRequest;
 import com.mzc.secondproject.serverless.domain.chatting.dto.request.JoinRoomRequest;
 import com.mzc.secondproject.serverless.domain.chatting.dto.response.JoinRoomResponse;
+import com.mzc.secondproject.serverless.domain.chatting.dto.response.RoomListItem;
 import com.mzc.secondproject.serverless.domain.chatting.dto.response.RoomParticipant;
 import com.mzc.secondproject.serverless.domain.chatting.exception.ChattingErrorCode;
 import com.mzc.secondproject.serverless.domain.chatting.model.ChatRoom;
@@ -67,9 +68,12 @@ public class ChatRoomHandler implements RequestHandler<APIGatewayProxyRequestEve
 			ChatRoom room = commandService.createRoom(
 					dto.getName(), dto.getDescription(), level, maxMembers, isPrivate, dto.getPassword(), userId,
 					dto.getType(), dto.getGameType(), dto.getGameSettings());
-			room.setPassword(null);
 
-			return ResponseGenerator.created("Room created", room);
+			// hostNickname 포함하여 응답
+			String hostNickname = queryService.getHostNickname(room);
+			RoomListItem roomItem = RoomListItem.from(room, hostNickname);
+
+			return ResponseGenerator.created("Room created", roomItem);
 		});
 	}
 	
@@ -95,10 +99,16 @@ public class ChatRoomHandler implements RequestHandler<APIGatewayProxyRequestEve
 			rooms = queryService.filterByJoinedUser(rooms, userId);
 		}
 
-		rooms.forEach(room -> room.setPassword(null));
+		// hostNickname 포함하여 RoomListItem으로 변환
+		List<RoomListItem> roomItems = rooms.stream()
+				.map(room -> {
+					String hostNickname = queryService.getHostNickname(room);
+					return RoomListItem.from(room, hostNickname);
+				})
+				.toList();
 
 		Map<String, Object> result = new HashMap<>();
-		result.put("rooms", rooms);
+		result.put("rooms", roomItems);
 		result.put("nextCursor", roomPage.nextCursor());
 		result.put("hasMore", roomPage.hasMore());
 

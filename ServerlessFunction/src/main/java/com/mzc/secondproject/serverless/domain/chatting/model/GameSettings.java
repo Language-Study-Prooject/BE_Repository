@@ -4,11 +4,13 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbBean;
 
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@DynamoDbBean
 public class GameSettings {
 	@Builder.Default
 	private Integer maxRounds = 5;
