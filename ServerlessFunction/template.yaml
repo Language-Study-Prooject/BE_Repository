@@ -367,6 +367,8 @@ Resources:
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref ChatTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref UserTable
       Events:
         CreateRoom:
           Type: Api
