@@ -197,6 +197,7 @@ public class GameSessionHandler implements RequestHandler<APIGatewayProxyRequest
 
 	/**
 	 * 게임 시작 브로드캐스트
+	 * 모든 사용자에게 게임 시작 메시지 전송, 출제자에게는 currentWord 포함
 	 */
 	private void broadcastGameStart(String roomId, GameService.GameStartResult result) {
 		String messageId = UUID.randomUUID().toString();
@@ -204,6 +205,7 @@ public class GameSessionHandler implements RequestHandler<APIGatewayProxyRequest
 		long serverTime = System.currentTimeMillis();
 
 		GameSession session = result.session();
+		String drawerId = session.getCurrentDrawerId();
 
 		String message = String.format("""
 						🎮 게임 시작!
@@ -213,8 +215,9 @@ public class GameSessionHandler implements RequestHandler<APIGatewayProxyRequest
 						출제자: %s
 						""",
 				session.getTotalRounds(),
-				session.getCurrentDrawerId());
+				drawerId);
 
+		// 기본 게임 시작 메시지 (모든 사용자용)
 		Map<String, Object> gameStartMessage = new HashMap<>();
 		gameStartMessage.put("domain", WebSocketMessageHelper.DOMAIN_GAME);
 		gameStartMessage.put("messageId", messageId);
@@ -227,17 +230,31 @@ public class GameSessionHandler implements RequestHandler<APIGatewayProxyRequest
 		gameStartMessage.put("gameStatus", session.getStatus());
 		gameStartMessage.put("currentRound", session.getCurrentRound());
 		gameStartMessage.put("totalRounds", session.getTotalRounds());
-		gameStartMessage.put("currentDrawerId", session.getCurrentDrawerId());
+		gameStartMessage.put("currentDrawerId", drawerId);
 		gameStartMessage.put("drawerOrder", result.drawerOrder());
 		gameStartMessage.put("roundStartTime", session.getRoundStartTime());
 		gameStartMessage.put("serverTime", serverTime);
 		gameStartMessage.put("roundDuration", session.getRoundDuration());
 
 		List<Connection> connections = connectionRepository.findByRoomId(roomId);
-		String broadcastPayload = ResponseGenerator.gson().toJson(gameStartMessage);
-		broadcaster.broadcast(connections, broadcastPayload);
 
-		logger.info("Game start broadcasted: roomId={}, sessionId={}", roomId, session.getGameSessionId());
+		// 출제자용 메시지 (currentWord 포함)
+		Map<String, Object> drawerMessage = new HashMap<>(gameStartMessage);
+		Map<String, String> currentWord = new HashMap<>();
+		currentWord.put("wordId", session.getCurrentWordId());
+		currentWord.put("word", session.getCurrentWord());
+		drawerMessage.put("currentWord", currentWord);
+
+		String broadcastPayload = ResponseGenerator.gson().toJson(gameStartMessage);
+		String drawerPayload = ResponseGenerator.gson().toJson(drawerMessage);
+
+		// 출제자와 일반 사용자에게 다른 메시지 전송
+		for (Connection conn : connections) {
+			String payload = conn.getUserId().equals(drawerId) ? drawerPayload : broadcastPayload;
+			broadcaster.sendToConnection(conn.getConnectionId(), payload);
+		}
+
+		logger.info("Game start broadcasted: roomId={}, sessionId={}, drawerId={}", roomId, session.getGameSessionId(), drawerId);
 	}
 
 	/**

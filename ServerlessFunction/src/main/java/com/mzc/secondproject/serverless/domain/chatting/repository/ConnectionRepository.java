@@ -56,20 +56,23 @@ public class ConnectionRepository {
 	
 	/**
 	 * 채팅방의 모든 연결 조회 (브로드캐스트용)
-	 * GSI1: ROOM#{roomId}로 조회
+	 * GSI1: ROOM#{roomId}로 조회, GSI1SK가 CONN#으로 시작하는 항목만 반환
+	 * (GSI1에 GameSession도 포함되어 있으므로 CONN# prefix로 필터링)
 	 */
 	public List<Connection> findByRoomId(String roomId) {
+		// GSI1SK가 CONN#으로 시작하는 항목만 조회
 		QueryConditional queryConditional = QueryConditional
-				.keyEqualTo(Key.builder()
+				.sortBeginsWith(Key.builder()
 						.partitionValue("ROOM#" + roomId)
+						.sortValue("CONN#")
 						.build());
-		
+
 		QueryEnhancedRequest request = QueryEnhancedRequest.builder()
 				.queryConditional(queryConditional)
 				.build();
-		
+
 		DynamoDbIndex<Connection> gsi1 = table.index("GSI1");
-		
+
 		return gsi1.query(request).stream()
 				.flatMap(page -> page.items().stream())
 				.collect(Collectors.toList());
@@ -84,15 +87,35 @@ public class ConnectionRepository {
 				.keyEqualTo(Key.builder()
 						.partitionValue("USER#" + userId)
 						.build());
-		
+
 		QueryEnhancedRequest request = QueryEnhancedRequest.builder()
 				.queryConditional(queryConditional)
 				.build();
-		
+
 		DynamoDbIndex<Connection> gsi2 = table.index("GSI2");
-		
+
 		return gsi2.query(request).stream()
 				.flatMap(page -> page.items().stream())
 				.collect(Collectors.toList());
+	}
+
+	/**
+	 * 같은 방에서 사용자의 기존 연결 삭제 (중복 연결 방지)
+	 * 새로고침 등으로 인한 중복 연결을 정리
+	 */
+	public void deleteUserConnectionsInRoom(String userId, String roomId) {
+		List<Connection> userConnections = findByUserId(userId);
+
+		int deletedCount = 0;
+		for (Connection conn : userConnections) {
+			if (roomId.equals(conn.getRoomId())) {
+				delete(conn.getConnectionId());
+				deletedCount++;
+			}
+		}
+
+		if (deletedCount > 0) {
+			logger.info("Deleted {} existing connections for user {} in room {}", deletedCount, userId, roomId);
+		}
 	}
 }
