@@ -28,9 +28,19 @@ public class VoiceHandler implements RequestHandler<APIGatewayProxyRequestEvent,
 	private final WordRepository wordRepository;
 	private final PollyService pollyService;
 	
+	/**
+	 * 기본 생성자 (Lambda에서 사용)
+	 */
 	public VoiceHandler() {
-		this.wordRepository = new WordRepository();
-		this.pollyService = new PollyService(BUCKET_NAME, "vocab/voice/");
+		this(new WordRepository(), new PollyService(BUCKET_NAME, "vocab/voice/"));
+	}
+
+	/**
+	 * 의존성 주입 생성자 (테스트 용이성)
+	 */
+	public VoiceHandler(WordRepository wordRepository, PollyService pollyService) {
+		this.wordRepository = wordRepository;
+		this.pollyService = pollyService;
 	}
 	
 	@Override

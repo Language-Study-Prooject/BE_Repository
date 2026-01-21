@@ -31,9 +31,19 @@ public class ChatMessageHandler implements RequestHandler<APIGatewayProxyRequest
 	private final ChatRoomRepository chatRoomRepository;
 	private final HandlerRouter router;
 	
+	/**
+	 * 기본 생성자 (Lambda에서 사용)
+	 */
 	public ChatMessageHandler() {
-		this.chatMessageService = new ChatMessageService();
-		this.chatRoomRepository = new ChatRoomRepository();
+		this(new ChatMessageService(), new ChatRoomRepository());
+	}
+
+	/**
+	 * 의존성 주입 생성자 (테스트 용이성)
+	 */
+	public ChatMessageHandler(ChatMessageService chatMessageService, ChatRoomRepository chatRoomRepository) {
+		this.chatMessageService = chatMessageService;
+		this.chatRoomRepository = chatRoomRepository;
 		this.router = initRouter();
 	}
 	

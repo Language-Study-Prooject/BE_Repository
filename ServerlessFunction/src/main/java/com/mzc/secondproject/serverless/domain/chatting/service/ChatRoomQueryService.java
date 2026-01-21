@@ -22,9 +22,19 @@ public class ChatRoomQueryService {
 	private final ChatRoomRepository roomRepository;
 	private final UserRepository userRepository;
 
+	/**
+	 * 기본 생성자 (Lambda에서 사용)
+	 */
 	public ChatRoomQueryService() {
-		this.roomRepository = new ChatRoomRepository();
-		this.userRepository = new UserRepository();
+		this(new ChatRoomRepository(), new UserRepository());
+	}
+
+	/**
+	 * 의존성 주입 생성자 (테스트 용이성)
+	 */
+	public ChatRoomQueryService(ChatRoomRepository roomRepository, UserRepository userRepository) {
+		this.roomRepository = roomRepository;
+		this.userRepository = userRepository;
 	}
 	
 	public Optional<ChatRoom> getRoom(String roomId) {
