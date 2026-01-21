@@ -1285,9 +1285,17 @@ Resources:
       CodeUri: .
       Handler: com.mzc.secondproject.serverless.domain.grammar.handler.websocket.GrammarStreamingConnectHandler::handleRequest
       Description: Handle Grammar WebSocket $connect with JWT auth
+      Environment:
+        Variables:
+          WEBSOCKET_ENDPOINT: !Sub "https://${GrammarWebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/dev"
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref ChatTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - execute-api:ManageConnections
+              Resource: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${GrammarWebSocketApi}/*
 
   GrammarStreamingConnectPermission:
     Type: AWS::Lambda::Permission
@@ -1304,9 +1312,17 @@ Resources:
       CodeUri: .
       Handler: com.mzc.secondproject.serverless.domain.grammar.handler.websocket.GrammarStreamingDisconnectHandler::handleRequest
       Description: Handle Grammar WebSocket $disconnect
+      Environment:
+        Variables:
+          WEBSOCKET_ENDPOINT: !Sub "https://${GrammarWebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/dev"
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref ChatTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - execute-api:ManageConnections
+              Resource: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${GrammarWebSocketApi}/*
 
   GrammarStreamingDisconnectPermission:
     Type: AWS::Lambda::Permission
