@@ -1389,6 +1389,63 @@ Resources:
             Enabled: true
 
   #############################################
+  # Speaking REST API (AI와 대화하기)
+  #############################################
+
+  SpeakingFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-speaking-handler"
+      CodeUri: .
+      Handler: com.mzc.secondproject.serverless.domain.speaking.handler.websocket.SpeakingHandler::handleRequest
+      Description: Handle Speaking AI conversation (REST API)
+      Timeout: 120
+      MemorySize: 1024
+      SnapStart:
+        ApplyOn: PublishedVersions
+      Environment:
+        Variables:
+          SPEAKING_TABLE_NAME: !Ref SpeakingTable
+          TRANSCRIBE_API_KEY: "/opic/transcribe-proxy-api-key"
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref SpeakingTable
+        - S3CrudPolicy:
+            BucketName: !Sub "${AWS::StackName}"
+        - Statement:
+            - Effect: Allow
+              Action:
+                - bedrock:InvokeModel
+              Resource: "*"
+        - Statement:
+            - Effect: Allow
+              Action:
+                - polly:SynthesizeSpeech
+              Resource: "*"
+        - Statement:
+            - Effect: Allow
+              Action:
+                - ssm:GetParameter
+              Resource: !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/opic/*"
+      Events:
+        SpeakingChat:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /api/speaking/chat
+            Method: POST
+            Auth:
+              Authorizer: CognitoAuthorizer
+        SpeakingReset:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /api/speaking/reset
+            Method: POST
+            Auth:
+              Authorizer: CognitoAuthorizer
+
+  #############################################
   # OPIc Lambda Functions
   #############################################
 
@@ -1651,6 +1708,38 @@ Resources:
     Type: AWS::DynamoDB::Table
     Properties:
       TableName: !Sub "${AWS::StackName}-opic"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: PK
+          AttributeType: S
+        - AttributeName: SK
+          AttributeType: S
+        - AttributeName: GSI1PK
+          AttributeType: S
+        - AttributeName: GSI1SK
+          AttributeType: S
+      KeySchema:
+        - AttributeName: PK
+          KeyType: HASH
+        - AttributeName: SK
+          KeyType: RANGE
+      GlobalSecondaryIndexes:
+        - IndexName: GSI1
+          KeySchema:
+            - AttributeName: GSI1PK
+              KeyType: HASH
+            - AttributeName: GSI1SK
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+
+  SpeakingTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub "${AWS::StackName}-speaking"
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
         - AttributeName: PK
@@ -2016,3 +2105,7 @@ Outputs:
   OPIcTableName:
     Description: OPIc DynamoDB Table Name
     Value: !Ref OPIcTable
+
+  SpeakingTableName:
+    Description: Speaking DynamoDB Table Name
+    Value: !Ref SpeakingTable
