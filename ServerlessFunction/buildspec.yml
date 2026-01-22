@@ -27,10 +27,7 @@ phases:
       - cd $CODEBUILD_SRC_DIR/ServerlessFunction
       - sam build
       - echo "Packaging SAM application..."
-      - sam package \
-          --s3-bucket ${ARTIFACT_BUCKET} \
-          --s3-prefix sam-packages \
-          --output-template-file packaged-template.yaml
+      - sam package --s3-bucket group2-englishstudy-pipeline-artifacts --s3-prefix sam-packages --output-template-file packaged-template.yaml
 
   post_build:
     commands:
