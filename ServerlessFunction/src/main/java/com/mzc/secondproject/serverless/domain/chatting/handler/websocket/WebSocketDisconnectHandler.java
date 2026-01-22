@@ -5,11 +5,14 @@ import com.amazonaws.services.lambda.runtime.RequestHandler;
 import com.mzc.secondproject.serverless.common.util.WebSocketEventUtil;
 import com.mzc.secondproject.serverless.domain.chatting.model.ChatRoom;
 import com.mzc.secondproject.serverless.domain.chatting.model.Connection;
+import com.mzc.secondproject.serverless.domain.chatting.model.GameSession;
 import com.mzc.secondproject.serverless.domain.chatting.repository.ChatRoomRepository;
 import com.mzc.secondproject.serverless.domain.chatting.repository.ConnectionRepository;
+import com.mzc.secondproject.serverless.domain.chatting.repository.GameSessionRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -24,10 +27,12 @@ public class WebSocketDisconnectHandler implements RequestHandler<Map<String, Ob
 
 	private final ConnectionRepository connectionRepository;
 	private final ChatRoomRepository chatRoomRepository;
+	private final GameSessionRepository gameSessionRepository;
 
 	public WebSocketDisconnectHandler() {
 		this.connectionRepository = new ConnectionRepository();
 		this.chatRoomRepository = new ChatRoomRepository();
+		this.gameSessionRepository = new GameSessionRepository();
 	}
 
 	@Override
@@ -67,29 +72,30 @@ public class WebSocketDisconnectHandler implements RequestHandler<Map<String, Ob
 
 	/**
 	 * 게임 상태 초기화
+	 * 새 구조에서는 GameSession을 종료하고 ChatRoom의 상태를 WAITING으로 변경
 	 */
 	private void resetGameState(String roomId) {
 		try {
-			Optional<ChatRoom> roomOpt = chatRoomRepository.findById(roomId);
+			// 활성 게임 세션이 있으면 종료
+			Optional<GameSession> activeSession = gameSessionRepository.findActiveByRoomId(roomId);
+			if (activeSession.isPresent()) {
+				GameSession session = activeSession.get();
+				long now = Instant.now().toEpochMilli();
+				long ttl = now / 1000 + 86400 * 7; // 7일 후 TTL
+				gameSessionRepository.finishGame(session.getGameSessionId(), now, ttl);
+				logger.info("Game session finished due to empty room: gameSessionId={}", session.getGameSessionId());
+			}
 
+			// 채팅방 상태 초기화
+			Optional<ChatRoom> roomOpt = chatRoomRepository.findById(roomId);
 			if (roomOpt.isPresent()) {
 				ChatRoom room = roomOpt.get();
-				// 게임이 진행 중이었다면 초기화
-				if (room.getGameStatus() != null && !"NONE".equals(room.getGameStatus())) {
-					room.setGameStatus("NONE");
-					room.setCurrentRound(null);
-					room.setCurrentDrawerId(null);
-					room.setCurrentWord(null);
-					room.setCurrentWordId(null);
-					room.setDrawerOrder(null);
-					room.setScores(null);
-					room.setStreaks(null);
-					room.setCorrectGuessers(null);
-					room.setHintUsed(null);
-					room.setRoundStartTime(null);
-					room.setGameStartedBy(null);
+				// 게임이 진행 중이었다면 상태 초기화
+				if ("PLAYING".equals(room.getStatus())) {
+					chatRoomRepository.updateStatus(room, "WAITING");
+					room.setActiveGameSessionId(null);
 					chatRoomRepository.save(room);
-					logger.info("Game state reset for room: {}", roomId);
+					logger.info("Room status reset to WAITING for room: {}", roomId);
 				}
 			}
 		} catch (Exception e) {
