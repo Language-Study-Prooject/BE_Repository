@@ -1725,6 +1725,33 @@ Resources:
         AttributeName: ttl
         Enabled: true
 
+  #############################################
+  # News Collection Scheduled Lambda
+  #############################################
+
+  NewsCollectionFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-news-collection"
+      CodeUri: .
+      Handler: com.mzc.secondproject.serverless.domain.news.handler.NewsCollectionHandler::handleRequest
+      Description: 매일 18시에 영어 뉴스를 수집하는 Lambda
+      MemorySize: 512
+      Timeout: 300
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref NewsTable
+        - SSMParameterReadPolicy:
+            ParameterName: englishstudy/news/*
+      Events:
+        DailySchedule:
+          Type: Schedule
+          Properties:
+            Schedule: cron(0 9 * * ? *)
+            Name: news-collection-daily-schedule
+            Description: 매일 18시 KST (09:00 UTC)에 뉴스 수집
+            Enabled: true
+
   NewsTable:
     Type: AWS::DynamoDB::Table
     Properties:
