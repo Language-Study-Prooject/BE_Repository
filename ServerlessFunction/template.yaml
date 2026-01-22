@@ -16,6 +16,7 @@ Globals:
         CHAT_TABLE_NAME: !Ref ChatTable
         VOCAB_TABLE_NAME: !Ref VocabTable
         OPIC_TABLE_NAME: !Ref OPIcTable
+        NEWS_TABLE_NAME: !Ref NewsTable
         BUCKET_NAME: group2-englishstudy
         CHAT_BUCKET_NAME: group2-englishstudy
         VOCAB_BUCKET_NAME: group2-englishstudy
@@ -1773,6 +1774,200 @@ Resources:
             - AttributeName: GSI1PK
               KeyType: HASH
             - AttributeName: GSI1SK
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+
+  #############################################
+  # News Collection Scheduled Lambda
+  #############################################
+
+  NewsCollectionFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-news-collection"
+      CodeUri: .
+      Handler: com.mzc.secondproject.serverless.domain.news.handler.NewsCollectionHandler::handleRequest
+      Description: 매일 18시에 영어 뉴스를 수집하는 Lambda
+      MemorySize: 512
+      Timeout: 300
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref NewsTable
+      Events:
+        DailySchedule:
+          Type: Schedule
+          Properties:
+            Schedule: cron(0 9 * * ? *)
+            Name: news-collection-daily-schedule
+            Description: 매일 18시 KST (09:00 UTC)에 뉴스 수집
+            Enabled: true
+
+  NewsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-news"
+      CodeUri: .
+      Handler: com.mzc.secondproject.serverless.domain.news.handler.NewsHandler::handleRequest
+      Description: 뉴스 학습 API
+      MemorySize: 256
+      Timeout: 30
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref NewsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref VocabularyTable
+        - S3CrudPolicy:
+            BucketName: !Ref ContentBucket
+        - Statement:
+            - Effect: Allow
+              Action:
+                - polly:SynthesizeSpeech
+              Resource: "*"
+      Events:
+        GetNewsList:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /news
+            Method: GET
+        GetTodayNews:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /news/today
+            Method: GET
+        GetRecommendedNews:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /news/recommended
+            Method: GET
+        GetNewsStats:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /news/stats
+            Method: GET
+        GetBookmarks:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /news/bookmarks
+            Method: GET
+        GetUserWords:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /news/words
+            Method: GET
+        SyncWordToVocab:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /news/words/{word}/sync
+            Method: POST
+        CollectWord:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /news/{articleId}/words
+            Method: POST
+        DeleteWord:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /news/{articleId}/words/{word}
+            Method: DELETE
+        GetWordDetail:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /news/{articleId}/words/{word}
+            Method: GET
+        GetQuizHistory:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /news/quiz/history
+            Method: GET
+        GetQuiz:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /news/{articleId}/quiz
+            Method: GET
+        SubmitQuiz:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /news/{articleId}/quiz
+            Method: POST
+        MarkAsRead:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /news/{articleId}/read
+            Method: POST
+        ToggleBookmark:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /news/{articleId}/bookmark
+            Method: POST
+        GetAudio:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /news/{articleId}/audio
+            Method: GET
+        GetNewsDetail:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /news/{articleId}
+            Method: GET
+
+  NewsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: group2-englishstudy-news
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: PK
+          AttributeType: S
+        - AttributeName: SK
+          AttributeType: S
+        - AttributeName: GSI1PK
+          AttributeType: S
+        - AttributeName: GSI1SK
+          AttributeType: S
+        - AttributeName: GSI2PK
+          AttributeType: S
+        - AttributeName: GSI2SK
+          AttributeType: S
+      KeySchema:
+        - AttributeName: PK
+          KeyType: HASH
+        - AttributeName: SK
+          KeyType: RANGE
+      GlobalSecondaryIndexes:
+        - IndexName: GSI1
+          KeySchema:
+            - AttributeName: GSI1PK
+              KeyType: HASH
+            - AttributeName: GSI1SK
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+        - IndexName: GSI2
+          KeySchema:
+            - AttributeName: GSI2PK
+              KeyType: HASH
+            - AttributeName: GSI2SK
               KeyType: RANGE
           Projection:
             ProjectionType: ALL
