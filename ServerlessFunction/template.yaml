@@ -1762,6 +1762,13 @@ Resources:
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref NewsTable
+        - S3CrudPolicy:
+            BucketName: !Ref ContentBucket
+        - Statement:
+            - Effect: Allow
+              Action:
+                - polly:SynthesizeSpeech
+              Resource: "*"
       Events:
         GetNewsList:
           Type: Api
@@ -1780,6 +1787,36 @@ Resources:
           Properties:
             RestApiId: !Ref MainApi
             Path: /news/recommended
+            Method: GET
+        GetNewsStats:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /news/stats
+            Method: GET
+        GetBookmarks:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /news/bookmarks
+            Method: GET
+        MarkAsRead:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /news/{articleId}/read
+            Method: POST
+        ToggleBookmark:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /news/{articleId}/bookmark
+            Method: POST
+        GetAudio:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /news/{articleId}/audio
             Method: GET
         GetNewsDetail:
           Type: Api

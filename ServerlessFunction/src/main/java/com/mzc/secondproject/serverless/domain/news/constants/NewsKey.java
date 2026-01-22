@@ -119,4 +119,11 @@ public final class NewsKey {
 	public static String userNewsCommentsPk(String userId) {
 		return DynamoDbKey.USER + userId + SUFFIX_NEWS_COMMENTS;
 	}
+
+	/**
+	 * 사용자 뉴스 통계 GSI1 PK: USER_NEWS_STAT#{userId}
+	 */
+	public static String userNewsStatPk(String userId) {
+		return "USER_NEWS_STAT#" + userId;
+	}
 }
