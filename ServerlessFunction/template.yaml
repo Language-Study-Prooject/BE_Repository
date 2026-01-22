@@ -1750,6 +1750,44 @@ Resources:
             Description: 매일 18시 KST (09:00 UTC)에 뉴스 수집
             Enabled: true
 
+  NewsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-news"
+      CodeUri: .
+      Handler: com.mzc.secondproject.serverless.domain.news.handler.NewsHandler::handleRequest
+      Description: 뉴스 학습 API
+      MemorySize: 256
+      Timeout: 30
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref NewsTable
+      Events:
+        GetNewsList:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /news
+            Method: GET
+        GetTodayNews:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /news/today
+            Method: GET
+        GetRecommendedNews:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /news/recommended
+            Method: GET
+        GetNewsDetail:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /news/{articleId}
+            Method: GET
+
   NewsTable:
     Type: AWS::DynamoDB::Table
     Properties:
