@@ -12,10 +12,12 @@ import com.mzc.secondproject.serverless.common.util.ResponseGenerator;
 import com.mzc.secondproject.serverless.domain.news.exception.NewsErrorCode;
 import com.mzc.secondproject.serverless.domain.news.model.NewsArticle;
 import com.mzc.secondproject.serverless.domain.news.model.NewsQuizResult;
+import com.mzc.secondproject.serverless.domain.news.model.NewsWordCollect;
 import com.mzc.secondproject.serverless.domain.news.model.UserNewsRecord;
 import com.mzc.secondproject.serverless.domain.news.service.NewsLearningService;
 import com.mzc.secondproject.serverless.domain.news.service.NewsQueryService;
 import com.mzc.secondproject.serverless.domain.news.service.NewsQuizService;
+import com.mzc.secondproject.serverless.domain.news.service.NewsWordService;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
@@ -40,16 +42,19 @@ public class NewsHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
 	private final NewsQueryService queryService;
 	private final NewsLearningService learningService;
 	private final NewsQuizService quizService;
+	private final NewsWordService wordService;
 	private final HandlerRouter router;
 
 	public NewsHandler() {
-		this(new NewsQueryService(), new NewsLearningService(), new NewsQuizService());
+		this(new NewsQueryService(), new NewsLearningService(), new NewsQuizService(), new NewsWordService());
 	}
 
-	public NewsHandler(NewsQueryService queryService, NewsLearningService learningService, NewsQuizService quizService) {
+	public NewsHandler(NewsQueryService queryService, NewsLearningService learningService,
+					   NewsQuizService quizService, NewsWordService wordService) {
 		this.queryService = queryService;
 		this.learningService = learningService;
 		this.quizService = quizService;
+		this.wordService = wordService;
 		this.router = initRouter();
 	}
 
@@ -59,7 +64,12 @@ public class NewsHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
 				Route.get("/news/recommended", this::getRecommendedNews),
 				Route.get("/news/stats", this::getNewsStats),
 				Route.get("/news/bookmarks", this::getBookmarks),
+				Route.get("/news/words", this::getUserWords),
 				Route.get("/news/quiz/history", this::getQuizHistory),
+				Route.get("/news/{articleId}/words/{word}", this::getWordDetail),
+				Route.post("/news/{articleId}/words", this::collectWord),
+				Route.delete("/news/{articleId}/words/{word}", this::deleteWord),
+				Route.post("/news/words/{word}/sync", this::syncWordToVocab),
 				Route.get("/news/{articleId}/quiz", this::getQuiz),
 				Route.post("/news/{articleId}/quiz", this::submitQuiz),
 				Route.post("/news/{articleId}/read", this::markAsRead),
@@ -363,5 +373,113 @@ public class NewsHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
 		response.put("count", history.size());
 
 		return ResponseGenerator.ok("퀴즈 기록 조회 성공", response);
+	}
+
+	/**
+	 * 수집 단어 목록 조회
+	 * GET /news/words?limit=10
+	 */
+	private APIGatewayProxyResponseEvent getUserWords(APIGatewayProxyRequestEvent request) {
+		String userId = getUserId(request);
+		if (userId == null) {
+			return ResponseGenerator.fail(NewsErrorCode.UNAUTHORIZED);
+		}
+
+		Map<String, String> params = request.getQueryStringParameters();
+		if (params == null) params = new HashMap<>();
+
+		int limit = parseLimit(params.get("limit"));
+		List<NewsWordCollect> words = wordService.getUserWords(userId, limit);
+		Map<String, Object> stats = wordService.getUserWordStats(userId);
+
+		Map<String, Object> response = new HashMap<>();
+		response.put("words", words);
+		response.put("stats", stats);
+		response.put("count", words.size());
+
+		return ResponseGenerator.ok("수집 단어 목록 조회 성공", response);
+	}
+
+	/**
+	 * 단어 수집
+	 * POST /news/{articleId}/words
+	 */
+	private APIGatewayProxyResponseEvent collectWord(APIGatewayProxyRequestEvent request) {
+		String userId = getUserId(request);
+		if (userId == null) {
+			return ResponseGenerator.fail(NewsErrorCode.UNAUTHORIZED);
+		}
+
+		String articleId = request.getPathParameters().get("articleId");
+
+		JsonObject body = gson.fromJson(request.getBody(), JsonObject.class);
+		String word = body.get("word").getAsString();
+		String context = body.has("context") ? body.get("context").getAsString() : "";
+
+		NewsWordCollect collected = wordService.collectWord(userId, articleId, word, context);
+
+		if (collected == null) {
+			return ResponseGenerator.fail(NewsErrorCode.WORD_ALREADY_COLLECTED);
+		}
+
+		return ResponseGenerator.ok("단어 수집 성공", collected);
+	}
+
+	/**
+	 * 단어 삭제
+	 * DELETE /news/{articleId}/words/{word}
+	 */
+	private APIGatewayProxyResponseEvent deleteWord(APIGatewayProxyRequestEvent request) {
+		String userId = getUserId(request);
+		if (userId == null) {
+			return ResponseGenerator.fail(NewsErrorCode.UNAUTHORIZED);
+		}
+
+		String articleId = request.getPathParameters().get("articleId");
+		String word = request.getPathParameters().get("word");
+
+		wordService.deleteWord(userId, word, articleId);
+
+		return ResponseGenerator.ok("단어 삭제 성공", Map.of("word", word));
+	}
+
+	/**
+	 * 단어 상세 정보 조회
+	 * GET /news/{articleId}/words/{word}
+	 */
+	private APIGatewayProxyResponseEvent getWordDetail(APIGatewayProxyRequestEvent request) {
+		String word = request.getPathParameters().get("word");
+
+		Optional<NewsWordService.WordDetail> detail = wordService.getWordDetail(word);
+
+		if (detail.isEmpty()) {
+			return ResponseGenerator.fail(NewsErrorCode.WORD_NOT_COLLECTED);
+		}
+
+		return ResponseGenerator.ok("단어 상세 조회 성공", detail.get());
+	}
+
+	/**
+	 * 단어 Vocabulary 연동
+	 * POST /news/words/{word}/sync
+	 */
+	private APIGatewayProxyResponseEvent syncWordToVocab(APIGatewayProxyRequestEvent request) {
+		String userId = getUserId(request);
+		if (userId == null) {
+			return ResponseGenerator.fail(NewsErrorCode.UNAUTHORIZED);
+		}
+
+		String word = request.getPathParameters().get("word");
+
+		JsonObject body = gson.fromJson(request.getBody(), JsonObject.class);
+		String articleId = body.get("articleId").getAsString();
+
+		boolean synced = wordService.syncToVocabulary(userId, word, articleId);
+
+		if (!synced) {
+			return ResponseGenerator.fail(NewsErrorCode.WORD_NOT_COLLECTED);
+		}
+
+		return ResponseGenerator.ok("Vocabulary 연동 성공", Map.of("word", word, "synced", true));
 	}
 }
