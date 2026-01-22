@@ -22,7 +22,12 @@ public class UserService {
 	
 	private static final Logger logger = LoggerFactory.getLogger(UserService.class);
 	private static final String BUCKET_NAME = System.getenv("PROFILE_BUCKET_NAME");
-	private static final String DEFAULT_PROFILE_URL = "https://group2-englishstudy.s3.amazonaws.com/profile/default.png";
+	private static final String DEFAULT_PROFILE_URL = getDefaultProfileUrl();
+
+	private static String getDefaultProfileUrl() {
+		String bucket = BUCKET_NAME != null ? BUCKET_NAME : "group2-englishstudy";
+		return String.format("https://%s.s3.amazonaws.com/profile/default.png", bucket);
+	}
 	private static final List<String> VALID_LEVELS = Arrays.asList("BEGINNER", "INTERMEDIATE", "ADVANCED");
 	
 	private static final List<String> VALID_IMAGE_TYPES = Arrays.asList("image/jpeg", "image/png", "image/gif", "image/webp");
