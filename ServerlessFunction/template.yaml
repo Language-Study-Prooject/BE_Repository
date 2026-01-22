@@ -1741,8 +1741,6 @@ Resources:
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref NewsTable
-        - SSMParameterReadPolicy:
-            ParameterName: englishstudy/news/*
       Events:
         DailySchedule:
           Type: Schedule
