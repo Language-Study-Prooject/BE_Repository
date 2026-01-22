@@ -8,6 +8,7 @@ import com.mzc.secondproject.serverless.domain.stats.constants.StatsKey;
 import com.mzc.secondproject.serverless.domain.stats.model.UserStats;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import software.amazon.awssdk.enhanced.dynamodb.DynamoDbEnhancedClient;
 import software.amazon.awssdk.enhanced.dynamodb.DynamoDbTable;
 import software.amazon.awssdk.enhanced.dynamodb.Key;
 import software.amazon.awssdk.enhanced.dynamodb.TableSchema;
@@ -33,8 +34,18 @@ public class UserStatsRepository {
 	
 	private final DynamoDbTable<UserStats> table;
 	
+	/**
+	 * 기본 생성자 (Lambda에서 사용)
+	 */
 	public UserStatsRepository() {
-		this.table = AwsClients.dynamoDbEnhanced().table(TABLE_NAME, TableSchema.fromBean(UserStats.class));
+		this(AwsClients.dynamoDbEnhanced());
+	}
+	
+	/**
+	 * 의존성 주입 생성자 (테스트 용이성)
+	 */
+	public UserStatsRepository(DynamoDbEnhancedClient enhancedClient) {
+		this.table = enhancedClient.table(TABLE_NAME, TableSchema.fromBean(UserStats.class));
 	}
 	
 	/**

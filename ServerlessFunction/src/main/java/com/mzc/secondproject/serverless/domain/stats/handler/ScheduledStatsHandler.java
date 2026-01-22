@@ -3,12 +3,18 @@ package com.mzc.secondproject.serverless.domain.stats.handler;
 import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.lambda.runtime.RequestHandler;
 import com.amazonaws.services.lambda.runtime.events.ScheduledEvent;
+import com.mzc.secondproject.serverless.common.config.AwsClients;
 import com.mzc.secondproject.serverless.common.config.EnvConfig;
 import com.mzc.secondproject.serverless.domain.stats.repository.UserStatsRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
+import software.amazon.awssdk.services.dynamodb.model.ScanRequest;
+import software.amazon.awssdk.services.dynamodb.model.ScanResponse;
 
 import java.time.LocalDate;
+import java.util.List;
+import java.util.Map;
 
 /**
  * EventBridge Scheduler Handler
@@ -20,11 +26,22 @@ public class ScheduledStatsHandler implements RequestHandler<ScheduledEvent, Str
 	
 	private static final Logger logger = LoggerFactory.getLogger(ScheduledStatsHandler.class);
 	private static final String TABLE_NAME = EnvConfig.getRequired("VOCAB_TABLE_NAME");
+	private static final int BATCH_SIZE = 25;
 	
 	private final UserStatsRepository userStatsRepository;
 	
+	/**
+	 * 기본 생성자 (Lambda에서 사용)
+	 */
 	public ScheduledStatsHandler() {
-		this.userStatsRepository = new UserStatsRepository();
+		this(new UserStatsRepository());
+	}
+	
+	/**
+	 * 의존성 주입 생성자 (테스트 용이성)
+	 */
+	public ScheduledStatsHandler(UserStatsRepository userStatsRepository) {
+		this.userStatsRepository = userStatsRepository;
 	}
 	
 	@Override
@@ -45,32 +62,70 @@ public class ScheduledStatsHandler implements RequestHandler<ScheduledEvent, Str
 	
 	/**
 	 * Streak 체크 및 리셋
-	 * GSI를 사용하여 Query로 처리 (Scan 대신)
-	 * <p>
-	 * 어제 학습하지 않은 사용자 중 streak이 있는 사용자만 리셋
+	 * TOTAL 통계 레코드 중 lastStudyDate가 어제가 아니고 currentStreak > 0인 사용자의 streak을 리셋
 	 */
 	private int checkAndResetStreaks(String yesterday) {
 		logger.info("Checking streaks for date: {}", yesterday);
 		
-		// GSI1을 사용하여 TOTAL 통계 레코드만 조회
-		// GSI1PK = "STATS#TOTAL" 으로 설계하면 Query 가능
-		// 현재는 GSI가 없으므로 개별 사용자별로 처리하는 방식 사용
-		
-		// 실제로는 lastStudyDate가 어제가 아닌 사용자를 찾아야 함
-		// 하지만 현재 구조상 효율적인 방법은:
-		// 1. 활성 사용자 목록 관리 (별도 테이블/인덱스)
-		// 2. 또는 클라이언트에서 streak 조회 시 계산
-		
-		// 현재는 간단하게 구현: DailyStudy가 없는 사용자의 streak을 리셋
-		// 이는 학습을 한 번이라도 한 사용자 대상
-		
 		int resetCount = 0;
+		Map<String, AttributeValue> lastEvaluatedKey = null;
 		
-		// Note: 실제 운영에서는 활성 사용자 목록을 별도로 관리하거나
-		// GSI를 lastStudyDate로 만들어 Query 하는 것이 효율적
-		// 현재는 비용 최적화를 위해 이 로직은 클라이언트에서 처리하도록 변경 가능
+		do {
+			// SK = "STATS#TOTAL"인 레코드만 스캔 (currentStreak > 0 필터)
+			ScanRequest.Builder scanBuilder = ScanRequest.builder()
+					.tableName(TABLE_NAME)
+					.filterExpression("SK = :sk AND currentStreak > :zero AND (attribute_not_exists(lastStudyDate) OR lastStudyDate <> :yesterday)")
+					.expressionAttributeValues(Map.of(
+							":sk", AttributeValue.builder().s("STATS#TOTAL").build(),
+							":zero", AttributeValue.builder().n("0").build(),
+							":yesterday", AttributeValue.builder().s(yesterday).build()
+					))
+					.limit(BATCH_SIZE);
+			
+			if (lastEvaluatedKey != null) {
+				scanBuilder.exclusiveStartKey(lastEvaluatedKey);
+			}
+			
+			ScanResponse response = AwsClients.dynamoDb().scan(scanBuilder.build());
+			List<Map<String, AttributeValue>> items = response.items();
+			
+			for (Map<String, AttributeValue> item : items) {
+				String pk = item.get("PK").s();
+				// PK 형식: "USERSTATS#{userId}" 에서 userId 추출
+				if (pk != null && pk.startsWith("USERSTATS#")) {
+					String userId = pk.substring("USERSTATS#".length());
+					try {
+						resetUserStreak(userId);
+						resetCount++;
+						logger.debug("Reset streak for user: {}", userId);
+					} catch (Exception e) {
+						logger.warn("Failed to reset streak for user {}: {}", userId, e.getMessage());
+					}
+				}
+			}
+			
+			lastEvaluatedKey = response.lastEvaluatedKey();
+		} while (lastEvaluatedKey != null && !lastEvaluatedKey.isEmpty());
 		
 		logger.info("Streak reset completed: {} users processed", resetCount);
 		return resetCount;
+	}
+	
+	/**
+	 * 사용자의 currentStreak을 0으로 리셋 (longestStreak은 유지)
+	 */
+	private void resetUserStreak(String userId) {
+		userStatsRepository.updateStreak(userId, 0,
+				getCurrentLongestStreak(userId),
+				LocalDate.now().minusDays(1).toString());
+	}
+	
+	/**
+	 * 사용자의 현재 longestStreak 조회
+	 */
+	private int getCurrentLongestStreak(String userId) {
+		return userStatsRepository.findTotalStats(userId)
+				.map(stats -> stats.getLongestStreak() != null ? stats.getLongestStreak() : 0)
+				.orElse(0);
 	}
 }

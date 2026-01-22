@@ -26,8 +26,18 @@ public class UserWordCommandService {
 	
 	private final UserWordRepository userWordRepository;
 	
+	/**
+	 * 기본 생성자 (Lambda에서 사용)
+	 */
 	public UserWordCommandService() {
-		this.userWordRepository = new UserWordRepository();
+		this(new UserWordRepository());
+	}
+	
+	/**
+	 * 의존성 주입 생성자 (테스트 용이성)
+	 */
+	public UserWordCommandService(UserWordRepository userWordRepository) {
+		this.userWordRepository = userWordRepository;
 	}
 	
 	public UserWord updateUserWord(String userId, String wordId, boolean isCorrect) {

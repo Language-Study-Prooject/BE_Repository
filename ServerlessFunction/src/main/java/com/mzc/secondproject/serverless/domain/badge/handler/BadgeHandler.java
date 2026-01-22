@@ -23,8 +23,18 @@ public class BadgeHandler implements RequestHandler<APIGatewayProxyRequestEvent,
 	private final BadgeService badgeService;
 	private final HandlerRouter router;
 	
+	/**
+	 * 기본 생성자 (Lambda에서 사용)
+	 */
 	public BadgeHandler() {
-		this.badgeService = new BadgeService();
+		this(new BadgeService());
+	}
+	
+	/**
+	 * 의존성 주입 생성자 (테스트 용이성)
+	 */
+	public BadgeHandler(BadgeService badgeService) {
+		this.badgeService = badgeService;
 		this.router = initRouter();
 	}
 	

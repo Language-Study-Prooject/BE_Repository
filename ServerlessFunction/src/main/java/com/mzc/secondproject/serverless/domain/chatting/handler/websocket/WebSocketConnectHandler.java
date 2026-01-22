@@ -57,6 +57,9 @@ public class WebSocketConnectHandler implements RequestHandler<Map<String, Objec
 			String userId = token.getUserId();
 			String roomId = token.getRoomId();
 			
+			// 같은 방에서 기존 연결 삭제 (새로고침 시 중복 연결 방지)
+			connectionRepository.deleteUserConnectionsInRoom(userId, roomId);
+			
 			String now = Instant.now().toString();
 			long ttl = Instant.now().plusSeconds(WebSocketConfig.connectionTtlSeconds()).getEpochSecond();
 			

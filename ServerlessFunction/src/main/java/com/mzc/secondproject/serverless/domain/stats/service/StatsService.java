@@ -18,8 +18,18 @@ public class StatsService {
 	
 	private final UserStatsRepository userStatsRepository;
 	
+	/**
+	 * 기본 생성자 (Lambda에서 사용)
+	 */
 	public StatsService() {
-		this.userStatsRepository = new UserStatsRepository();
+		this(new UserStatsRepository());
+	}
+	
+	/**
+	 * 의존성 주입 생성자 (테스트 용이성)
+	 */
+	public StatsService(UserStatsRepository userStatsRepository) {
+		this.userStatsRepository = userStatsRepository;
 	}
 	
 	/**

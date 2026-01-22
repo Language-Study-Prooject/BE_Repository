@@ -12,6 +12,8 @@ import com.mzc.secondproject.serverless.common.validation.BeanValidator;
 import com.mzc.secondproject.serverless.domain.chatting.dto.request.CreateRoomRequest;
 import com.mzc.secondproject.serverless.domain.chatting.dto.request.JoinRoomRequest;
 import com.mzc.secondproject.serverless.domain.chatting.dto.response.JoinRoomResponse;
+import com.mzc.secondproject.serverless.domain.chatting.dto.response.RoomListItem;
+import com.mzc.secondproject.serverless.domain.chatting.dto.response.RoomParticipant;
 import com.mzc.secondproject.serverless.domain.chatting.exception.ChattingErrorCode;
 import com.mzc.secondproject.serverless.domain.chatting.model.ChatRoom;
 import com.mzc.secondproject.serverless.domain.chatting.service.ChatRoomCommandService;
@@ -32,9 +34,19 @@ public class ChatRoomHandler implements RequestHandler<APIGatewayProxyRequestEve
 	private final ChatRoomQueryService queryService;
 	private final HandlerRouter router;
 	
+	/**
+	 * 기본 생성자 (Lambda에서 사용)
+	 */
 	public ChatRoomHandler() {
-		this.commandService = new ChatRoomCommandService();
-		this.queryService = new ChatRoomQueryService();
+		this(new ChatRoomCommandService(), new ChatRoomQueryService());
+	}
+	
+	/**
+	 * 의존성 주입 생성자 (테스트 용이성)
+	 */
+	public ChatRoomHandler(ChatRoomCommandService commandService, ChatRoomQueryService queryService) {
+		this.commandService = commandService;
+		this.queryService = queryService;
 		this.router = initRouter();
 	}
 	
@@ -64,10 +76,14 @@ public class ChatRoomHandler implements RequestHandler<APIGatewayProxyRequestEve
 			Boolean isPrivate = dto.getIsPrivate() != null ? dto.getIsPrivate() : false;
 			
 			ChatRoom room = commandService.createRoom(
-					dto.getName(), dto.getDescription(), level, maxMembers, isPrivate, dto.getPassword(), userId);
-			room.setPassword(null);
+					dto.getName(), dto.getDescription(), level, maxMembers, isPrivate, dto.getPassword(), userId,
+					dto.getType(), dto.getGameType(), dto.getGameSettings());
 			
-			return ResponseGenerator.created("Room created", room);
+			// hostNickname 포함하여 응답
+			String hostNickname = queryService.getHostNickname(room);
+			RoomListItem roomItem = RoomListItem.from(room, hostNickname);
+			
+			return ResponseGenerator.created("Room created", roomItem);
 		});
 	}
 	
@@ -77,23 +93,32 @@ public class ChatRoomHandler implements RequestHandler<APIGatewayProxyRequestEve
 		String level = queryParams != null ? queryParams.get("level") : null;
 		String joined = queryParams != null ? queryParams.get("joined") : null;
 		String cursor = queryParams != null ? queryParams.get("cursor") : null;
+		String type = queryParams != null ? queryParams.get("type") : null;
+		String gameType = queryParams != null ? queryParams.get("gameType") : null;
+		String status = queryParams != null ? queryParams.get("status") : null;
 		
 		int limit = 10;
 		if (queryParams != null && queryParams.get("limit") != null) {
 			limit = Math.min(Integer.parseInt(queryParams.get("limit")), 20);
 		}
 		
-		PaginatedResult<ChatRoom> roomPage = queryService.getRooms(level, limit, cursor);
+		PaginatedResult<ChatRoom> roomPage = queryService.getRooms(level, limit, cursor, type, gameType, status);
 		List<ChatRoom> rooms = roomPage.items();
 		
 		if ("true".equals(joined)) {
 			rooms = queryService.filterByJoinedUser(rooms, userId);
 		}
 		
-		rooms.forEach(room -> room.setPassword(null));
+		// hostNickname 포함하여 RoomListItem으로 변환
+		List<RoomListItem> roomItems = rooms.stream()
+				.map(room -> {
+					String hostNickname = queryService.getHostNickname(room);
+					return RoomListItem.from(room, hostNickname);
+				})
+				.toList();
 		
 		Map<String, Object> result = new HashMap<>();
-		result.put("rooms", rooms);
+		result.put("rooms", roomItems);
 		result.put("nextCursor", roomPage.nextCursor());
 		result.put("hasMore", roomPage.hasMore());
 		
@@ -111,7 +136,16 @@ public class ChatRoomHandler implements RequestHandler<APIGatewayProxyRequestEve
 		ChatRoom room = optRoom.get();
 		room.setPassword(null);
 		
-		return ResponseGenerator.ok("Room retrieved", room);
+		// 참가자 정보와 방장 닉네임 추가
+		List<RoomParticipant> participants = queryService.getParticipantsWithNicknames(room);
+		String hostNickname = queryService.getHostNickname(room);
+		
+		Map<String, Object> result = new HashMap<>();
+		result.put("room", room);
+		result.put("participants", participants);
+		result.put("hostNickname", hostNickname);
+		
+		return ResponseGenerator.ok("Room retrieved", result);
 	}
 	
 	private APIGatewayProxyResponseEvent joinRoom(APIGatewayProxyRequestEvent request, String userId) {

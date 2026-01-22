@@ -21,9 +21,19 @@ public class WordGroupQueryService {
 	private final WordGroupRepository wordGroupRepository;
 	private final WordRepository wordRepository;
 	
+	/**
+	 * 기본 생성자 (Lambda에서 사용)
+	 */
 	public WordGroupQueryService() {
-		this.wordGroupRepository = new WordGroupRepository();
-		this.wordRepository = new WordRepository();
+		this(new WordGroupRepository(), new WordRepository());
+	}
+	
+	/**
+	 * 의존성 주입 생성자 (테스트 용이성)
+	 */
+	public WordGroupQueryService(WordGroupRepository wordGroupRepository, WordRepository wordRepository) {
+		this.wordGroupRepository = wordGroupRepository;
+		this.wordRepository = wordRepository;
 	}
 	
 	public PaginatedResult<WordGroup> getGroups(String userId, int limit, String cursor) {

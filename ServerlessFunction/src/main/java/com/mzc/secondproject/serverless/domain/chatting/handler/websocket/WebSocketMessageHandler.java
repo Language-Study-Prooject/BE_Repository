@@ -6,17 +6,19 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.mzc.secondproject.serverless.common.util.WebSocketBroadcaster;
 import com.mzc.secondproject.serverless.common.util.WebSocketEventUtil;
+import com.mzc.secondproject.serverless.common.util.WebSocketMessageHelper;
 import com.mzc.secondproject.serverless.domain.chatting.dto.response.CommandResult;
 import com.mzc.secondproject.serverless.domain.chatting.dto.response.ScoreUpdateMessage;
 import com.mzc.secondproject.serverless.domain.chatting.enums.MessageType;
 import com.mzc.secondproject.serverless.domain.chatting.model.ChatMessage;
 import com.mzc.secondproject.serverless.domain.chatting.model.Connection;
+import com.mzc.secondproject.serverless.domain.chatting.model.GameSession;
 import com.mzc.secondproject.serverless.domain.chatting.repository.ChatRoomRepository;
 import com.mzc.secondproject.serverless.domain.chatting.repository.ConnectionRepository;
+import com.mzc.secondproject.serverless.domain.chatting.repository.GameSessionRepository;
 import com.mzc.secondproject.serverless.domain.chatting.service.ChatMessageService;
 import com.mzc.secondproject.serverless.domain.chatting.service.CommandService;
 import com.mzc.secondproject.serverless.domain.chatting.service.GameService;
-import com.mzc.secondproject.serverless.domain.vocabulary.model.Word;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -38,6 +40,7 @@ public class WebSocketMessageHandler implements RequestHandler<Map<String, Objec
 	private final ChatMessageService chatMessageService;
 	private final ChatRoomRepository chatRoomRepository;
 	private final ConnectionRepository connectionRepository;
+	private final GameSessionRepository gameSessionRepository;
 	private final WebSocketBroadcaster broadcaster;
 	private final CommandService commandService;
 	private final GameService gameService;
@@ -46,6 +49,7 @@ public class WebSocketMessageHandler implements RequestHandler<Map<String, Objec
 		this.chatMessageService = new ChatMessageService();
 		this.chatRoomRepository = new ChatRoomRepository();
 		this.connectionRepository = new ConnectionRepository();
+		this.gameSessionRepository = new GameSessionRepository();
 		this.broadcaster = new WebSocketBroadcaster();
 		this.commandService = new CommandService();
 		this.gameService = new GameService();
@@ -74,6 +78,7 @@ public class WebSocketMessageHandler implements RequestHandler<Map<String, Objec
 			// 메시지 타입별 처리
 			return switch (messageType.toUpperCase()) {
 				case "DRAWING", "DRAWING_CLEAR" -> handleDrawingMessage(connectionId, payload, messageType);
+				case "ROUND_TIMEOUT" -> handleRoundTimeout(payload);
 				default -> handleRegularMessage(connectionId, payload, messageType);
 			};
 			
@@ -94,11 +99,13 @@ public class WebSocketMessageHandler implements RequestHandler<Map<String, Objec
 		
 		// 그림 데이터 메시지 생성 (저장 안 함)
 		Map<String, Object> drawingMessage = new HashMap<>();
+		drawingMessage.put("domain", WebSocketMessageHelper.DOMAIN_GAME);
 		drawingMessage.put("messageType", messageType);
 		drawingMessage.put("roomId", payload.roomId);
 		drawingMessage.put("userId", payload.userId);
 		drawingMessage.put("content", payload.content);
 		drawingMessage.put("createdAt", Instant.now().toString());
+		drawingMessage.put("timestamp", System.currentTimeMillis());
 		
 		// 본인 제외 브로드캐스트
 		List<Connection> connections = connectionRepository.findByRoomId(payload.roomId);
@@ -169,9 +176,19 @@ public class WebSocketMessageHandler implements RequestHandler<Map<String, Objec
 		
 		logger.info("Message saved: messageId={}, roomId={}", messageId, payload.roomId);
 		
-		// 브로드캐스트
+		// 브로드캐스트 (domain 필드 포함을 위해 Map으로 변환)
+		Map<String, Object> broadcastMessage = new HashMap<>();
+		broadcastMessage.put("domain", WebSocketMessageHelper.DOMAIN_CHAT);
+		broadcastMessage.put("messageId", savedMessage.getMessageId());
+		broadcastMessage.put("roomId", savedMessage.getRoomId());
+		broadcastMessage.put("userId", savedMessage.getUserId());
+		broadcastMessage.put("content", savedMessage.getContent());
+		broadcastMessage.put("messageType", savedMessage.getMessageType());
+		broadcastMessage.put("createdAt", savedMessage.getCreatedAt());
+		broadcastMessage.put("timestamp", System.currentTimeMillis());
+		
 		List<Connection> connections = connectionRepository.findByRoomId(payload.roomId);
-		String broadcastPayload = gson.toJson(savedMessage);
+		String broadcastPayload = gson.toJson(broadcastMessage);
 		List<String> failedConnections = broadcaster.broadcast(connections, broadcastPayload);
 		
 		// 실패한 연결 정리
@@ -192,12 +209,14 @@ public class WebSocketMessageHandler implements RequestHandler<Map<String, Objec
 		
 		// 추측 메시지 생성 (저장하지 않음)
 		Map<String, Object> guessMessage = new HashMap<>();
+		guessMessage.put("domain", WebSocketMessageHelper.DOMAIN_GAME);
 		guessMessage.put("messageId", messageId);
 		guessMessage.put("roomId", payload.roomId);
 		guessMessage.put("userId", payload.userId);
 		guessMessage.put("content", payload.content);
 		guessMessage.put("messageType", "GUESS");
 		guessMessage.put("createdAt", now);
+		guessMessage.put("timestamp", System.currentTimeMillis());
 		
 		List<Connection> connections = connectionRepository.findByRoomId(payload.roomId);
 		String broadcastPayload = gson.toJson(guessMessage);
@@ -218,16 +237,18 @@ public class WebSocketMessageHandler implements RequestHandler<Map<String, Objec
 		broadcastCorrectAnswerMessage(payload, result, connections);
 		
 		// 2. 점수 업데이트 메시지 브로드캐스트 (실시간 리더보드)
-		chatRoomRepository.findById(payload.roomId).ifPresent(room -> {
+		gameSessionRepository.findActiveByRoomId(payload.roomId).ifPresent(session -> {
 			broadcastScoreUpdate(payload.roomId, payload.userId, result.score(),
-					result.scores(), room.getCurrentRound(), room.getTotalRounds(), connections);
+					result.scores(), session.getCurrentRound(), session.getTotalRounds(), connections);
 		});
 		
 		logger.info("Correct answer: roomId={}, userId={}, score={}", payload.roomId, payload.userId, result.score());
-
-		// 정답 맞추면 즉시 다음 라운드로 이동
-		endCurrentRound(payload.roomId, "CORRECT_ANSWER");
-
+		
+		// 전원 정답 시 라운드 종료 처리
+		if (result.allCorrect()) {
+			handleAllCorrect(payload.roomId);
+		}
+		
 		return WebSocketEventUtil.ok("Correct answer");
 	}
 	
@@ -240,20 +261,16 @@ public class WebSocketMessageHandler implements RequestHandler<Map<String, Objec
 		
 		String message = String.format("🎉 %s님이 정답을 맞췄습니다! (+%d점)", payload.userId, result.score());
 		
-		ChatMessage correctMessage = ChatMessage.builder()
-				.pk("ROOM#" + payload.roomId)
-				.sk("MSG#" + now + "#" + messageId)
-				.gsi1pk("SYSTEM")
-				.gsi1sk("MSG#" + now)
-				.gsi2pk("MSG#" + messageId)
-				.gsi2sk("ROOM#" + payload.roomId)
-				.messageId(messageId)
-				.roomId(payload.roomId)
-				.userId("SYSTEM")
-				.content(message)
-				.messageType(MessageType.CORRECT_ANSWER.getCode())
-				.createdAt(now)
-				.build();
+		// domain 필드 포함을 위해 Map으로 생성
+		Map<String, Object> correctMessage = new HashMap<>();
+		correctMessage.put("domain", WebSocketMessageHelper.DOMAIN_GAME);
+		correctMessage.put("messageId", messageId);
+		correctMessage.put("roomId", payload.roomId);
+		correctMessage.put("userId", "SYSTEM");
+		correctMessage.put("content", message);
+		correctMessage.put("messageType", MessageType.CORRECT_ANSWER.getCode());
+		correctMessage.put("createdAt", now);
+		correctMessage.put("timestamp", System.currentTimeMillis());
 		
 		String broadcastPayload = gson.toJson(correctMessage);
 		List<String> failedConnections = broadcaster.broadcast(connections, broadcastPayload);
@@ -295,136 +312,214 @@ public class WebSocketMessageHandler implements RequestHandler<Map<String, Objec
 	}
 	
 	/**
-	 * 현재 라운드 종료 및 다음 라운드 진행
+	 * 전원 정답 시 라운드 종료
 	 */
-	private void endCurrentRound(String roomId, String reason) {
-		chatRoomRepository.findById(roomId).ifPresent(room -> {
-			CommandResult endResult = gameService.endRound(room, reason);
+	private void handleAllCorrect(String roomId) {
+		CommandResult endResult = gameService.endRound(roomId, "ALL_CORRECT");
+		if (endResult != null && !endResult.message().contains("진행 중인 게임이 없습니다")) {
 			handleCommandResult(endResult, roomId, "SYSTEM");
-		});
+		}
+	}
+	
+	/**
+	 * 라운드 타임아웃 처리 (프론트엔드에서 타이머 만료 시 호출)
+	 * - 실제 라운드 시간이 만료되었는지 서버에서 검증
+	 * - 검증 통과 시 라운드 종료 및 ROUND_END 브로드캐스트
+	 */
+	private Map<String, Object> handleRoundTimeout(MessagePayload payload) {
+		String roomId = payload.roomId;
+		logger.info("Round timeout request: roomId={}, userId={}", roomId, payload.userId);
+		
+		// 활성 게임 세션 조회
+		GameSession session = gameSessionRepository.findActiveByRoomId(roomId).orElse(null);
+		if (session == null) {
+			logger.warn("No active game session for round timeout: roomId={}", roomId);
+			return WebSocketEventUtil.ok("No active game");
+		}
+		
+		// 라운드 시간이 실제로 만료되었는지 검증 (5초 여유)
+		long elapsedMs = System.currentTimeMillis() - session.getRoundStartTime();
+		int roundDurationMs = (session.getRoundDuration() != null ? session.getRoundDuration() : 60) * 1000;
+		
+		if (elapsedMs < roundDurationMs - 5000) {
+			logger.warn("Round timeout rejected - time not expired: elapsedMs={}, roundDurationMs={}",
+					elapsedMs, roundDurationMs);
+			return WebSocketEventUtil.ok("Round time not expired yet");
+		}
+		
+		// 라운드 종료 처리
+		CommandResult endResult = gameService.endRound(roomId, "TIMEOUT");
+		if (endResult != null && endResult.success()) {
+			handleCommandResult(endResult, roomId, "SYSTEM");
+			logger.info("Round ended due to timeout: roomId={}", roomId);
+		}
+		
+		return WebSocketEventUtil.ok("Round timeout processed");
 	}
 	
 	/**
 	 * 명령어 처리 결과를 브로드캐스트
 	 */
 	private Map<String, Object> handleCommandResult(CommandResult result, String roomId, String userId) {
+		List<Connection> connections = connectionRepository.findByRoomId(roomId);
+		
+		// GAME_START는 특별 처리 (출제자에게만 제시어 전송 + serverTime 포함)
+		if (result.messageType() == MessageType.GAME_START && result.data() instanceof GameService.GameStartResult gameResult) {
+			broadcastGameStart(connections, result, gameResult, roomId);
+			return WebSocketEventUtil.ok("Command executed");
+		}
+		
+		// ROUND_END는 특별 처리 (다음 출제자에게만 제시어 전송 + serverTime 포함)
+		if (result.messageType() == MessageType.ROUND_END && result.data() instanceof Map) {
+			@SuppressWarnings("unchecked")
+			Map<String, Object> data = (Map<String, Object>) result.data();
+			broadcastRoundEnd(connections, result, data, roomId);
+			return WebSocketEventUtil.ok("Command executed");
+		}
+		
+		// 일반 시스템 메시지 (게임 관련 명령어 결과)
 		String messageId = UUID.randomUUID().toString();
 		String now = Instant.now().toString();
-
-		List<Connection> connections = connectionRepository.findByRoomId(roomId);
-
-		// GAME_START인 경우 게임 데이터 포함하여 전송
-		if (result.messageType() == MessageType.GAME_START && result.data() instanceof GameService.GameStartResult gameResult) {
-			broadcastGameStart(connections, result, gameResult, messageId, roomId, now);
-		} else if (result.messageType() == MessageType.ROUND_END && result.data() instanceof Map) {
-			broadcastRoundEnd(connections, result, messageId, roomId, now);
-		} else {
-			// 일반 시스템 메시지
-			Map<String, Object> systemMessage = new HashMap<>();
-			systemMessage.put("messageId", messageId);
-			systemMessage.put("roomId", roomId);
-			systemMessage.put("userId", "SYSTEM");
-			systemMessage.put("content", result.message());
-			systemMessage.put("messageType", result.messageType().getCode());
-			systemMessage.put("createdAt", now);
-
-			String broadcastPayload = gson.toJson(systemMessage);
-			List<String> failedConnections = broadcaster.broadcast(connections, broadcastPayload);
-			cleanupFailedConnections(failedConnections);
-		}
-
+		
+		// domain 필드 포함을 위해 Map으로 생성
+		Map<String, Object> systemMessage = new HashMap<>();
+		systemMessage.put("domain", WebSocketMessageHelper.DOMAIN_GAME);
+		systemMessage.put("messageId", messageId);
+		systemMessage.put("roomId", roomId);
+		systemMessage.put("userId", "SYSTEM");
+		systemMessage.put("content", result.message());
+		systemMessage.put("messageType", result.messageType().getCode());
+		systemMessage.put("createdAt", now);
+		systemMessage.put("timestamp", System.currentTimeMillis());
+		
+		String broadcastPayload = gson.toJson(systemMessage);
+		List<String> failedConnections = broadcaster.broadcast(connections, broadcastPayload);
+		cleanupFailedConnections(failedConnections);
+		
 		logger.info("Command result broadcasted: type={}, roomId={}", result.messageType(), roomId);
 		return WebSocketEventUtil.ok("Command executed");
 	}
-
+	
 	/**
-	 * GAME_START 메시지 브로드캐스트 - 출제자에게만 제시어 포함
+	 * GAME_START 메시지 브로드캐스트 - 출제자에게만 제시어 포함, serverTime 추가
 	 */
 	private void broadcastGameStart(List<Connection> connections, CommandResult result,
-			GameService.GameStartResult gameResult, String messageId, String roomId, String now) {
-
-		String currentDrawerId = gameResult.room().getCurrentDrawerId();
-
+	                                GameService.GameStartResult gameResult, String roomId) {
+		String messageId = UUID.randomUUID().toString();
+		String now = Instant.now().toString();
+		long serverTime = System.currentTimeMillis();
+		
+		GameSession session = gameResult.session();
+		String currentDrawerId = session.getCurrentDrawerId();
+		
 		for (Connection conn : connections) {
 			Map<String, Object> message = new HashMap<>();
+			message.put("domain", WebSocketMessageHelper.DOMAIN_GAME);
 			message.put("messageId", messageId);
 			message.put("roomId", roomId);
 			message.put("userId", "SYSTEM");
 			message.put("content", result.message());
 			message.put("messageType", result.messageType().getCode());
 			message.put("createdAt", now);
-
-			// 게임 상태 정보 추가
-			message.put("gameStatus", gameResult.room().getGameStatus());
-			message.put("currentRound", gameResult.room().getCurrentRound());
-			message.put("totalRounds", gameResult.room().getTotalRounds());
+			message.put("timestamp", serverTime);
+			
+			// 게임 상태 정보
+			message.put("gameStatus", session.getStatus());
+			message.put("currentRound", session.getCurrentRound());
+			message.put("totalRounds", session.getTotalRounds());
 			message.put("currentDrawerId", currentDrawerId);
 			message.put("drawerOrder", gameResult.drawerOrder());
-			message.put("roundTimeLimit", gameResult.room().getRoundTimeLimit());
-			message.put("roundStartTime", gameResult.room().getRoundStartTime());
-
-			// 출제자에게만 제시어 전송 (영어 단어만)
+			
+			// 타이머 동기화용 필드 (핵심!)
+			message.put("roundStartTime", session.getRoundStartTime());
+			message.put("serverTime", serverTime);
+			message.put("roundDuration", session.getRoundDuration());
+			
+			// 출제자에게만 제시어 전송
 			if (conn.getUserId().equals(currentDrawerId) && gameResult.firstWord() != null) {
 				Map<String, String> wordInfo = new HashMap<>();
 				wordInfo.put("wordId", gameResult.firstWord().getWordId());
-				wordInfo.put("word", gameResult.firstWord().getEnglish());  // 영어 단어만 전송
+				wordInfo.put("word", gameResult.firstWord().getEnglish());
 				message.put("currentWord", wordInfo);
 			}
-
+			
 			String payload = gson.toJson(message);
 			try {
 				broadcaster.sendToConnection(conn.getConnectionId(), payload);
 			} catch (Exception e) {
-				logger.warn("Failed to send to connection: {}", conn.getConnectionId());
+				logger.warn("Failed to send GAME_START to connection: {}", conn.getConnectionId());
 				connectionRepository.delete(conn.getConnectionId());
 			}
 		}
+		
+		logger.info("GAME_START broadcasted: roomId={}, serverTime={}", roomId, serverTime);
 	}
-
+	
 	/**
-	 * ROUND_END 메시지 브로드캐스트 - 다음 출제자에게만 다음 제시어 포함
+	 * ROUND_END 메시지 브로드캐스트 - 다음 출제자에게만 제시어 포함, serverTime 추가
 	 */
-	@SuppressWarnings("unchecked")
 	private void broadcastRoundEnd(List<Connection> connections, CommandResult result,
-			String messageId, String roomId, String now) {
-
-		Map<String, Object> data = (Map<String, Object>) result.data();
+	                               Map<String, Object> data, String roomId) {
+		String messageId = UUID.randomUUID().toString();
+		String now = Instant.now().toString();
+		long serverTime = System.currentTimeMillis();
+		
 		String nextDrawer = (String) data.get("nextDrawer");
-		Word nextWord = (Word) data.get("nextWord");
-
+		Object nextWordObj = data.get("nextWord");
+		
 		for (Connection conn : connections) {
 			Map<String, Object> message = new HashMap<>();
+			message.put("domain", WebSocketMessageHelper.DOMAIN_GAME);
 			message.put("messageId", messageId);
 			message.put("roomId", roomId);
 			message.put("userId", "SYSTEM");
 			message.put("content", result.message());
 			message.put("messageType", result.messageType().getCode());
 			message.put("createdAt", now);
-
+			message.put("timestamp", serverTime);
+			
 			// 기본 데이터 복사 (nextWord 제외)
-			Map<String, Object> messageData = new HashMap<>(data);
-			messageData.remove("nextWord");
-
-			// 다음 출제자에게만 다음 제시어 전송 (영어 단어만)
-			if (conn.getUserId().equals(nextDrawer) && nextWord != null) {
-				Map<String, String> wordInfo = new HashMap<>();
-				wordInfo.put("wordId", nextWord.getWordId());
-				wordInfo.put("word", nextWord.getEnglish());  // 영어 단어만 전송
-				messageData.put("nextWord", wordInfo);
+			Map<String, Object> messageData = new HashMap<>();
+			messageData.put("answer", data.get("answer"));
+			messageData.put("nextRound", data.get("nextRound"));
+			messageData.put("nextDrawer", nextDrawer);
+			messageData.put("ranking", data.get("ranking"));
+			messageData.put("currentRound", data.get("currentRound"));
+			messageData.put("totalRounds", data.get("totalRounds"));
+			
+			// 타이머 동기화용 필드 (핵심!)
+			messageData.put("serverTime", serverTime);
+			if (data.get("roundStartTime") != null) {
+				messageData.put("roundStartTime", data.get("roundStartTime"));
 			}
-
+			if (data.get("roundDuration") != null) {
+				messageData.put("roundDuration", data.get("roundDuration"));
+			}
+			
+			// 다음 출제자에게만 제시어 전송
+			if (conn.getUserId().equals(nextDrawer) && nextWordObj != null) {
+				if (nextWordObj instanceof com.mzc.secondproject.serverless.domain.vocabulary.model.Word nextWord) {
+					Map<String, String> wordInfo = new HashMap<>();
+					wordInfo.put("wordId", nextWord.getWordId());
+					wordInfo.put("word", nextWord.getEnglish());
+					messageData.put("nextWord", wordInfo);
+				}
+			}
+			
 			message.put("data", messageData);
-
+			
 			String payload = gson.toJson(message);
 			try {
 				broadcaster.sendToConnection(conn.getConnectionId(), payload);
 			} catch (Exception e) {
-				logger.warn("Failed to send to connection: {}", conn.getConnectionId());
+				logger.warn("Failed to send ROUND_END to connection: {}", conn.getConnectionId());
 				connectionRepository.delete(conn.getConnectionId());
 			}
 		}
+		
+		logger.info("ROUND_END broadcasted: roomId={}, serverTime={}", roomId, serverTime);
 	}
-
+	
 	/**
 	 * 메시지 페이로드 DTO
 	 */

@@ -19,16 +19,13 @@ import java.util.stream.Collectors;
  * DTO에 선언된 @NotNull, @NotEmpty 등의 어노테이션을 검증합니다.
  * <p>
  * 사용 예시:
- * <p>
  * CreateRoomRequest req = ResponseGenerator.gson().fromJson(body, CreateRoomRequest.class);
- * <p>
  * return BeanValidator.validate(req)
  * .map(error -> ResponseGenerator.fail(CommonErrorCode.REQUIRED_FIELD_MISSING, error))
  * .orElseGet(() -> {
  * // 비즈니스 로직
  * return ResponseGenerator.ok("Success", result);
  * });
- *
  */
 public final class BeanValidator {
 	
