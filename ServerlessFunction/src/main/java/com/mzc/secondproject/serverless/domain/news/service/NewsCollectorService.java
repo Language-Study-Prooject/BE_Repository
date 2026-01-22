@@ -10,37 +10,33 @@ import org.slf4j.LoggerFactory;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
 /**
  * 뉴스 수집 서비스
- * NewsAPI, RSS 피드에서 뉴스를 수집하고 저장
+ * RSS 피드에서 뉴스를 수집하고 저장 (BBC, VOA, NPR)
  */
 public class NewsCollectorService {
 
 	private static final Logger logger = LoggerFactory.getLogger(NewsCollectorService.class);
 
-	private static final int NEWS_API_LIMIT = 10;
-	private static final int RSS_LIMIT_PER_SOURCE = 5;
+	private static final int RSS_LIMIT_PER_SOURCE = 7;
 	private static final long TTL_DAYS = 30;
 
-	private final NewsApiClient newsApiClient;
 	private final RssFeedParser rssFeedParser;
 	private final NewsDuplicateChecker duplicateChecker;
 	private final NewsArticleRepository articleRepository;
 
 	public NewsCollectorService() {
-		this.newsApiClient = new NewsApiClient();
 		this.rssFeedParser = new RssFeedParser();
 		this.duplicateChecker = new NewsDuplicateChecker();
 		this.articleRepository = new NewsArticleRepository();
 	}
 
-	public NewsCollectorService(NewsApiClient newsApiClient, RssFeedParser rssFeedParser,
-								NewsDuplicateChecker duplicateChecker, NewsArticleRepository articleRepository) {
-		this.newsApiClient = newsApiClient;
+	public NewsCollectorService(RssFeedParser rssFeedParser,
+								NewsDuplicateChecker duplicateChecker,
+								NewsArticleRepository articleRepository) {
 		this.rssFeedParser = rssFeedParser;
 		this.duplicateChecker = duplicateChecker;
 		this.articleRepository = articleRepository;
@@ -53,29 +49,16 @@ public class NewsCollectorService {
 		logger.info("뉴스 수집 시작");
 		long startTime = System.currentTimeMillis();
 
-		List<RawNewsArticle> allArticles = new ArrayList<>();
-		int newsApiCount = 0;
-		int rssCount = 0;
-
+		List<RawNewsArticle> rssArticles;
 		try {
-			List<RawNewsArticle> newsApiArticles = newsApiClient.getTopHeadlines("technology", NEWS_API_LIMIT);
-			allArticles.addAll(newsApiArticles);
-			newsApiCount = newsApiArticles.size();
-			logger.info("NewsAPI에서 {}개 수집", newsApiCount);
-		} catch (Exception e) {
-			logger.error("NewsAPI 수집 실패", e);
-		}
-
-		try {
-			List<RawNewsArticle> rssArticles = rssFeedParser.fetchAllFeeds(RSS_LIMIT_PER_SOURCE);
-			allArticles.addAll(rssArticles);
-			rssCount = rssArticles.size();
-			logger.info("RSS에서 {}개 수집", rssCount);
+			rssArticles = rssFeedParser.fetchAllFeeds(RSS_LIMIT_PER_SOURCE);
+			logger.info("RSS에서 {}개 수집", rssArticles.size());
 		} catch (Exception e) {
 			logger.error("RSS 수집 실패", e);
+			return new CollectionResult(0, 0, System.currentTimeMillis() - startTime);
 		}
 
-		List<RawNewsArticle> uniqueArticles = duplicateChecker.filterDuplicates(allArticles);
+		List<RawNewsArticle> uniqueArticles = duplicateChecker.filterDuplicates(rssArticles);
 		logger.info("중복 제거 후 {}개 기사", uniqueArticles.size());
 
 		int savedCount = 0;
@@ -92,7 +75,7 @@ public class NewsCollectorService {
 		long elapsed = System.currentTimeMillis() - startTime;
 		logger.info("뉴스 수집 완료 - 저장: {}, 소요시간: {}ms", savedCount, elapsed);
 
-		return new CollectionResult(newsApiCount, rssCount, savedCount, elapsed);
+		return new CollectionResult(rssArticles.size(), savedCount, elapsed);
 	}
 
 	/**
@@ -130,8 +113,7 @@ public class NewsCollectorService {
 	 * 수집 결과 레코드
 	 */
 	public record CollectionResult(
-			int newsApiCount,
-			int rssCount,
+			int collectedCount,
 			int savedCount,
 			long elapsedMs
 	) {

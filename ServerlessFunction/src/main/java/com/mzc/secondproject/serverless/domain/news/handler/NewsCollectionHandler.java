@@ -34,14 +34,13 @@ public class NewsCollectionHandler implements RequestHandler<ScheduledEvent, Map
 		try {
 			NewsCollectorService.CollectionResult result = collectorService.collectNews();
 
-			logger.info("뉴스 수집 완료 - NewsAPI: {}, RSS: {}, 저장: {}, 소요: {}ms",
-					result.newsApiCount(), result.rssCount(), result.savedCount(), result.elapsedMs());
+			logger.info("뉴스 수집 완료 - 수집: {}, 저장: {}, 소요: {}ms",
+					result.collectedCount(), result.savedCount(), result.elapsedMs());
 
 			return Map.of(
 					"statusCode", 200,
 					"message", "News collection completed",
-					"newsApiCount", result.newsApiCount(),
-					"rssCount", result.rssCount(),
+					"collectedCount", result.collectedCount(),
 					"savedCount", result.savedCount(),
 					"elapsedMs", result.elapsedMs()
 			);
