@@ -1774,9 +1774,9 @@ Resources:
         - DynamoDBCrudPolicy:
             TableName: !Ref NewsTable
         - DynamoDBCrudPolicy:
-            TableName: !Ref VocabularyTable
+            TableName: !Ref VocabTable
         - S3CrudPolicy:
-            BucketName: !Ref ContentBucket
+            BucketName: !Sub "${AWS::StackName}"
         - Statement:
             - Effect: Allow
               Action:
