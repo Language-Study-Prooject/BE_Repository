@@ -17,14 +17,14 @@ public class StatsService {
 	private static final Logger logger = LoggerFactory.getLogger(StatsService.class);
 	
 	private final UserStatsRepository userStatsRepository;
-
+	
 	/**
 	 * 기본 생성자 (Lambda에서 사용)
 	 */
 	public StatsService() {
 		this(new UserStatsRepository());
 	}
-
+	
 	/**
 	 * 의존성 주입 생성자 (테스트 용이성)
 	 */

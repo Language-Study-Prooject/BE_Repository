@@ -40,7 +40,7 @@ public class ChatRoomHandler implements RequestHandler<APIGatewayProxyRequestEve
 	public ChatRoomHandler() {
 		this(new ChatRoomCommandService(), new ChatRoomQueryService());
 	}
-
+	
 	/**
 	 * 의존성 주입 생성자 (테스트 용이성)
 	 */
@@ -69,46 +69,46 @@ public class ChatRoomHandler implements RequestHandler<APIGatewayProxyRequestEve
 	
 	private APIGatewayProxyResponseEvent createRoom(APIGatewayProxyRequestEvent request, String userId) {
 		CreateRoomRequest req = ResponseGenerator.gson().fromJson(request.getBody(), CreateRoomRequest.class);
-
+		
 		return BeanValidator.validateAndExecute(req, dto -> {
 			String level = dto.getLevel() != null ? dto.getLevel() : "beginner";
 			Integer maxMembers = dto.getMaxMembers() != null ? dto.getMaxMembers() : 6;
 			Boolean isPrivate = dto.getIsPrivate() != null ? dto.getIsPrivate() : false;
-
+			
 			ChatRoom room = commandService.createRoom(
 					dto.getName(), dto.getDescription(), level, maxMembers, isPrivate, dto.getPassword(), userId,
 					dto.getType(), dto.getGameType(), dto.getGameSettings());
-
+			
 			// hostNickname 포함하여 응답
 			String hostNickname = queryService.getHostNickname(room);
 			RoomListItem roomItem = RoomListItem.from(room, hostNickname);
-
+			
 			return ResponseGenerator.created("Room created", roomItem);
 		});
 	}
 	
 	private APIGatewayProxyResponseEvent getRooms(APIGatewayProxyRequestEvent request, String userId) {
 		Map<String, String> queryParams = request.getQueryStringParameters();
-
+		
 		String level = queryParams != null ? queryParams.get("level") : null;
 		String joined = queryParams != null ? queryParams.get("joined") : null;
 		String cursor = queryParams != null ? queryParams.get("cursor") : null;
 		String type = queryParams != null ? queryParams.get("type") : null;
 		String gameType = queryParams != null ? queryParams.get("gameType") : null;
 		String status = queryParams != null ? queryParams.get("status") : null;
-
+		
 		int limit = 10;
 		if (queryParams != null && queryParams.get("limit") != null) {
 			limit = Math.min(Integer.parseInt(queryParams.get("limit")), 20);
 		}
-
+		
 		PaginatedResult<ChatRoom> roomPage = queryService.getRooms(level, limit, cursor, type, gameType, status);
 		List<ChatRoom> rooms = roomPage.items();
-
+		
 		if ("true".equals(joined)) {
 			rooms = queryService.filterByJoinedUser(rooms, userId);
 		}
-
+		
 		// hostNickname 포함하여 RoomListItem으로 변환
 		List<RoomListItem> roomItems = rooms.stream()
 				.map(room -> {
@@ -116,35 +116,35 @@ public class ChatRoomHandler implements RequestHandler<APIGatewayProxyRequestEve
 					return RoomListItem.from(room, hostNickname);
 				})
 				.toList();
-
+		
 		Map<String, Object> result = new HashMap<>();
 		result.put("rooms", roomItems);
 		result.put("nextCursor", roomPage.nextCursor());
 		result.put("hasMore", roomPage.hasMore());
-
+		
 		return ResponseGenerator.ok("Rooms retrieved", result);
 	}
 	
 	private APIGatewayProxyResponseEvent getRoom(APIGatewayProxyRequestEvent request, String userId) {
 		String roomId = request.getPathParameters().get("roomId");
-
+		
 		Optional<ChatRoom> optRoom = queryService.getRoom(roomId);
 		if (optRoom.isEmpty()) {
 			return ResponseGenerator.fail(ChattingErrorCode.ROOM_NOT_FOUND);
 		}
-
+		
 		ChatRoom room = optRoom.get();
 		room.setPassword(null);
-
+		
 		// 참가자 정보와 방장 닉네임 추가
 		List<RoomParticipant> participants = queryService.getParticipantsWithNicknames(room);
 		String hostNickname = queryService.getHostNickname(room);
-
+		
 		Map<String, Object> result = new HashMap<>();
 		result.put("room", room);
 		result.put("participants", participants);
 		result.put("hostNickname", hostNickname);
-
+		
 		return ResponseGenerator.ok("Room retrieved", result);
 	}
 	

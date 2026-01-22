@@ -34,7 +34,7 @@ public class DailyStudyCommandService {
 	private final WordRepository wordRepository;
 	private final UserStatsRepository userStatsRepository;
 	private final BadgeService badgeService;
-
+	
 	/**
 	 * 기본 생성자 (Lambda에서 사용)
 	 */
@@ -42,7 +42,7 @@ public class DailyStudyCommandService {
 		this(new DailyStudyRepository(), new UserWordRepository(), new WordRepository(),
 				new UserStatsRepository(), new BadgeService());
 	}
-
+	
 	/**
 	 * 의존성 주입 생성자 (테스트 용이성)
 	 */

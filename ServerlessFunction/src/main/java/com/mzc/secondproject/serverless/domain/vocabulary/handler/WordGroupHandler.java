@@ -34,7 +34,7 @@ public class WordGroupHandler implements RequestHandler<APIGatewayProxyRequestEv
 	public WordGroupHandler() {
 		this(new WordGroupCommandService(), new WordGroupQueryService());
 	}
-
+	
 	/**
 	 * 의존성 주입 생성자 (테스트 용이성)
 	 */

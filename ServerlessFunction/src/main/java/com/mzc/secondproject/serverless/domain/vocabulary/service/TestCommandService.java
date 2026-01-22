@@ -33,7 +33,7 @@ public class TestCommandService {
 	private final DailyStudyRepository dailyStudyRepository;
 	private final WordRepository wordRepository;
 	private final UserWordCommandService userWordCommandService;
-
+	
 	/**
 	 * 기본 생성자 (Lambda에서 사용)
 	 */
@@ -41,7 +41,7 @@ public class TestCommandService {
 		this(new TestResultRepository(), new DailyStudyRepository(),
 				new WordRepository(), new UserWordCommandService());
 	}
-
+	
 	/**
 	 * 의존성 주입 생성자 (테스트 용이성)
 	 */

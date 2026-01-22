@@ -35,7 +35,7 @@ public class TestHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
 	public TestHandler() {
 		this(new TestCommandService(), new TestQueryService());
 	}
-
+	
 	/**
 	 * 의존성 주입 생성자 (테스트 용이성)
 	 */

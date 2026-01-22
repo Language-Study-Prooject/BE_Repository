@@ -21,14 +21,14 @@ public class GrammarConnectionRepository {
 	private static final String TABLE_NAME = EnvConfig.getRequired("CHAT_TABLE_NAME");
 	
 	private final DynamoDbTable<GrammarConnection> table;
-
+	
 	/**
 	 * 기본 생성자 (Lambda에서 사용)
 	 */
 	public GrammarConnectionRepository() {
 		this(AwsClients.dynamoDbEnhanced());
 	}
-
+	
 	/**
 	 * 의존성 주입 생성자 (테스트 용이성)
 	 */

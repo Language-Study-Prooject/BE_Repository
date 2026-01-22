@@ -19,14 +19,14 @@ public class WordCommandService {
 	private static final Logger logger = LoggerFactory.getLogger(WordCommandService.class);
 	
 	private final WordRepository wordRepository;
-
+	
 	/**
 	 * 기본 생성자 (Lambda에서 사용)
 	 */
 	public WordCommandService() {
 		this(new WordRepository());
 	}
-
+	
 	/**
 	 * 의존성 주입 생성자 (테스트 용이성)
 	 */

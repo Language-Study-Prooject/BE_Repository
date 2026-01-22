@@ -20,14 +20,14 @@ public class UserWordQueryService {
 	
 	private final UserWordRepository userWordRepository;
 	private final WordRepository wordRepository;
-
+	
 	/**
 	 * 기본 생성자 (Lambda에서 사용)
 	 */
 	public UserWordQueryService() {
 		this(new UserWordRepository(), new WordRepository());
 	}
-
+	
 	/**
 	 * 의존성 주입 생성자 (테스트 용이성)
 	 */

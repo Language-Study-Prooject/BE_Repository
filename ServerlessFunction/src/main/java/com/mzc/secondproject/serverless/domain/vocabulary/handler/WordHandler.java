@@ -39,7 +39,7 @@ public class WordHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
 	public WordHandler() {
 		this(new WordCommandService(), new WordQueryService());
 	}
-
+	
 	/**
 	 * 의존성 주입 생성자 (테스트 용이성)
 	 */

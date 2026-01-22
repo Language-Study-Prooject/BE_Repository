@@ -27,7 +27,7 @@ public class StatisticsHandler implements RequestHandler<SQSEvent, Void> {
 	public StatisticsHandler() {
 		this(new StatisticsService());
 	}
-
+	
 	/**
 	 * 의존성 주입 생성자 (테스트 용이성)
 	 */

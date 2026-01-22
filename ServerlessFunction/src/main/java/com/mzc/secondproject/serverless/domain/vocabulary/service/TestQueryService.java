@@ -19,14 +19,14 @@ public class TestQueryService {
 	
 	private final TestResultRepository testResultRepository;
 	private final WordRepository wordRepository;
-
+	
 	/**
 	 * 기본 생성자 (Lambda에서 사용)
 	 */
 	public TestQueryService() {
 		this(new TestResultRepository(), new WordRepository());
 	}
-
+	
 	/**
 	 * 의존성 주입 생성자 (테스트 용이성)
 	 */

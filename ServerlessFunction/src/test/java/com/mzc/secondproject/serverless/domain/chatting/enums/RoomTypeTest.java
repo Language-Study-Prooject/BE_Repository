@@ -1,6 +1,7 @@
 package com.mzc.secondproject.serverless.domain.chatting.enums;
 
 import org.junit.jupiter.api.Test;
+
 import static org.junit.jupiter.api.Assertions.*;
 
 class RoomTypeTest {
@@ -13,7 +14,7 @@ class RoomTypeTest {
 		assertEquals(RoomType.CHAT, RoomType.fromString(null));
 		assertEquals(RoomType.CHAT, RoomType.fromString("invalid"));
 	}
-
+	
 	@Test
 	void testIsValid() {
 		assertTrue(RoomType.isValid("CHAT"));
@@ -23,13 +24,13 @@ class RoomTypeTest {
 		assertFalse(RoomType.isValid(null));
 		assertFalse(RoomType.isValid("invalid"));
 	}
-
+	
 	@Test
 	void testGetCode() {
 		assertEquals("chat", RoomType.CHAT.getCode());
 		assertEquals("game", RoomType.GAME.getCode());
 	}
-
+	
 	@Test
 	void testGetDisplayName() {
 		assertEquals("채팅방", RoomType.CHAT.getDisplayName());
