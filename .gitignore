@@ -12,7 +12,8 @@ out/
 
 # Gradle
 .gradle/
-gradle/
+# gradle wrapper는 커밋 필요
+!gradle/wrapper/
 
 # Maven
 *.jar
