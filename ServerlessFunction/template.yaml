@@ -1800,6 +1800,24 @@ Resources:
             RestApiId: !Ref MainApi
             Path: /news/bookmarks
             Method: GET
+        GetQuizHistory:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /news/quiz/history
+            Method: GET
+        GetQuiz:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /news/{articleId}/quiz
+            Method: GET
+        SubmitQuiz:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /news/{articleId}/quiz
+            Method: POST
         MarkAsRead:
           Type: Api
           Properties:
