@@ -2,10 +2,10 @@ package com.mzc.secondproject.serverless.domain.chatting.service;
 
 import com.mzc.secondproject.serverless.domain.chatting.dto.response.CommandResult;
 import com.mzc.secondproject.serverless.domain.chatting.enums.MessageType;
-import com.mzc.secondproject.serverless.domain.chatting.model.ChatRoom;
 import com.mzc.secondproject.serverless.domain.chatting.model.Connection;
-import com.mzc.secondproject.serverless.domain.chatting.repository.ChatRoomRepository;
+import com.mzc.secondproject.serverless.domain.chatting.model.GameSession;
 import com.mzc.secondproject.serverless.domain.chatting.repository.ConnectionRepository;
+import com.mzc.secondproject.serverless.domain.chatting.repository.GameSessionRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -18,15 +18,27 @@ import java.util.Optional;
 public class CommandService {
 	
 	private static final Logger logger = LoggerFactory.getLogger(CommandService.class);
-	
+
 	private final ConnectionRepository connectionRepository;
-	private final ChatRoomRepository chatRoomRepository;
+	private final GameSessionRepository gameSessionRepository;
 	private final GameService gameService;
-	
+
+	/**
+	 * 기본 생성자 (Lambda에서 사용)
+	 */
 	public CommandService() {
-		this.connectionRepository = new ConnectionRepository();
-		this.chatRoomRepository = new ChatRoomRepository();
-		this.gameService = new GameService();
+		this(new ConnectionRepository(), new GameSessionRepository(), new GameService());
+	}
+
+	/**
+	 * 의존성 주입 생성자 (테스트 용이성)
+	 */
+	public CommandService(ConnectionRepository connectionRepository,
+	                      GameSessionRepository gameSessionRepository,
+	                      GameService gameService) {
+		this.connectionRepository = connectionRepository;
+		this.gameSessionRepository = gameSessionRepository;
+		this.gameService = gameService;
 	}
 	
 	/**
@@ -78,21 +90,21 @@ public class CommandService {
 	 */
 	private CommandResult handleStartCommand(String roomId, String userId) {
 		GameService.GameStartResult result = gameService.startGame(roomId, userId);
-		
+
 		if (!result.success()) {
 			return CommandResult.error(result.error());
 		}
-		
+
 		String message = String.format("""
 						🎮 게임 시작!
 						총 %d 라운드
-						
+
 						라운드 1 시작!
 						출제자: %s
 						""",
-				result.room().getTotalRounds(),
-				result.room().getCurrentDrawerId());
-		
+				result.session().getTotalRounds(),
+				result.session().getCurrentDrawerId());
+
 		return CommandResult.success(MessageType.GAME_START, message, result);
 	}
 	
@@ -107,28 +119,23 @@ public class CommandService {
 	 * /score - 현재 점수 조회
 	 */
 	private CommandResult handleScoreCommand(String roomId) {
-		Optional<ChatRoom> optRoom = chatRoomRepository.findById(roomId);
-		if (optRoom.isEmpty()) {
-			return CommandResult.error("채팅방을 찾을 수 없습니다.");
-		}
-		
-		ChatRoom room = optRoom.get();
-		
-		if (room.getGameStatus() == null || "NONE".equals(room.getGameStatus())) {
+		Optional<GameSession> optSession = gameSessionRepository.findActiveByRoomId(roomId);
+		if (optSession.isEmpty()) {
 			return CommandResult.error("진행 중인 게임이 없습니다.");
 		}
-		
-		// TODO: 점수 포맷팅 (Story #225에서 구현)
-		if (room.getScores() == null || room.getScores().isEmpty()) {
+
+		GameSession session = optSession.get();
+
+		if (session.getScores() == null || session.getScores().isEmpty()) {
 			return CommandResult.success(MessageType.SCORE_UPDATE, "아직 점수가 없습니다.");
 		}
-		
+
 		StringBuilder sb = new StringBuilder("📊 현재 점수:\n");
-		room.getScores().entrySet().stream()
+		session.getScores().entrySet().stream()
 				.sorted((a, b) -> b.getValue().compareTo(a.getValue()))
 				.forEach(entry -> sb.append(String.format("  %s: %d점\n", entry.getKey(), entry.getValue())));
-		
-		return CommandResult.success(MessageType.SCORE_UPDATE, sb.toString(), room.getScores());
+
+		return CommandResult.success(MessageType.SCORE_UPDATE, sb.toString(), session.getScores());
 	}
 	
 	/**

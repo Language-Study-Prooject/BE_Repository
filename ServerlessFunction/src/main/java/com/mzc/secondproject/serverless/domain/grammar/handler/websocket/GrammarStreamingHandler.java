@@ -28,7 +28,7 @@ import java.util.Optional;
 /**
  * Grammar Streaming WebSocket 핸들러
  * Bedrock 스트리밍 응답을 실시간으로 클라이언트에 전송
- * <p>
+ *
  * 인증: $connect에서 JWT 검증 후 저장된 연결 정보에서 userId 조회
  */
 public class GrammarStreamingHandler implements RequestHandler<Map<String, Object>, Map<String, Object>> {
@@ -85,35 +85,52 @@ public class GrammarStreamingHandler implements RequestHandler<Map<String, Objec
 	
 	private void processStreamingConversation(String connectionId, String endpoint, String userId, StreamingRequest request) {
 		ApiGatewayManagementApiClient apiClient = createApiClient(endpoint);
-		
-		// 서비스에 스트리밍 처리 위임 (userId는 JWT 인증에서 가져온 값 사용)
-		conversationService.chatStreaming(
-				request.sessionId(),
-				request.message(),
-				userId,
-				request.level(),
-				// 세션 생성 콜백
-				sessionId -> sendEvent(apiClient, connectionId, new StreamingEvent.StartEvent(sessionId)),
-				// 스트리밍 콜백
-				new StreamingCallback() {
-					@Override
-					public void onToken(String token) {
-						sendEvent(apiClient, connectionId, new StreamingEvent.TokenEvent(token));
+
+		try {
+			// 서비스에 스트리밍 처리 위임 (userId는 JWT 인증에서 가져온 값 사용)
+			conversationService.chatStreaming(
+					request.sessionId(),
+					request.message(),
+					userId,
+					request.level(),
+					// 세션 생성 콜백
+					sessionId -> sendEvent(apiClient, connectionId, new StreamingEvent.StartEvent(sessionId)),
+					// 스트리밍 콜백
+					new StreamingCallback() {
+						@Override
+						public void onToken(String token) {
+							sendEvent(apiClient, connectionId, new StreamingEvent.TokenEvent(token));
+						}
+
+						@Override
+						public void onComplete(ConversationResponse response) {
+							sendEvent(apiClient, connectionId, StreamingEvent.CompleteEvent.from(response));
+							logger.info("Streaming completed for session: {}", response.getSessionId());
+							closeApiClient(apiClient);
+						}
+
+						@Override
+						public void onError(Throwable error) {
+							logger.error("Streaming error: {}", error.getMessage(), error);
+							sendEvent(apiClient, connectionId, new StreamingEvent.ErrorEvent(error.getMessage()));
+							closeApiClient(apiClient);
+						}
 					}
-					
-					@Override
-					public void onComplete(ConversationResponse response) {
-						sendEvent(apiClient, connectionId, StreamingEvent.CompleteEvent.from(response));
-						logger.info("Streaming completed for session: {}", response.getSessionId());
-					}
-					
-					@Override
-					public void onError(Throwable error) {
-						logger.error("Streaming error: {}", error.getMessage(), error);
-						sendEvent(apiClient, connectionId, new StreamingEvent.ErrorEvent(error.getMessage()));
-					}
-				}
-		);
+			);
+		} catch (Exception e) {
+			closeApiClient(apiClient);
+			throw e;
+		}
+	}
+
+	private void closeApiClient(ApiGatewayManagementApiClient apiClient) {
+		try {
+			if (apiClient != null) {
+				apiClient.close();
+			}
+		} catch (Exception e) {
+			logger.warn("Failed to close ApiGatewayManagementApiClient: {}", e.getMessage());
+		}
 	}
 	
 	private void sendEvent(ApiGatewayManagementApiClient apiClient, String connectionId, StreamingEvent event) {
@@ -162,8 +179,9 @@ public class GrammarStreamingHandler implements RequestHandler<Map<String, Objec
 	}
 	
 	private Map<String, Object> sendError(String connectionId, String endpoint, String message) {
-		ApiGatewayManagementApiClient apiClient = createApiClient(endpoint);
-		sendEvent(apiClient, connectionId, new StreamingEvent.ErrorEvent(message));
+		try (ApiGatewayManagementApiClient apiClient = createApiClient(endpoint)) {
+			sendEvent(apiClient, connectionId, new StreamingEvent.ErrorEvent(message));
+		}
 		return WebSocketEventUtil.badRequest(message);
 	}
 }

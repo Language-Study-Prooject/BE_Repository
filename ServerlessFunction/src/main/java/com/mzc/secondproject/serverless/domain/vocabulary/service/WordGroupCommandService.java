@@ -20,9 +20,19 @@ public class WordGroupCommandService {
 	private static final Logger logger = LoggerFactory.getLogger(WordGroupCommandService.class);
 	
 	private final WordGroupRepository wordGroupRepository;
-	
+
+	/**
+	 * 기본 생성자 (Lambda에서 사용)
+	 */
 	public WordGroupCommandService() {
-		this.wordGroupRepository = new WordGroupRepository();
+		this(new WordGroupRepository());
+	}
+
+	/**
+	 * 의존성 주입 생성자 (테스트 용이성)
+	 */
+	public WordGroupCommandService(WordGroupRepository wordGroupRepository) {
+		this.wordGroupRepository = wordGroupRepository;
 	}
 	
 	public WordGroup createGroup(String userId, String groupName, String description) {

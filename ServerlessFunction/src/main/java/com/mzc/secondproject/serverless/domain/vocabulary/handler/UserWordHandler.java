@@ -31,9 +31,19 @@ public class UserWordHandler implements RequestHandler<APIGatewayProxyRequestEve
 	private final UserWordQueryService queryService;
 	private final HandlerRouter router;
 	
+	/**
+	 * 기본 생성자 (Lambda에서 사용)
+	 */
 	public UserWordHandler() {
-		this.commandService = new UserWordCommandService();
-		this.queryService = new UserWordQueryService();
+		this(new UserWordCommandService(), new UserWordQueryService());
+	}
+
+	/**
+	 * 의존성 주입 생성자 (테스트 용이성)
+	 */
+	public UserWordHandler(UserWordCommandService commandService, UserWordQueryService queryService) {
+		this.commandService = commandService;
+		this.queryService = queryService;
 		this.router = initRouter();
 	}
 	

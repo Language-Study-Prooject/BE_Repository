@@ -28,9 +28,19 @@ public class ChatVoiceHandler implements RequestHandler<APIGatewayProxyRequestEv
 	private final PollyService pollyService;
 	private final ChatMessageRepository messageRepository;
 	
+	/**
+	 * 기본 생성자 (Lambda에서 사용)
+	 */
 	public ChatVoiceHandler() {
-		this.pollyService = new PollyService(BUCKET_NAME, "voice/");
-		this.messageRepository = new ChatMessageRepository();
+		this(new PollyService(BUCKET_NAME, "voice/"), new ChatMessageRepository());
+	}
+
+	/**
+	 * 의존성 주입 생성자 (테스트 용이성)
+	 */
+	public ChatVoiceHandler(PollyService pollyService, ChatMessageRepository messageRepository) {
+		this.pollyService = pollyService;
+		this.messageRepository = messageRepository;
 	}
 	
 	@Override

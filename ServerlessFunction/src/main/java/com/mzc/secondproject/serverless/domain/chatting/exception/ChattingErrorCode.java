@@ -4,7 +4,7 @@ import com.mzc.secondproject.serverless.common.exception.DomainErrorCode;
 
 /**
  * 채팅 도메인 에러 코드
- * <p>
+ *
  * 채팅방(Room), 메시지(Message), 참여자(Participant) 관련 에러 코드를 정의합니다.
  */
 public enum ChattingErrorCode implements DomainErrorCode {
@@ -40,6 +40,10 @@ public enum ChattingErrorCode implements DomainErrorCode {
 	GAME_NOT_IN_PROGRESS("GAME_003", "진행 중인 게임이 없습니다", 400),
 	GAME_ALREADY_IN_PROGRESS("GAME_004", "이미 게임이 진행 중입니다", 409),
 	NOT_GAME_STARTER("GAME_005", "게임 시작자만 중단할 수 있습니다", 403),
+	GAME_NOT_FOUND("GAME_006", "게임 세션을 찾을 수 없습니다", 404),
+	GAME_NOT_ALLOWED_IN_CHAT_ROOM("GAME_007", "게임은 게임 방에서만 시작할 수 있습니다", 400),
+	GAME_RESTART_NOT_ALLOWED("GAME_008", "게임 진행 중에는 재시작할 수 없습니다", 400),
+	GAME_START_NOT_HOST("GAME_009", "방장만 게임을 시작할 수 있습니다", 403),
 	;
 	
 	private static final String DOMAIN = "CHATTING";

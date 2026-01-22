@@ -2,7 +2,7 @@ package com.mzc.secondproject.serverless.common.exception;
 
 /**
  * 공통/시스템 에러 코드
- * <p>
+ *
  * 도메인에 종속되지 않는 공통 에러 코드를 정의합니다.
  * - 인증/인가 에러 (AUTH_XXX)
  * - 검증 에러 (VALIDATION_XXX)

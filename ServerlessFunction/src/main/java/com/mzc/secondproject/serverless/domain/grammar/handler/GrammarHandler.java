@@ -30,10 +30,21 @@ public class GrammarHandler implements RequestHandler<APIGatewayProxyRequestEven
 	private final GrammarSessionQueryService sessionQueryService;
 	private final HandlerRouter router;
 	
+	/**
+	 * 기본 생성자 (Lambda에서 사용)
+	 */
 	public GrammarHandler() {
-		this.grammarCheckService = new GrammarCheckService();
-		this.conversationService = new GrammarConversationService();
-		this.sessionQueryService = new GrammarSessionQueryService();
+		this(new GrammarCheckService(), new GrammarConversationService(), new GrammarSessionQueryService());
+	}
+
+	/**
+	 * 의존성 주입 생성자 (테스트 용이성)
+	 */
+	public GrammarHandler(GrammarCheckService grammarCheckService, GrammarConversationService conversationService,
+						  GrammarSessionQueryService sessionQueryService) {
+		this.grammarCheckService = grammarCheckService;
+		this.conversationService = conversationService;
+		this.sessionQueryService = sessionQueryService;
 		this.router = initRouter();
 	}
 	
