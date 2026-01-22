@@ -19,11 +19,7 @@ Parameters:
 
   ExistingCognitoClientId:
     Type: String
-    Default: ""
-    Description: Existing Cognito User Pool Client ID (leave empty to create new)
-
-Conditions:
-  CreateNewCognito: !Equals [!Ref ExistingCognitoUserPoolId, ""]
+    Description: Existing Cognito User Pool Client ID
 
 Globals:
   Function:
@@ -54,66 +50,9 @@ Globals:
 
 Resources:
   #############################################
-  # Cognito User Pool
+  # Cognito - Using Existing User Pool
+  # (Cognito resources are managed in group2-englishstudy-chatting stack)
   #############################################
-
-  CognitoUserPool:
-    Type: AWS::Cognito::UserPool
-    Condition: CreateNewCognito
-    DeletionPolicy: Retain
-    Properties:
-      UserPoolName: !Sub "${AWS::StackName}-userpool"
-      UsernameAttributes:
-        - email
-      AutoVerifiedAttributes:
-        - email
-      Policies:
-        PasswordPolicy:
-          MinimumLength: 8
-          RequireLowercase: true
-          RequireNumbers: true
-          RequireSymbols: true
-          RequireUppercase: false
-      # Cognito에 저장할 사용자 정보 정의 ≈ 회원 테이블 컬럼
-      Schema:
-        - Name: email
-          AttributeDataType: String
-          Required: true
-          Mutable: true
-        - Name: nickname
-          AttributeDataType: String
-          Required: false
-          Mutable: true
-        - Name: level
-          AttributeDataType: String
-          Required: false
-          Mutable: true
-        - Name: profileUrl
-          AttributeDataType: String
-          Required: false
-          Mutable: true
-      LambdaConfig:
-        PreSignUp: !GetAtt PreSignUpFunction.Arn
-        PostConfirmation: !GetAtt PostConfirmationFunction.Arn
-
-  # Cognito에게 Lambda 호출 권한 부여
-  PreSignUpPermission:
-    Type: AWS::Lambda::Permission
-    Condition: CreateNewCognito
-    Properties:
-      Action: lambda:InvokeFunction
-      FunctionName: !Ref PreSignUpFunction
-      Principal: cognito-idp.amazonaws.com
-      SourceArn: !Sub arn:aws:cognito-idp:${AWS::Region}:${AWS::AccountId}:userpool/*
-
-  PostConfirmationPermission:
-    Type: AWS::Lambda::Permission
-    Condition: CreateNewCognito
-    Properties:
-      Action: lambda:InvokeFunction
-      FunctionName: !GetAtt PostConfirmationFunction.Arn
-      Principal: cognito-idp.amazonaws.com
-      SourceArn: !GetAtt CognitoUserPool.Arn
 
   # 사용자 custom 속성들 기본값 설정 Lambda 함수
   PreSignUpFunction:
@@ -144,19 +83,6 @@ Resources:
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref UserTable
-
-  CognitoUserPoolClient:
-    Type: AWS::Cognito::UserPoolClient
-    Condition: CreateNewCognito
-    Properties:
-      ClientName: !Sub "${AWS::StackName}-client"
-      UserPoolId: !If [CreateNewCognito, !Ref CognitoUserPool, !Ref ExistingCognitoUserPoolId]
-      GenerateSecret: false
-      ExplicitAuthFlows:
-        - ALLOW_USER_SRP_AUTH
-        - ALLOW_REFRESH_TOKEN_AUTH
-        - ALLOW_USER_PASSWORD_AUTH
-      PreventUserExistenceErrors: ENABLED
 
   #############################################
   # API Gateway (Unified)
@@ -216,10 +142,7 @@ Resources:
         DefaultAuthorizer: CognitoAuthorizer
         Authorizers:
           CognitoAuthorizer:
-            UserPoolArn: !If
-              - CreateNewCognito
-              - !GetAtt CognitoUserPool.Arn
-              - !Sub "arn:aws:cognito-idp:${AWS::Region}:${AWS::AccountId}:userpool/${ExistingCognitoUserPoolId}"
+            UserPoolArn: !Sub "arn:aws:cognito-idp:${AWS::Region}:${AWS::AccountId}:userpool/${ExistingCognitoUserPoolId}"
             Identity:
               Header: Authorization
 
@@ -2056,11 +1979,11 @@ Outputs:
 
   CognitoUserPoolId:
     Description: Cognito User Pool ID
-    Value: !If [CreateNewCognito, !Ref CognitoUserPool, !Ref ExistingCognitoUserPoolId]
+    Value: !Ref ExistingCognitoUserPoolId
 
   CognitoUserPoolClientId:
     Description: Cognito User Pool Client ID
-    Value: !If [CreateNewCognito, !Ref CognitoUserPoolClient, !Ref ExistingCognitoClientId]
+    Value: !Ref ExistingCognitoClientId
 
   OPIcTableName:
     Description: OPIc DynamoDB Table Name
