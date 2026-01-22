@@ -12,6 +12,19 @@ Parameters:
       - prod
     Description: Deployment environment
 
+  ExistingCognitoUserPoolId:
+    Type: String
+    Default: ""
+    Description: Existing Cognito User Pool ID (leave empty to create new)
+
+  ExistingCognitoClientId:
+    Type: String
+    Default: ""
+    Description: Existing Cognito User Pool Client ID (leave empty to create new)
+
+Conditions:
+  CreateNewCognito: !Equals [!Ref ExistingCognitoUserPoolId, ""]
+
 Globals:
   Function:
     Timeout: 30
@@ -46,8 +59,8 @@ Resources:
 
   CognitoUserPool:
     Type: AWS::Cognito::UserPool
+    Condition: CreateNewCognito
     DeletionPolicy: Retain
-    # UpdateReplacePolicy: Retain
     Properties:
       UserPoolName: !Sub "${AWS::StackName}-userpool"
       UsernameAttributes:
@@ -86,6 +99,7 @@ Resources:
   # Cognito에게 Lambda 호출 권한 부여
   PreSignUpPermission:
     Type: AWS::Lambda::Permission
+    Condition: CreateNewCognito
     Properties:
       Action: lambda:InvokeFunction
       FunctionName: !Ref PreSignUpFunction
@@ -94,6 +108,7 @@ Resources:
 
   PostConfirmationPermission:
     Type: AWS::Lambda::Permission
+    Condition: CreateNewCognito
     Properties:
       Action: lambda:InvokeFunction
       FunctionName: !GetAtt PostConfirmationFunction.Arn
@@ -132,9 +147,10 @@ Resources:
 
   CognitoUserPoolClient:
     Type: AWS::Cognito::UserPoolClient
+    Condition: CreateNewCognito
     Properties:
       ClientName: !Sub "${AWS::StackName}-client"
-      UserPoolId: !Ref CognitoUserPool
+      UserPoolId: !If [CreateNewCognito, !Ref CognitoUserPool, !Ref ExistingCognitoUserPoolId]
       GenerateSecret: false
       ExplicitAuthFlows:
         - ALLOW_USER_SRP_AUTH
@@ -2037,11 +2053,11 @@ Outputs:
 
   CognitoUserPoolId:
     Description: Cognito User Pool ID
-    Value: !Ref CognitoUserPool
+    Value: !If [CreateNewCognito, !Ref CognitoUserPool, !Ref ExistingCognitoUserPoolId]
 
   CognitoUserPoolClientId:
     Description: Cognito User Pool Client ID
-    Value: !Ref CognitoUserPoolClient
+    Value: !If [CreateNewCognito, !Ref CognitoUserPoolClient, !Ref ExistingCognitoClientId]
 
   OPIcTableName:
     Description: OPIc DynamoDB Table Name
