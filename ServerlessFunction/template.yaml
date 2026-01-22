@@ -1389,6 +1389,62 @@ Resources:
             Enabled: true
 
   #############################################
+  # Speaking REST API (AI와 대화하기)
+  #############################################
+
+  SpeakingFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: group2-englishstudy-speaking-handler
+      CodeUri: .
+      Handler: com.mzc.secondproject.serverless.domain.speaking.handler.SpeakingHandler::handleRequest
+      Description: Handle Speaking AI conversation (REST API)
+      Timeout: 120
+      MemorySize: 1024
+      SnapStart:
+        ApplyOn: PublishedVersions
+      Environment:
+        Variables:
+          TRANSCRIBE_API_KEY: "/opic/transcribe-proxy-api-key"
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ChatTable
+        - S3CrudPolicy:
+            BucketName: group2-englishstudy
+        - Statement:
+            - Effect: Allow
+              Action:
+                - bedrock:InvokeModel
+              Resource: "*"
+        - Statement:
+            - Effect: Allow
+              Action:
+                - polly:SynthesizeSpeech
+              Resource: "*"
+        - Statement:
+            - Effect: Allow
+              Action:
+                - ssm:GetParameter
+              Resource: !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/opic/*"
+      Events:
+        SpeakingChat:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /api/speaking/chat
+            Method: POST
+            Auth:
+              Authorizer: CognitoAuthorizer
+        SpeakingReset:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /api/speaking/reset
+            Method: POST
+            Auth:
+              Authorizer: CognitoAuthorizer
+
+  #############################################
   # OPIc Lambda Functions
   #############################################
 
