@@ -25,27 +25,18 @@ RUN rpm --import https://yum.corretto.aws/corretto.key && \
 ENV JAVA_HOME=/usr/lib/jvm/java-21-amazon-corretto
 ENV PATH=$JAVA_HOME/bin:$PATH
 
-# Install AWS CLI v2
-RUN curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip" && \
-    unzip awscliv2.zip && \
-    ./aws/install && \
-    rm -rf aws awscliv2.zip
+# Install AWS CLI and SAM CLI via pip
+RUN pip3 install --ignore-installed awscli aws-sam-cli
 
-# Install SAM CLI (the main optimization!)
-RUN pip3 install aws-sam-cli
-
-# Install Gradle (optional, project uses wrapper)
+# Install Gradle
 ENV GRADLE_VERSION=8.5
 RUN curl -L https://services.gradle.org/distributions/gradle-${GRADLE_VERSION}-bin.zip -o gradle.zip && \
     unzip gradle.zip -d /opt && \
     rm gradle.zip && \
     ln -s /opt/gradle-${GRADLE_VERSION}/bin/gradle /usr/bin/gradle
 
-# Verify installations
-RUN java -version && \
-    aws --version && \
-    sam --version && \
-    gradle --version
+# Verify Java installation
+RUN java -version
 
 # Set working directory
 WORKDIR /codebuild/output/src
