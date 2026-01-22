@@ -18,13 +18,13 @@ import java.util.stream.Collectors;
 
 /**
  * Lambda Handler를 위한 HTTP 라우터
- *
+ * <p>
  * 선언적 라우팅 + 자동 Path/Query 파라미터 검증 제공
- *
+ * <p>
  * 사용 예시:
  * new HandlerRouter().addRoutes(
- *     Route.get("/rooms/{roomId}", this::getRoom),
- *     Route.delete("/rooms/{roomId}", this::deleteRoom).requireQueryParams("userId")
+ * Route.get("/rooms/{roomId}", this::getRoom),
+ * Route.delete("/rooms/{roomId}", this::deleteRoom).requireQueryParams("userId")
  * );
  */
 public class HandlerRouter {

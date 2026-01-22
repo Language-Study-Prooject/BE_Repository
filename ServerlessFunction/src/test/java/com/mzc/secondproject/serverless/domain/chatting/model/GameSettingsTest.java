@@ -1,6 +1,7 @@
 package com.mzc.secondproject.serverless.domain.chatting.model;
 
 import org.junit.jupiter.api.Test;
+
 import static org.junit.jupiter.api.Assertions.*;
 
 class GameSettingsTest {
@@ -11,7 +12,7 @@ class GameSettingsTest {
 		assertEquals(60, settings.getRoundTimeLimit());
 		assertFalse(settings.getAutoDeleteOnEnd());
 	}
-
+	
 	@Test
 	void testCustomValues() {
 		GameSettings settings = GameSettings.builder()
@@ -23,7 +24,7 @@ class GameSettingsTest {
 		assertEquals(90, settings.getRoundTimeLimit());
 		assertTrue(settings.getAutoDeleteOnEnd());
 	}
-
+	
 	@Test
 	void testNoArgsConstructor() {
 		GameSettings settings = new GameSettings();
@@ -31,7 +32,7 @@ class GameSettingsTest {
 		assertEquals(60, settings.getRoundTimeLimit());
 		assertFalse(settings.getAutoDeleteOnEnd());
 	}
-
+	
 	@Test
 	void testAllArgsConstructor() {
 		GameSettings settings = new GameSettings(10, 90, true);
@@ -39,14 +40,14 @@ class GameSettingsTest {
 		assertEquals(90, settings.getRoundTimeLimit());
 		assertTrue(settings.getAutoDeleteOnEnd());
 	}
-
+	
 	@Test
 	void testSettersAndGetters() {
 		GameSettings settings = new GameSettings();
 		settings.setMaxRounds(8);
 		settings.setRoundTimeLimit(120);
 		settings.setAutoDeleteOnEnd(true);
-
+		
 		assertEquals(8, settings.getMaxRounds());
 		assertEquals(120, settings.getRoundTimeLimit());
 		assertTrue(settings.getAutoDeleteOnEnd());

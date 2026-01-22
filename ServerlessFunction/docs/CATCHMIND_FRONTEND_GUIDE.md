@@ -1,6 +1,7 @@
 # Catchmind 게임 프론트엔드 연동 가이드
 
 ## 목차
+
 1. [개요](#개요)
 2. [아키텍처](#아키텍처)
 3. [WebSocket 연결](#websocket-연결)
@@ -19,6 +20,7 @@
 Catchmind는 실시간 그림 맞추기 게임입니다. WebSocket을 통한 실시간 통신과 REST API를 통한 게임 세션 관리를 지원합니다.
 
 ### 주요 특징
+
 - **실시간 통신**: WebSocket 기반 양방향 통신
 - **도메인 분리**: `chat` / `game` 도메인으로 메시지 라우팅
 - **타이머 동기화**: `serverTime` 필드를 통한 클라이언트-서버 시간 동기화
@@ -53,16 +55,19 @@ Catchmind는 실시간 그림 맞추기 게임입니다. WebSocket을 통한 실
 ## WebSocket 연결
 
 ### 연결 URL
+
 ```
 wss://{api-id}.execute-api.{region}.amazonaws.com/dev?roomToken={token}
 ```
 
 ### 연결 절차
+
 1. REST API로 방 토큰 발급 (`POST /chat/rooms/{roomId}/join`)
 2. 토큰으로 WebSocket 연결
 3. 연결 성공 시 자동으로 방에 입장
 
 ### 연결 예시 (TypeScript)
+
 ```typescript
 const connectWebSocket = (roomToken: string): WebSocket => {
   const ws = new WebSocket(
@@ -101,12 +106,13 @@ interface BaseMessage {
 
 ### 도메인 구분
 
-| 도메인 | 설명 | 메시지 타입 |
-|--------|------|-------------|
-| `chat` | 채팅 메시지 | text, image, voice, ai_response |
+| 도메인    | 설명     | 메시지 타입                                                                                    |
+|--------|--------|-------------------------------------------------------------------------------------------|
+| `chat` | 채팅 메시지 | text, image, voice, ai_response                                                           |
 | `game` | 게임 메시지 | game_start, game_end, round_start, round_end, drawing, correct_answer, score_update, hint |
 
 ### 메시지 라우팅 예시
+
 ```typescript
 const handleMessage = (message: BaseMessage) => {
   if (message.domain === 'chat') {
@@ -122,11 +128,13 @@ const handleMessage = (message: BaseMessage) => {
 ## 게임 흐름
 
 ### 게임 상태 (GameStatus)
+
 ```typescript
 type GameStatus = 'NONE' | 'WAITING' | 'PLAYING' | 'ROUND_END' | 'FINISHED';
 ```
 
 ### 전체 흐름
+
 ```
 [대기] ─── /game 시작 ───► [게임 시작] ─► [라운드 1] ─► [라운드 종료]
                               │                              │
@@ -144,6 +152,7 @@ type GameStatus = 'NONE' | 'WAITING' | 'PLAYING' | 'ROUND_END' | 'FINISHED';
 ### 1. 게임 시작 (game_start)
 
 **수신 메시지:**
+
 ```json
 {
   "domain": "game",
@@ -166,6 +175,7 @@ type GameStatus = 'NONE' | 'WAITING' | 'PLAYING' | 'ROUND_END' | 'FINISHED';
 ```
 
 **프론트엔드 처리:**
+
 ```typescript
 const handleGameStart = (message: GameStartMessage) => {
   setGameStatus('PLAYING');
@@ -185,6 +195,7 @@ const handleGameStart = (message: GameStartMessage) => {
 ### 2. 그림 데이터 전송/수신 (drawing)
 
 **전송 (출제자만):**
+
 ```typescript
 const sendDrawing = (drawingData: DrawingData) => {
   ws.send(JSON.stringify({
@@ -196,6 +207,7 @@ const sendDrawing = (drawingData: DrawingData) => {
 ```
 
 **수신 메시지:**
+
 ```json
 {
   "domain": "game",
@@ -211,6 +223,7 @@ const sendDrawing = (drawingData: DrawingData) => {
 ### 3. 정답 체크
 
 **채팅 메시지로 자동 체크됩니다:**
+
 ```typescript
 const sendAnswer = (answer: string) => {
   ws.send(JSON.stringify({
@@ -224,6 +237,7 @@ const sendAnswer = (answer: string) => {
 ### 4. 정답 알림 (correct_answer)
 
 **수신 메시지:**
+
 ```json
 {
   "domain": "game",
@@ -246,6 +260,7 @@ const sendAnswer = (answer: string) => {
 ### 5. 점수 업데이트 (score_update)
 
 **수신 메시지:**
+
 ```json
 {
   "domain": "game",
@@ -265,6 +280,7 @@ const sendAnswer = (answer: string) => {
 ### 6. 라운드 종료 (round_end)
 
 **수신 메시지:**
+
 ```json
 {
   "domain": "game",
@@ -295,6 +311,7 @@ const sendAnswer = (answer: string) => {
 ```
 
 **프론트엔드 처리:**
+
 ```typescript
 const handleRoundEnd = (message: RoundEndMessage) => {
   const { data } = message;
@@ -328,6 +345,7 @@ const handleRoundEnd = (message: RoundEndMessage) => {
 ### 7. 게임 종료 (game_end)
 
 **수신 메시지:**
+
 ```json
 {
   "domain": "game",
@@ -352,12 +370,14 @@ const handleRoundEnd = (message: RoundEndMessage) => {
 ## REST API
 
 ### 게임 시작
+
 ```http
 POST /chat/rooms/{roomId}/game/start
 Authorization: Bearer {accessToken}
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -380,27 +400,32 @@ Authorization: Bearer {accessToken}
   }
 }
 ```
+
 > **Note:** `currentWord`는 출제자에게만 포함됩니다.
 
 ### 게임 종료
+
 ```http
 POST /chat/rooms/{roomId}/game/stop
 Authorization: Bearer {accessToken}
 ```
 
 ### 게임 상태 조회
+
 ```http
 GET /chat/rooms/{roomId}/game/status
 Authorization: Bearer {accessToken}
 ```
 
 ### 게임 세션 조회 (재접속용)
+
 ```http
 GET /games/{gameSessionId}
 Authorization: Bearer {accessToken}
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -431,6 +456,7 @@ Authorization: Bearer {accessToken}
   }
 }
 ```
+
 > **Note:** `currentWord`는 출제자에게만 포함됩니다.
 
 ---
@@ -438,12 +464,15 @@ Authorization: Bearer {accessToken}
 ## 타이머 동기화
 
 ### 문제
+
 클라이언트와 서버 시간 차이로 인한 타이머 불일치
 
 ### 해결책
+
 `serverTime` 필드를 사용하여 서버 시간 기준 타이머 계산
 
 ### 구현 예시
+
 ```typescript
 interface TimerSync {
   roundStartTime: number;  // 라운드 시작 시간 (서버 기준)
@@ -483,6 +512,7 @@ const startTimer = (
 ```
 
 ### React Hook 예시
+
 ```typescript
 const useGameTimer = (timerSync: TimerSync | null) => {
   const [remainingSeconds, setRemainingSeconds] = useState(0);
@@ -512,9 +542,11 @@ const useGameTimer = (timerSync: TimerSync | null) => {
 ## 게임 자동 종료
 
 ### 개요
+
 게임 시작 후 7분(420초)이 경과하면 자동으로 종료됩니다.
 
 ### 자동 종료 메시지
+
 ```json
 {
   "domain": "game",
@@ -528,6 +560,7 @@ const useGameTimer = (timerSync: TimerSync | null) => {
 ```
 
 ### 프론트엔드 처리
+
 ```typescript
 const handleGameEnd = (message: GameEndMessage) => {
   setGameStatus('FINISHED');
@@ -552,15 +585,18 @@ const handleGameEnd = (message: GameEndMessage) => {
 ## 재접속 처리
 
 ### 시나리오
+
 사용자가 게임 중 연결이 끊어졌다가 다시 접속하는 경우
 
 ### 처리 절차
+
 1. WebSocket 재연결
 2. 게임 세션 API로 현재 상태 조회
 3. UI 상태 복원
 4. 타이머 동기화
 
 ### 구현 예시
+
 ```typescript
 const handleReconnect = async (roomId: string, gameSessionId: string) => {
   // 1. WebSocket 재연결
@@ -600,25 +636,28 @@ const handleReconnect = async (roomId: string, gameSessionId: string) => {
 ## 에러 처리
 
 ### WebSocket 에러 코드
-| 코드 | 설명 | 처리 방법 |
-|------|------|-----------|
-| 1000 | 정상 종료 | - |
-| 1001 | 서버 종료 | 재연결 시도 |
-| 1006 | 비정상 종료 | 재연결 시도 |
-| 4001 | 인증 실패 | 토큰 재발급 후 재연결 |
-| 4003 | 권한 없음 | 에러 표시 |
+
+| 코드   | 설명     | 처리 방법        |
+|------|--------|--------------|
+| 1000 | 정상 종료  | -            |
+| 1001 | 서버 종료  | 재연결 시도       |
+| 1006 | 비정상 종료 | 재연결 시도       |
+| 4001 | 인증 실패  | 토큰 재발급 후 재연결 |
+| 4003 | 권한 없음  | 에러 표시        |
 
 ### REST API 에러 코드
-| 코드 | 설명 |
-|------|------|
-| `GAME_001` | 게임 시작 실패 |
-| `GAME_002` | 게임 중단 실패 |
-| `GAME_003` | 진행 중인 게임 없음 |
-| `GAME_004` | 이미 게임 진행 중 |
+
+| 코드         | 설명                    |
+|------------|-----------------------|
+| `GAME_001` | 게임 시작 실패              |
+| `GAME_002` | 게임 중단 실패              |
+| `GAME_003` | 진행 중인 게임 없음           |
+| `GAME_004` | 이미 게임 진행 중            |
 | `GAME_005` | 권한 없음 (게임 시작자만 중단 가능) |
-| `GAME_006` | 게임 세션을 찾을 수 없음 |
+| `GAME_006` | 게임 세션을 찾을 수 없음        |
 
 ### 에러 처리 예시
+
 ```typescript
 const handleError = (error: ApiError) => {
   switch (error.code) {
@@ -716,7 +755,7 @@ const gameReducer = (state: GameState, action: GameAction): GameState => {
 
 ## 버전 이력
 
-| 버전 | 날짜 | 변경 내용 |
-|------|------|-----------|
-| 1.0.0 | 2024-01-20 | 초기 문서 작성 |
+| 버전    | 날짜         | 변경 내용               |
+|-------|------------|---------------------|
+| 1.0.0 | 2024-01-20 | 초기 문서 작성            |
 | 1.1.0 | 2024-01-20 | 게임 자동 종료 (7분) 기능 추가 |

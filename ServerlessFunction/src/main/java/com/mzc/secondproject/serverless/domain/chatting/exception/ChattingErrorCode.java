@@ -4,7 +4,7 @@ import com.mzc.secondproject.serverless.common.exception.DomainErrorCode;
 
 /**
  * 채팅 도메인 에러 코드
- *
+ * <p>
  * 채팅방(Room), 메시지(Message), 참여자(Participant) 관련 에러 코드를 정의합니다.
  */
 public enum ChattingErrorCode implements DomainErrorCode {

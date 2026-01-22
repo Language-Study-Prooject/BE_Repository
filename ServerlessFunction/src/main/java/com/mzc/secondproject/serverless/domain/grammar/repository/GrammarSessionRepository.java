@@ -29,14 +29,14 @@ public class GrammarSessionRepository {
 	
 	private final DynamoDbTable<GrammarSession> sessionTable;
 	private final DynamoDbTable<GrammarMessage> messageTable;
-
+	
 	/**
 	 * 기본 생성자 (Lambda에서 사용)
 	 */
 	public GrammarSessionRepository() {
 		this(AwsClients.dynamoDbEnhanced());
 	}
-
+	
 	/**
 	 * 의존성 주입 생성자 (테스트 용이성)
 	 */

@@ -36,12 +36,12 @@ public class GrammarHandler implements RequestHandler<APIGatewayProxyRequestEven
 	public GrammarHandler() {
 		this(new GrammarCheckService(), new GrammarConversationService(), new GrammarSessionQueryService());
 	}
-
+	
 	/**
 	 * 의존성 주입 생성자 (테스트 용이성)
 	 */
 	public GrammarHandler(GrammarCheckService grammarCheckService, GrammarConversationService conversationService,
-						  GrammarSessionQueryService sessionQueryService) {
+	                      GrammarSessionQueryService sessionQueryService) {
 		this.grammarCheckService = grammarCheckService;
 		this.conversationService = conversationService;
 		this.sessionQueryService = sessionQueryService;
