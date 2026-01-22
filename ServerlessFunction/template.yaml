@@ -364,7 +364,7 @@ Resources:
                 - scheduler:CreateSchedule
                 - scheduler:DeleteSchedule
                 - scheduler:GetSchedule
-              Resource: !Sub "arn:aws:scheduler:${AWS::Region}:${AWS::AccountId}:schedule/game-auto-close/*"
+              Resource: !Sub "arn:aws:scheduler:${AWS::Region}:${AWS::AccountId}:schedule/${AWS::StackName}-game-auto-close/*"
         - Statement:
             - Effect: Allow
               Action:
@@ -524,7 +524,7 @@ Resources:
                 - scheduler:CreateSchedule
                 - scheduler:DeleteSchedule
                 - scheduler:GetSchedule
-              Resource: !Sub "arn:aws:scheduler:${AWS::Region}:${AWS::AccountId}:schedule/game-auto-close/*"
+              Resource: !Sub "arn:aws:scheduler:${AWS::Region}:${AWS::AccountId}:schedule/${AWS::StackName}-game-auto-close/*"
         - Statement:
             - Effect: Allow
               Action:
@@ -614,7 +614,7 @@ Resources:
   GameScheduleGroup:
     Type: AWS::Scheduler::ScheduleGroup
     Properties:
-      Name: game-auto-close
+      Name: !Sub "${AWS::StackName}-game-auto-close"
 
   ChatMessageFunction:
     Type: AWS::Serverless::Function
@@ -1441,7 +1441,7 @@ Resources:
           Type: Schedule
           Properties:
             Schedule: cron(0 15 * * ? *)  # UTC 15:00 = KST 00:00 (자정)
-            Name: daily-stats-aggregation
+            Name: !Sub "${AWS::StackName}-daily-stats-aggregation"
             Description: Daily word learning stats aggregation
             Enabled: true
 
