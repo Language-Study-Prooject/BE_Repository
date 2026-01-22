@@ -11,9 +11,14 @@ import com.mzc.secondproject.serverless.common.util.CognitoUtil;
 import com.mzc.secondproject.serverless.common.util.ResponseGenerator;
 import com.mzc.secondproject.serverless.domain.news.exception.NewsErrorCode;
 import com.mzc.secondproject.serverless.domain.news.model.NewsArticle;
+import com.mzc.secondproject.serverless.domain.news.model.NewsQuizResult;
 import com.mzc.secondproject.serverless.domain.news.model.UserNewsRecord;
 import com.mzc.secondproject.serverless.domain.news.service.NewsLearningService;
 import com.mzc.secondproject.serverless.domain.news.service.NewsQueryService;
+import com.mzc.secondproject.serverless.domain.news.service.NewsQuizService;
+import com.google.gson.Gson;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -30,18 +35,21 @@ public class NewsHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
 	private static final Logger logger = LoggerFactory.getLogger(NewsHandler.class);
 	private static final int DEFAULT_LIMIT = 10;
 	private static final int MAX_LIMIT = 50;
+	private static final Gson gson = new Gson();
 
 	private final NewsQueryService queryService;
 	private final NewsLearningService learningService;
+	private final NewsQuizService quizService;
 	private final HandlerRouter router;
 
 	public NewsHandler() {
-		this(new NewsQueryService(), new NewsLearningService());
+		this(new NewsQueryService(), new NewsLearningService(), new NewsQuizService());
 	}
 
-	public NewsHandler(NewsQueryService queryService, NewsLearningService learningService) {
+	public NewsHandler(NewsQueryService queryService, NewsLearningService learningService, NewsQuizService quizService) {
 		this.queryService = queryService;
 		this.learningService = learningService;
+		this.quizService = quizService;
 		this.router = initRouter();
 	}
 
@@ -51,6 +59,9 @@ public class NewsHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
 				Route.get("/news/recommended", this::getRecommendedNews),
 				Route.get("/news/stats", this::getNewsStats),
 				Route.get("/news/bookmarks", this::getBookmarks),
+				Route.get("/news/quiz/history", this::getQuizHistory),
+				Route.get("/news/{articleId}/quiz", this::getQuiz),
+				Route.post("/news/{articleId}/quiz", this::submitQuiz),
 				Route.post("/news/{articleId}/read", this::markAsRead),
 				Route.post("/news/{articleId}/bookmark", this::toggleBookmark),
 				Route.get("/news/{articleId}/audio", this::getAudio),
@@ -270,5 +281,87 @@ public class NewsHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
 		}
 
 		return ResponseGenerator.ok("TTS 오디오 URL 조회 성공", Map.of("audioUrl", audioUrl));
+	}
+
+	/**
+	 * 퀴즈 조회
+	 * GET /news/{articleId}/quiz
+	 */
+	private APIGatewayProxyResponseEvent getQuiz(APIGatewayProxyRequestEvent request) {
+		String userId = getUserId(request);
+		if (userId == null) {
+			return ResponseGenerator.fail(NewsErrorCode.UNAUTHORIZED);
+		}
+
+		String articleId = request.getPathParameters().get("articleId");
+		Optional<NewsQuizService.QuizData> quizData = quizService.getQuiz(articleId, userId);
+
+		if (quizData.isEmpty()) {
+			return ResponseGenerator.fail(NewsErrorCode.QUIZ_NOT_FOUND);
+		}
+
+		return ResponseGenerator.ok("퀴즈 조회 성공", quizData.get());
+	}
+
+	/**
+	 * 퀴즈 제출
+	 * POST /news/{articleId}/quiz
+	 */
+	private APIGatewayProxyResponseEvent submitQuiz(APIGatewayProxyRequestEvent request) {
+		String userId = getUserId(request);
+		if (userId == null) {
+			return ResponseGenerator.fail(NewsErrorCode.UNAUTHORIZED);
+		}
+
+		String articleId = request.getPathParameters().get("articleId");
+
+		// 요청 바디 파싱
+		JsonObject body = gson.fromJson(request.getBody(), JsonObject.class);
+		JsonArray answersArray = body.getAsJsonArray("answers");
+		Integer timeTaken = body.has("timeTaken") ? body.get("timeTaken").getAsInt() : null;
+
+		List<NewsQuizService.QuizAnswer> answers = new java.util.ArrayList<>();
+		if (answersArray != null) {
+			answersArray.forEach(e -> {
+				JsonObject a = e.getAsJsonObject();
+				answers.add(new NewsQuizService.QuizAnswer(
+						a.get("questionId").getAsString(),
+						a.get("answer").getAsString()
+				));
+			});
+		}
+
+		NewsQuizService.QuizSubmitResult result = quizService.submitQuiz(userId, articleId, answers, timeTaken);
+
+		if (result == null) {
+			return ResponseGenerator.fail(NewsErrorCode.QUIZ_ALREADY_SUBMITTED);
+		}
+
+		return ResponseGenerator.ok("퀴즈 제출 성공", result);
+	}
+
+	/**
+	 * 퀴즈 기록 조회
+	 * GET /news/quiz/history?limit=10
+	 */
+	private APIGatewayProxyResponseEvent getQuizHistory(APIGatewayProxyRequestEvent request) {
+		String userId = getUserId(request);
+		if (userId == null) {
+			return ResponseGenerator.fail(NewsErrorCode.UNAUTHORIZED);
+		}
+
+		Map<String, String> params = request.getQueryStringParameters();
+		if (params == null) params = new HashMap<>();
+
+		int limit = parseLimit(params.get("limit"));
+		List<NewsQuizResult> history = quizService.getUserQuizHistory(userId, limit);
+		Map<String, Object> quizStats = quizService.getUserQuizStats(userId);
+
+		Map<String, Object> response = new HashMap<>();
+		response.put("history", history);
+		response.put("stats", quizStats);
+		response.put("count", history.size());
+
+		return ResponseGenerator.ok("퀴즈 기록 조회 성공", response);
 	}
 }
