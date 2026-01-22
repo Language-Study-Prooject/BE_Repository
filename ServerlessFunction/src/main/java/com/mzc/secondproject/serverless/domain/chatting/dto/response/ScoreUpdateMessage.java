@@ -16,6 +16,7 @@ import java.util.Map;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ScoreUpdateMessage {
+	private String domain;
 	private String messageType;
 	private String roomId;
 	private String scorerId;
@@ -31,6 +32,7 @@ public class ScoreUpdateMessage {
 		List<RankEntry> ranking = buildRanking(scores);
 		
 		return ScoreUpdateMessage.builder()
+				.domain("game")
 				.messageType("SCORE_UPDATE")
 				.roomId(roomId)
 				.scorerId(scorerId)

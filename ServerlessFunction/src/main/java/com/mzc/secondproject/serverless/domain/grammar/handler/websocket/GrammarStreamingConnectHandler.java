@@ -16,7 +16,7 @@ import java.util.Optional;
 /**
  * Grammar Streaming WebSocket $connect 핸들러
  * JWT 토큰 검증 후 연결 정보를 DynamoDB에 저장
- * <p>
+ *
  * 연결 방법:
  * wss://{api-id}.execute-api.{region}.amazonaws.com/{stage}?token={jwt}
  */

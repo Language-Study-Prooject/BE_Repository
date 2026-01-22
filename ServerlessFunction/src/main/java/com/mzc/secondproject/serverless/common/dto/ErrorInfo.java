@@ -8,17 +8,17 @@ import java.util.Map;
 
 /**
  * RFC 7807 스타일 에러 정보
- * <p>
+ *
  * Problem Details for HTTP APIs (RFC 7807) 표준을 참고한 에러 응답 형식입니다.
- * <p>
+ *
  * 응답 예시:
  * {
- * "code": "VOCABULARY.WORD_001",
- * "message": "단어를 찾을 수 없습니다",
- * "status": 404,
- * "details": {
- * "wordId": "abc-123"
- * }
+ *     "code": "VOCABULARY.WORD_001",
+ *     "message": "단어를 찾을 수 없습니다",
+ *     "status": 404,
+ *     "details": {
+ *         "wordId": "abc-123"
+ *     }
  * }
  *
  * @param code    에러 코드 (예: AUTH_001, VOCABULARY.WORD_001)

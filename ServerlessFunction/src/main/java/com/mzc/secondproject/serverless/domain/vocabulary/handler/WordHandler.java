@@ -33,9 +33,19 @@ public class WordHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
 	private final WordQueryService queryService;
 	private final HandlerRouter router;
 	
+	/**
+	 * 기본 생성자 (Lambda에서 사용)
+	 */
 	public WordHandler() {
-		this.commandService = new WordCommandService();
-		this.queryService = new WordQueryService();
+		this(new WordCommandService(), new WordQueryService());
+	}
+
+	/**
+	 * 의존성 주입 생성자 (테스트 용이성)
+	 */
+	public WordHandler(WordCommandService commandService, WordQueryService queryService) {
+		this.commandService = commandService;
+		this.queryService = queryService;
 		this.router = initRouter();
 	}
 	

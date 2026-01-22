@@ -1,6 +1,6 @@
 package com.mzc.secondproject.serverless.domain.chatting.dto.response;
 
-import com.mzc.secondproject.serverless.domain.chatting.model.ChatRoom;
+import com.mzc.secondproject.serverless.domain.chatting.model.GameSession;
 
 import java.util.List;
 import java.util.Map;
@@ -14,24 +14,24 @@ public record GameStatusResponse(
 		Integer totalRounds,
 		String currentDrawerId,
 		Long roundStartTime,
-		Integer roundTimeLimit,
+		Integer roundDuration,
 		List<String> drawerOrder,
 		Map<String, Integer> scores,
 		Boolean hintUsed,
 		List<String> correctGuessers
 ) {
-	public static GameStatusResponse from(ChatRoom room, List<String> drawerOrder) {
+	public static GameStatusResponse from(GameSession session) {
 		return new GameStatusResponse(
-				room.getGameStatus(),
-				room.getCurrentRound(),
-				room.getTotalRounds(),
-				room.getCurrentDrawerId(),
-				room.getRoundStartTime(),
-				room.getRoundTimeLimit(),
-				drawerOrder != null ? drawerOrder : room.getDrawerOrder(),
-				room.getScores(),
-				room.getHintUsed(),
-				room.getCorrectGuessers()
+				session.getStatus(),
+				session.getCurrentRound(),
+				session.getTotalRounds(),
+				session.getCurrentDrawerId(),
+				session.getRoundStartTime(),
+				session.getRoundDuration(),
+				session.getDrawerOrder(),
+				session.getScores(),
+				session.getHintUsed(),
+				session.getCorrectGuessers()
 		);
 	}
 }

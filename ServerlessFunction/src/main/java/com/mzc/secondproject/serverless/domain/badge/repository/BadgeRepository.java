@@ -6,6 +6,7 @@ import com.mzc.secondproject.serverless.domain.badge.constants.BadgeKey;
 import com.mzc.secondproject.serverless.domain.badge.model.UserBadge;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import software.amazon.awssdk.enhanced.dynamodb.DynamoDbEnhancedClient;
 import software.amazon.awssdk.enhanced.dynamodb.DynamoDbTable;
 import software.amazon.awssdk.enhanced.dynamodb.Key;
 import software.amazon.awssdk.enhanced.dynamodb.TableSchema;
@@ -22,9 +23,19 @@ public class BadgeRepository {
 	private static final String TABLE_NAME = EnvConfig.getRequired("VOCAB_TABLE_NAME");
 	
 	private final DynamoDbTable<UserBadge> table;
-	
+
+	/**
+	 * 기본 생성자 (Lambda에서 사용)
+	 */
 	public BadgeRepository() {
-		this.table = AwsClients.dynamoDbEnhanced().table(TABLE_NAME, TableSchema.fromBean(UserBadge.class));
+		this(AwsClients.dynamoDbEnhanced());
+	}
+
+	/**
+	 * 의존성 주입 생성자 (테스트 용이성)
+	 */
+	public BadgeRepository(DynamoDbEnhancedClient enhancedClient) {
+		this.table = enhancedClient.table(TABLE_NAME, TableSchema.fromBean(UserBadge.class));
 	}
 	
 	public void save(UserBadge badge) {
