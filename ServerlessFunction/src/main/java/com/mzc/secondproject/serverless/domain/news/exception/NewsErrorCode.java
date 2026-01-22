@@ -8,6 +8,9 @@ import com.mzc.secondproject.serverless.common.exception.DomainErrorCode;
  */
 public enum NewsErrorCode implements DomainErrorCode {
 
+	// 인증 관련 에러
+	UNAUTHORIZED("AUTH_001", "인증이 필요합니다", 401),
+
 	// 뉴스 기사 관련 에러
 	ARTICLE_NOT_FOUND("ARTICLE_001", "뉴스 기사를 찾을 수 없습니다", 404),
 	INVALID_ARTICLE_DATA("ARTICLE_002", "뉴스 기사 데이터가 유효하지 않습니다", 400),
