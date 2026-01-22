@@ -3,14 +3,21 @@ version: 0.2
 env:
   variables:
     SAM_CLI_TELEMETRY: 0
+    GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dorg.gradle.parallel=true -Dorg.gradle.caching=true"
+    PIP_CACHE_DIR: "/root/.cache/pip"
 
 phases:
   install:
     runtime-versions:
       java: corretto21
     commands:
-      - echo "Installing SAM CLI..."
-      - pip3 install aws-sam-cli
+      - echo "Installing SAM CLI (cached)..."
+      - |
+        if ! command -v sam &> /dev/null || [ "$(sam --version 2>/dev/null | grep -oP '\d+\.\d+\.\d+')" != "1.152.0" ]; then
+          pip3 install --quiet aws-sam-cli
+        else
+          echo "SAM CLI already installed, skipping..."
+        fi
       - sam --version
 
   pre_build:
@@ -18,14 +25,14 @@ phases:
       - echo "Running tests..."
       - cd ServerlessFunction
       - chmod +x gradlew
-      - ./gradlew clean test
+      - ./gradlew test --build-cache --parallel
       - echo "Tests completed"
 
   build:
     commands:
       - echo "Building SAM application..."
       - cd $CODEBUILD_SRC_DIR/ServerlessFunction
-      - sam build
+      - sam build --parallel --cached
       - echo "Packaging SAM application..."
       - sam package --s3-bucket group2-englishstudy-pipeline-artifacts --s3-prefix sam-packages --output-template-file packaged-template.yaml
 
@@ -42,6 +49,9 @@ cache:
   paths:
     - '/root/.gradle/caches/**/*'
     - '/root/.gradle/wrapper/**/*'
+    - '/root/.cache/pip/**/*'
+    - '/root/.aws-sam/build/**/*'
+    - 'ServerlessFunction/.aws-sam/cache/**/*'
 
 reports:
   junit-reports:
