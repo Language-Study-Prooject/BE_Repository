@@ -219,7 +219,7 @@ Resources:
     Type: AWS::ApiGatewayV2::Stage
     Properties:
       ApiId: !Ref WebSocketApi
-      StageName: dev
+      StageName: !Ref Environment
       AutoDeploy: true
 
   # WebSocket Connect Route
@@ -1280,7 +1280,7 @@ Resources:
     Type: AWS::ApiGatewayV2::Stage
     Properties:
       ApiId: !Ref GrammarWebSocketApi
-      StageName: dev
+      StageName: !Ref Environment
       AutoDeploy: true
 
   # Grammar WebSocket Connect Route
