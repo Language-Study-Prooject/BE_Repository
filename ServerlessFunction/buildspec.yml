@@ -2,7 +2,6 @@ version: 0.2
 
 env:
   variables:
-    JAVA_HOME: /usr/lib/jvm/java-21-amazon-corretto
     SAM_CLI_TELEMETRY: 0
 
 phases:
