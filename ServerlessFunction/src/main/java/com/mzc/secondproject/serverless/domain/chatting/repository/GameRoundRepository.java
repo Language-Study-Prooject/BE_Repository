@@ -29,8 +29,18 @@ public class GameRoundRepository {
 	private final DynamoDbEnhancedClient enhancedClient;
 	private final DynamoDbTable<GameRound> table;
 	
+	/**
+	 * 기본 생성자 (Lambda에서 사용)
+	 */
 	public GameRoundRepository() {
-		this.enhancedClient = AwsClients.dynamoDbEnhanced();
+		this(AwsClients.dynamoDbEnhanced());
+	}
+	
+	/**
+	 * 의존성 주입 생성자 (테스트 용이성)
+	 */
+	public GameRoundRepository(DynamoDbEnhancedClient enhancedClient) {
+		this.enhancedClient = enhancedClient;
 		this.table = enhancedClient.table(TABLE_NAME, TableSchema.fromBean(GameRound.class));
 	}
 	

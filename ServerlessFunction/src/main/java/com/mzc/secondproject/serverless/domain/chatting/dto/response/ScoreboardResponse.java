@@ -1,6 +1,6 @@
 package com.mzc.secondproject.serverless.domain.chatting.dto.response;
 
-import com.mzc.secondproject.serverless.domain.chatting.model.ChatRoom;
+import com.mzc.secondproject.serverless.domain.chatting.model.GameSession;
 
 import java.util.List;
 import java.util.Map;
@@ -15,16 +15,16 @@ public record ScoreboardResponse(
 		Integer currentRound,
 		Integer totalRounds
 ) {
-	public static ScoreboardResponse from(ChatRoom room) {
-		Map<String, Integer> scores = room.getScores();
+	public static ScoreboardResponse from(GameSession session) {
+		Map<String, Integer> scores = session.getScores();
 		List<RankEntry> ranking = buildRanking(scores);
 		
 		return new ScoreboardResponse(
 				scores,
 				ranking,
-				room.getGameStatus(),
-				room.getCurrentRound(),
-				room.getTotalRounds()
+				session.getStatus(),
+				session.getCurrentRound(),
+				session.getTotalRounds()
 		);
 	}
 	

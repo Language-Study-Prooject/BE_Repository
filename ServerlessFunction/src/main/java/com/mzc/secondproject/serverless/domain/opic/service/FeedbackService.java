@@ -24,7 +24,7 @@ public class FeedbackService {
 	
 	private static final Logger logger = LoggerFactory.getLogger(FeedbackService.class);
 	private static final Gson gson = new GsonBuilder().setPrettyPrinting().create();
-	private static final String MODEL_ID = "anthropic.claude-3-5-sonnet-20241022-v2:0";
+	private static final String MODEL_ID = "anthropic.claude-3-haiku-20240307-v1:0";
 	private static final int MAX_TOKENS = 2000;
 	
 	/**

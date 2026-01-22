@@ -5,10 +5,7 @@ import com.mzc.secondproject.serverless.common.config.EnvConfig;
 import com.mzc.secondproject.serverless.domain.chatting.model.Connection;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import software.amazon.awssdk.enhanced.dynamodb.DynamoDbIndex;
-import software.amazon.awssdk.enhanced.dynamodb.DynamoDbTable;
-import software.amazon.awssdk.enhanced.dynamodb.Key;
-import software.amazon.awssdk.enhanced.dynamodb.TableSchema;
+import software.amazon.awssdk.enhanced.dynamodb.*;
 import software.amazon.awssdk.enhanced.dynamodb.model.QueryConditional;
 import software.amazon.awssdk.enhanced.dynamodb.model.QueryEnhancedRequest;
 
@@ -23,8 +20,18 @@ public class ConnectionRepository {
 	
 	private final DynamoDbTable<Connection> table;
 	
+	/**
+	 * 기본 생성자 (Lambda에서 사용)
+	 */
 	public ConnectionRepository() {
-		this.table = AwsClients.dynamoDbEnhanced().table(TABLE_NAME, TableSchema.fromBean(Connection.class));
+		this(AwsClients.dynamoDbEnhanced());
+	}
+	
+	/**
+	 * 의존성 주입 생성자 (테스트 용이성)
+	 */
+	public ConnectionRepository(DynamoDbEnhancedClient enhancedClient) {
+		this.table = enhancedClient.table(TABLE_NAME, TableSchema.fromBean(Connection.class));
 	}
 	
 	public Connection save(Connection connection) {
@@ -56,12 +63,15 @@ public class ConnectionRepository {
 	
 	/**
 	 * 채팅방의 모든 연결 조회 (브로드캐스트용)
-	 * GSI1: ROOM#{roomId}로 조회
+	 * GSI1: ROOM#{roomId}로 조회, GSI1SK가 CONN#으로 시작하는 항목만 반환
+	 * (GSI1에 GameSession도 포함되어 있으므로 CONN# prefix로 필터링)
 	 */
 	public List<Connection> findByRoomId(String roomId) {
+		// GSI1SK가 CONN#으로 시작하는 항목만 조회
 		QueryConditional queryConditional = QueryConditional
-				.keyEqualTo(Key.builder()
+				.sortBeginsWith(Key.builder()
 						.partitionValue("ROOM#" + roomId)
+						.sortValue("CONN#")
 						.build());
 		
 		QueryEnhancedRequest request = QueryEnhancedRequest.builder()
@@ -94,5 +104,25 @@ public class ConnectionRepository {
 		return gsi2.query(request).stream()
 				.flatMap(page -> page.items().stream())
 				.collect(Collectors.toList());
+	}
+	
+	/**
+	 * 같은 방에서 사용자의 기존 연결 삭제 (중복 연결 방지)
+	 * 새로고침 등으로 인한 중복 연결을 정리
+	 */
+	public void deleteUserConnectionsInRoom(String userId, String roomId) {
+		List<Connection> userConnections = findByUserId(userId);
+		
+		int deletedCount = 0;
+		for (Connection conn : userConnections) {
+			if (roomId.equals(conn.getRoomId())) {
+				delete(conn.getConnectionId());
+				deletedCount++;
+			}
+		}
+		
+		if (deletedCount > 0) {
+			logger.info("Deleted {} existing connections for user {} in room {}", deletedCount, userId, roomId);
+		}
 	}
 }

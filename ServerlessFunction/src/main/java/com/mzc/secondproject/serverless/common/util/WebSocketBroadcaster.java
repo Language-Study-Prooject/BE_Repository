@@ -17,7 +17,7 @@ import java.util.List;
 /**
  * WebSocket 연결들에게 메시지를 브로드캐스트하는 유틸리티
  */
-public class WebSocketBroadcaster {
+public class WebSocketBroadcaster implements AutoCloseable {
 	
 	private static final Logger logger = LoggerFactory.getLogger(WebSocketBroadcaster.class);
 	
@@ -81,5 +81,16 @@ public class WebSocketBroadcaster {
 				connections.size(), failedConnections.size());
 		
 		return failedConnections;
+	}
+	
+	@Override
+	public void close() {
+		try {
+			if (apiClient != null) {
+				apiClient.close();
+			}
+		} catch (Exception e) {
+			logger.warn("Failed to close ApiGatewayManagementApiClient: {}", e.getMessage());
+		}
 	}
 }

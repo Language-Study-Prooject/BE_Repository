@@ -4,6 +4,7 @@ import com.mzc.secondproject.serverless.common.dto.PaginatedResult;
 import com.mzc.secondproject.serverless.domain.vocabulary.model.DailyStudy;
 import com.mzc.secondproject.serverless.domain.vocabulary.model.TestResult;
 import com.mzc.secondproject.serverless.domain.vocabulary.model.UserWord;
+import com.mzc.secondproject.serverless.domain.vocabulary.model.Word;
 import com.mzc.secondproject.serverless.domain.vocabulary.repository.DailyStudyRepository;
 import com.mzc.secondproject.serverless.domain.vocabulary.repository.TestResultRepository;
 import com.mzc.secondproject.serverless.domain.vocabulary.repository.UserWordRepository;
@@ -12,6 +13,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.*;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 public class StatsService {
@@ -23,11 +25,25 @@ public class StatsService {
 	private final TestResultRepository testResultRepository;
 	private final WordRepository wordRepository;
 	
+	/**
+	 * 기본 생성자 (Lambda에서 사용)
+	 */
 	public StatsService() {
-		this.userWordRepository = new UserWordRepository();
-		this.dailyStudyRepository = new DailyStudyRepository();
-		this.testResultRepository = new TestResultRepository();
-		this.wordRepository = new WordRepository();
+		this(new UserWordRepository(), new DailyStudyRepository(),
+				new TestResultRepository(), new WordRepository());
+	}
+	
+	/**
+	 * 의존성 주입 생성자 (테스트 용이성)
+	 */
+	public StatsService(UserWordRepository userWordRepository,
+	                    DailyStudyRepository dailyStudyRepository,
+	                    TestResultRepository testResultRepository,
+	                    WordRepository wordRepository) {
+		this.userWordRepository = userWordRepository;
+		this.dailyStudyRepository = dailyStudyRepository;
+		this.testResultRepository = testResultRepository;
+		this.wordRepository = wordRepository;
 	}
 	
 	public Map<String, Object> getOverallStats(String userId) {
@@ -121,6 +137,15 @@ public class StatsService {
 			return emptyResult;
 		}
 		
+		// 배치 조회로 N+1 문제 해결: 모든 wordId를 수집하여 한 번에 조회
+		List<String> wordIds = allUserWords.stream()
+				.map(UserWord::getWordId)
+				.distinct()
+				.collect(Collectors.toList());
+		List<Word> words = wordRepository.findByIds(wordIds);
+		Map<String, Word> wordMap = words.stream()
+				.collect(Collectors.toMap(Word::getWordId, Function.identity(), (a, b) -> a));
+		
 		List<Map<String, Object>> weakestWords = allUserWords.stream()
 				.filter(uw -> uw.getIncorrectCount() != null && uw.getIncorrectCount() > 0)
 				.sorted(Comparator.comparingInt(UserWord::getIncorrectCount).reversed())
@@ -132,12 +157,13 @@ public class StatsService {
 					wordInfo.put("correctCount", uw.getCorrectCount());
 					wordInfo.put("status", uw.getStatus());
 					
-					wordRepository.findById(uw.getWordId()).ifPresent(word -> {
+					Word word = wordMap.get(uw.getWordId());
+					if (word != null) {
 						wordInfo.put("english", word.getEnglish());
 						wordInfo.put("korean", word.getKorean());
 						wordInfo.put("level", word.getLevel());
 						wordInfo.put("category", word.getCategory());
-					});
+					}
 					
 					int total = (uw.getCorrectCount() != null ? uw.getCorrectCount() : 0) +
 							(uw.getIncorrectCount() != null ? uw.getIncorrectCount() : 0);
@@ -152,7 +178,8 @@ public class StatsService {
 		Map<String, Map<String, Object>> levelAnalysis = new HashMap<>();
 		
 		for (UserWord uw : allUserWords) {
-			wordRepository.findById(uw.getWordId()).ifPresent(word -> {
+			Word word = wordMap.get(uw.getWordId());
+			if (word != null) {
 				String category = word.getCategory();
 				String level = word.getLevel();
 				
@@ -182,7 +209,7 @@ public class StatsService {
 				lvlStats.put("totalCorrect", (Integer) lvlStats.get("totalCorrect") + correct);
 				lvlStats.put("totalIncorrect", (Integer) lvlStats.get("totalIncorrect") + incorrect);
 				lvlStats.put("wordCount", (Integer) lvlStats.get("wordCount") + 1);
-			});
+			}
 		}
 		
 		categoryAnalysis.values().forEach(stats -> {

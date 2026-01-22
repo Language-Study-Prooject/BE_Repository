@@ -18,7 +18,11 @@ public enum MessageType {
 	CORRECT_ANSWER("correct_answer", "정답"),
 	SCORE_UPDATE("score_update", "점수 업데이트"),
 	SYSTEM_COMMAND("system_command", "시스템 명령"),
-	HINT("hint", "힌트");
+	HINT("hint", "힌트"),
+	
+	// 방 관련 메시지 타입
+	ROOM_STATUS_CHANGE("room_status_change", "방 상태 변경"),
+	HOST_CHANGE("host_change", "방장 변경");
 	
 	private final String code;
 	private final String displayName;

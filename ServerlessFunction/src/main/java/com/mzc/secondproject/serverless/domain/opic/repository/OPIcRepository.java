@@ -173,6 +173,17 @@ public class OPIcRepository {
 	}
 	
 	/**
+	 * 주제 + 소주제 + 레벨로 질문 조회 (subTopic 필터 추가)
+	 */
+	public List<OPIcQuestion> findQuestionsByTopicSubTopicAndLevel(
+			String topic, String subTopic, String level) {
+		
+		return findQuestionsByTopicAndLevel(topic, level).stream()
+				.filter(q -> subTopic == null || subTopic.equals(q.getSubTopic()))
+				.collect(Collectors.toList());
+	}
+	
+	/**
 	 * 여러 질문 ID로 조회
 	 */
 	public List<OPIcQuestion> findQuestionsByIds(List<String> questionIds) {

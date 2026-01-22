@@ -35,12 +35,27 @@ public class DailyStudyCommandService {
 	private final UserStatsRepository userStatsRepository;
 	private final BadgeService badgeService;
 	
+	/**
+	 * 기본 생성자 (Lambda에서 사용)
+	 */
 	public DailyStudyCommandService() {
-		this.dailyStudyRepository = new DailyStudyRepository();
-		this.userWordRepository = new UserWordRepository();
-		this.wordRepository = new WordRepository();
-		this.userStatsRepository = new UserStatsRepository();
-		this.badgeService = new BadgeService();
+		this(new DailyStudyRepository(), new UserWordRepository(), new WordRepository(),
+				new UserStatsRepository(), new BadgeService());
+	}
+	
+	/**
+	 * 의존성 주입 생성자 (테스트 용이성)
+	 */
+	public DailyStudyCommandService(DailyStudyRepository dailyStudyRepository,
+	                                UserWordRepository userWordRepository,
+	                                WordRepository wordRepository,
+	                                UserStatsRepository userStatsRepository,
+	                                BadgeService badgeService) {
+		this.dailyStudyRepository = dailyStudyRepository;
+		this.userWordRepository = userWordRepository;
+		this.wordRepository = wordRepository;
+		this.userStatsRepository = userStatsRepository;
+		this.badgeService = badgeService;
 	}
 	
 	public DailyStudyResult getDailyWords(String userId, String level) {

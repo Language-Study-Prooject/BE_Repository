@@ -21,9 +21,19 @@ public class UserWordQueryService {
 	private final UserWordRepository userWordRepository;
 	private final WordRepository wordRepository;
 	
+	/**
+	 * 기본 생성자 (Lambda에서 사용)
+	 */
 	public UserWordQueryService() {
-		this.userWordRepository = new UserWordRepository();
-		this.wordRepository = new WordRepository();
+		this(new UserWordRepository(), new WordRepository());
+	}
+	
+	/**
+	 * 의존성 주입 생성자 (테스트 용이성)
+	 */
+	public UserWordQueryService(UserWordRepository userWordRepository, WordRepository wordRepository) {
+		this.userWordRepository = userWordRepository;
+		this.wordRepository = wordRepository;
 	}
 	
 	public UserWordsResult getUserWords(String userId, String status, String bookmarked,

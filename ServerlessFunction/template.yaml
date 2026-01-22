@@ -110,6 +110,8 @@ Resources:
       CodeUri: .
       Handler: com.mzc.secondproject.serverless.domain.user.handler.PostConfirmationHandler::handleRequest
       Description: Handle user registration - save to DynamoDB
+      MemorySize: 1024
+      Timeout: 5
       SnapStart:
         ApplyOn: PublishedVersions
       Policies:
@@ -232,9 +234,15 @@ Resources:
       Environment:
         Variables:
           WEBSOCKET_CONNECTION_TTL_SECONDS: "600"
+          WEBSOCKET_ENDPOINT: !Sub "https://${WebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/dev"
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref ChatTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - execute-api:ManageConnections
+              Resource: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${WebSocketApi}/*
 
   WebSocketConnectPermission:
     Type: AWS::Lambda::Permission
@@ -253,9 +261,17 @@ Resources:
       Description: Handle WebSocket $disconnect
       SnapStart:
         ApplyOn: PublishedVersions
+      Environment:
+        Variables:
+          WEBSOCKET_ENDPOINT: !Sub "https://${WebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/dev"
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref ChatTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - execute-api:ManageConnections
+              Resource: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${WebSocketApi}/*
 
   WebSocketDisconnectPermission:
     Type: AWS::Lambda::Permission
@@ -277,6 +293,8 @@ Resources:
       Environment:
         Variables:
           WEBSOCKET_ENDPOINT: !Sub "https://${WebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/dev"
+          GAME_AUTO_CLOSE_LAMBDA_ARN: !GetAtt GameAutoCloseFunction.Arn
+          SCHEDULER_ROLE_ARN: !GetAtt GameSchedulerRole.Arn
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref ChatTable
@@ -287,6 +305,19 @@ Resources:
               Action:
                 - execute-api:ManageConnections
               Resource: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${WebSocketApi}/*
+        # EventBridge Scheduler 권한
+        - Statement:
+            - Effect: Allow
+              Action:
+                - scheduler:CreateSchedule
+                - scheduler:DeleteSchedule
+                - scheduler:GetSchedule
+              Resource: !Sub "arn:aws:scheduler:${AWS::Region}:${AWS::AccountId}:schedule/game-auto-close/*"
+        - Statement:
+            - Effect: Allow
+              Action:
+                - iam:PassRole
+              Resource: !GetAtt GameSchedulerRole.Arn
 
   WebSocketMessagePermission:
     Type: AWS::Lambda::Permission
@@ -347,9 +378,19 @@ Resources:
       Description: Handle chat room CRUD operations
       SnapStart:
         ApplyOn: PublishedVersions
+      Environment:
+        Variables:
+          WEBSOCKET_ENDPOINT: !Sub "https://${WebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/dev"
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref ChatTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref UserTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - execute-api:ManageConnections
+              Resource: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${WebSocketApi}/*
       Events:
         CreateRoom:
           Type: Api
@@ -412,14 +453,31 @@ Resources:
       Environment:
         Variables:
           WEBSOCKET_ENDPOINT: !Sub "https://${WebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/dev"
+          GAME_AUTO_CLOSE_LAMBDA_ARN: !GetAtt GameAutoCloseFunction.Arn
+          SCHEDULER_ROLE_ARN: !GetAtt GameSchedulerRole.Arn
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref ChatTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref VocabTable
         - Statement:
             - Effect: Allow
               Action:
                 - execute-api:ManageConnections
               Resource: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${WebSocketApi}/*"
+        # EventBridge Scheduler 권한
+        - Statement:
+            - Effect: Allow
+              Action:
+                - scheduler:CreateSchedule
+                - scheduler:DeleteSchedule
+                - scheduler:GetSchedule
+              Resource: !Sub "arn:aws:scheduler:${AWS::Region}:${AWS::AccountId}:schedule/game-auto-close/*"
+        - Statement:
+            - Effect: Allow
+              Action:
+                - iam:PassRole
+              Resource: !GetAtt GameSchedulerRole.Arn
       Events:
         StartGame:
           Type: Api
@@ -453,6 +511,58 @@ Resources:
             Method: GET
             Auth:
               Authorizer: CognitoAuthorizer
+
+  # 게임 자동 종료 Lambda (EventBridge Scheduler에 의해 호출)
+  GameAutoCloseFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: group2-englishstudy-game-auto-close
+      CodeUri: .
+      Handler: com.mzc.secondproject.serverless.domain.chatting.handler.GameAutoCloseHandler::handleRequest
+      Description: Auto-close game after 7 minutes
+      Timeout: 30
+      MemorySize: 512
+      SnapStart:
+        ApplyOn: PublishedVersions
+      Environment:
+        Variables:
+          WEBSOCKET_ENDPOINT: !Sub "https://${WebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/dev"
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ChatTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - execute-api:ManageConnections
+              Resource: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${WebSocketApi}/*"
+
+  # EventBridge Scheduler가 Lambda를 호출할 수 있는 IAM Role
+  GameSchedulerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${AWS::StackName}-game-scheduler-role"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: scheduler.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: InvokeGameAutoCloseLambda
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - lambda:InvokeFunction
+                Resource: !GetAtt GameAutoCloseFunction.Arn
+
+  # EventBridge Schedule Group
+  GameScheduleGroup:
+    Type: AWS::Scheduler::ScheduleGroup
+    Properties:
+      Name: game-auto-close
 
   ChatMessageFunction:
     Type: AWS::Serverless::Function
@@ -1177,9 +1287,17 @@ Resources:
       CodeUri: .
       Handler: com.mzc.secondproject.serverless.domain.grammar.handler.websocket.GrammarStreamingConnectHandler::handleRequest
       Description: Handle Grammar WebSocket $connect with JWT auth
+      Environment:
+        Variables:
+          WEBSOCKET_ENDPOINT: !Sub "https://${GrammarWebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/dev"
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref ChatTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - execute-api:ManageConnections
+              Resource: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${GrammarWebSocketApi}/*
 
   GrammarStreamingConnectPermission:
     Type: AWS::Lambda::Permission
@@ -1196,9 +1314,17 @@ Resources:
       CodeUri: .
       Handler: com.mzc.secondproject.serverless.domain.grammar.handler.websocket.GrammarStreamingDisconnectHandler::handleRequest
       Description: Handle Grammar WebSocket $disconnect
+      Environment:
+        Variables:
+          WEBSOCKET_ENDPOINT: !Sub "https://${GrammarWebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/dev"
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref ChatTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - execute-api:ManageConnections
+              Resource: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${GrammarWebSocketApi}/*
 
   GrammarStreamingDisconnectPermission:
     Type: AWS::Lambda::Permission
@@ -1284,7 +1410,7 @@ Resources:
         ApplyOn: PublishedVersions
       Environment:
         Variables:
-          TRANSCRIBE_API_KEY_PARAM: "/opic/transcribe-proxy-api-key"
+          TRANSCRIBE_API_KEY: "/opic/transcribe-proxy-api-key"
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref OPIcTable

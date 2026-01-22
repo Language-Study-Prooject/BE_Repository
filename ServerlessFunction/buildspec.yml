@@ -1,0 +1,55 @@
+version: 0.2
+
+env:
+  variables:
+    SAM_CLI_TELEMETRY: 0
+    GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dorg.gradle.parallel=true -Dorg.gradle.caching=true"
+
+phases:
+  install:
+    commands:
+      - echo "Verifying pre-installed tools..."
+      - java -version
+      - sam --version
+      - echo "Tools verified"
+
+  pre_build:
+    commands:
+      - echo "Running tests..."
+      - cd ServerlessFunction
+      - chmod +x gradlew
+      - ./gradlew test --build-cache --parallel
+      - echo "Tests completed"
+
+  build:
+    commands:
+      - echo "Building SAM application..."
+      - cd $CODEBUILD_SRC_DIR/ServerlessFunction
+      - sam build --parallel --cached
+      - echo "Packaging SAM application..."
+      - sam package --s3-bucket group2-englishstudy-pipeline-artifacts --s3-prefix sam-packages --output-template-file packaged-template.yaml
+
+  post_build:
+    commands:
+      - echo "Build completed on $(date)"
+
+artifacts:
+  files:
+    - packaged-template.yaml
+  base-directory: ServerlessFunction
+
+cache:
+  paths:
+    - '/root/.gradle/caches/**/*'
+    - '/root/.gradle/wrapper/**/*'
+    - '.aws-sam/cache/**/*'
+
+reports:
+  junit-reports:
+    files:
+      - 'ServerlessFunction/build/test-results/test/*.xml'
+    file-format: JUNITXML
+  jacoco-reports:
+    files:
+      - 'ServerlessFunction/build/reports/jacoco/test/jacocoTestReport.xml'
+    file-format: JACOCOXML
