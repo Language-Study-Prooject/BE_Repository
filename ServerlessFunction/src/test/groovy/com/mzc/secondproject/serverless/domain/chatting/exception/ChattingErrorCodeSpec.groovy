@@ -19,31 +19,31 @@ class ChattingErrorCodeSpec extends Specification {
         !errorCode.getMessage().isEmpty()
 
         where:
-        errorCode                                 | expectedCode    | expectedStatusCode
-        ChattingErrorCode.ROOM_NOT_FOUND          | "ROOM_001"      | 404
-        ChattingErrorCode.ROOM_ALREADY_EXISTS     | "ROOM_002"      | 409
-        ChattingErrorCode.ROOM_FULL               | "ROOM_003"      | 400
-        ChattingErrorCode.ROOM_CLOSED             | "ROOM_004"      | 400
-        ChattingErrorCode.ROOM_INVALID_PASSWORD   | "ROOM_005"      | 401
-        ChattingErrorCode.ROOM_NOT_OWNER          | "ROOM_006"      | 403
-        ChattingErrorCode.MESSAGE_NOT_FOUND       | "MSG_001"       | 404
-        ChattingErrorCode.MESSAGE_TOO_LONG        | "MSG_002"       | 400
-        ChattingErrorCode.INVALID_MESSAGE_TYPE    | "MSG_003"       | 400
-        ChattingErrorCode.NOT_ROOM_MEMBER         | "MEMBER_001"    | 403
-        ChattingErrorCode.ALREADY_JOINED          | "MEMBER_002"    | 409
-        ChattingErrorCode.INVALID_ROOM_TOKEN      | "MEMBER_003"    | 401
-        ChattingErrorCode.INVALID_CHAT_LEVEL      | "LEVEL_001"     | 400
-        ChattingErrorCode.CONNECTION_FAILED       | "CONN_001"      | 500
-        ChattingErrorCode.CONNECTION_TIMEOUT      | "CONN_002"      | 408
-        ChattingErrorCode.GAME_START_FAILED       | "GAME_001"      | 400
-        ChattingErrorCode.GAME_STOP_FAILED        | "GAME_002"      | 400
-        ChattingErrorCode.GAME_NOT_IN_PROGRESS    | "GAME_003"      | 400
-        ChattingErrorCode.GAME_ALREADY_IN_PROGRESS| "GAME_004"      | 409
-        ChattingErrorCode.NOT_GAME_STARTER        | "GAME_005"      | 403
-        ChattingErrorCode.GAME_NOT_FOUND          | "GAME_006"      | 404
-        ChattingErrorCode.GAME_NOT_ALLOWED_IN_CHAT_ROOM | "GAME_007" | 400
-        ChattingErrorCode.GAME_RESTART_NOT_ALLOWED | "GAME_008"     | 400
-        ChattingErrorCode.GAME_START_NOT_HOST     | "GAME_009"      | 403
+        errorCode                                       | expectedCode | expectedStatusCode
+        ChattingErrorCode.ROOM_NOT_FOUND                | "ROOM_001"   | 404
+        ChattingErrorCode.ROOM_ALREADY_EXISTS           | "ROOM_002"   | 409
+        ChattingErrorCode.ROOM_FULL                     | "ROOM_003"   | 400
+        ChattingErrorCode.ROOM_CLOSED                   | "ROOM_004"   | 400
+        ChattingErrorCode.ROOM_INVALID_PASSWORD         | "ROOM_005"   | 401
+        ChattingErrorCode.ROOM_NOT_OWNER                | "ROOM_006"   | 403
+        ChattingErrorCode.MESSAGE_NOT_FOUND             | "MSG_001"    | 404
+        ChattingErrorCode.MESSAGE_TOO_LONG              | "MSG_002"    | 400
+        ChattingErrorCode.INVALID_MESSAGE_TYPE          | "MSG_003"    | 400
+        ChattingErrorCode.NOT_ROOM_MEMBER               | "MEMBER_001" | 403
+        ChattingErrorCode.ALREADY_JOINED                | "MEMBER_002" | 409
+        ChattingErrorCode.INVALID_ROOM_TOKEN            | "MEMBER_003" | 401
+        ChattingErrorCode.INVALID_CHAT_LEVEL            | "LEVEL_001"  | 400
+        ChattingErrorCode.CONNECTION_FAILED             | "CONN_001"   | 500
+        ChattingErrorCode.CONNECTION_TIMEOUT            | "CONN_002"   | 408
+        ChattingErrorCode.GAME_START_FAILED             | "GAME_001"   | 400
+        ChattingErrorCode.GAME_STOP_FAILED              | "GAME_002"   | 400
+        ChattingErrorCode.GAME_NOT_IN_PROGRESS          | "GAME_003"   | 400
+        ChattingErrorCode.GAME_ALREADY_IN_PROGRESS      | "GAME_004"   | 409
+        ChattingErrorCode.NOT_GAME_STARTER              | "GAME_005"   | 403
+        ChattingErrorCode.GAME_NOT_FOUND                | "GAME_006"   | 404
+        ChattingErrorCode.GAME_NOT_ALLOWED_IN_CHAT_ROOM | "GAME_007"   | 400
+        ChattingErrorCode.GAME_RESTART_NOT_ALLOWED      | "GAME_008"   | 400
+        ChattingErrorCode.GAME_START_NOT_HOST           | "GAME_009"   | 403
     }
 
     def "모든 에러 코드 개수 확인"() {

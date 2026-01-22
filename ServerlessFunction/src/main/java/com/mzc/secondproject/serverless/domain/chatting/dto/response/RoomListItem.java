@@ -35,7 +35,7 @@ public class RoomListItem {
 	private String hostId;
 	private String hostNickname;
 	private List<RoomParticipant> participants;
-
+	
 	/**
 	 * ChatRoom과 hostNickname으로 RoomListItem 생성
 	 */
@@ -59,7 +59,7 @@ public class RoomListItem {
 				.hostNickname(hostNickname)
 				.build();
 	}
-
+	
 	/**
 	 * ChatRoom, hostNickname, participants로 RoomListItem 생성
 	 */

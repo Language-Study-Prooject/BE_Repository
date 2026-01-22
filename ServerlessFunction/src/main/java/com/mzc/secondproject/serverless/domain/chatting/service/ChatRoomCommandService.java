@@ -18,11 +18,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.UUID;
+import java.util.*;
 
 /**
  * ChatRoom 변경 전용 서비스 (CQRS Command)
@@ -30,13 +26,13 @@ import java.util.UUID;
 public class ChatRoomCommandService {
 	
 	private static final Logger logger = LoggerFactory.getLogger(ChatRoomCommandService.class);
-
+	
 	private final ChatRoomRepository roomRepository;
 	private final RoomTokenService roomTokenService;
 	private final ConnectionRepository connectionRepository;
 	private final WebSocketBroadcaster broadcaster;
 	private final UserRepository userRepository;
-
+	
 	/**
 	 * 기본 생성자 (Lambda에서 사용)
 	 */
@@ -44,7 +40,7 @@ public class ChatRoomCommandService {
 		this(new ChatRoomRepository(), new RoomTokenService(), new ConnectionRepository(),
 				new WebSocketBroadcaster(), new UserRepository());
 	}
-
+	
 	/**
 	 * 의존성 주입 생성자 (테스트 용이성)
 	 */
@@ -65,13 +61,13 @@ public class ChatRoomCommandService {
 	                           String type, String gameType, GameSettings gameSettings) {
 		String roomId = UUID.randomUUID().toString();
 		String now = Instant.now().toString();
-
+		
 		// GSI1SK 포맷: {type}#{gameType}#{status}#{level}#{createdAt}
 		String roomType = type != null ? type : "CHAT";
 		String roomGameType = gameType != null ? gameType : "-";
 		String roomStatus = "WAITING";
 		String gsi1sk = String.format("%s#%s#%s#%s#%s", roomType, roomGameType, roomStatus, level, now);
-
+		
 		ChatRoom room = ChatRoom.builder()
 				.pk("ROOM#" + roomId)
 				.sk("METADATA")
@@ -95,10 +91,10 @@ public class ChatRoomCommandService {
 				.status("WAITING")
 				.hostId(createdBy)
 				.build();
-
+		
 		roomRepository.save(room);
 		logger.info("Created room: {}", roomId);
-
+		
 		return room;
 	}
 	
@@ -144,26 +140,26 @@ public class ChatRoomCommandService {
 		if (optRoom.isEmpty()) {
 			throw ChattingException.roomNotFound(roomId);
 		}
-
+		
 		ChatRoom room = optRoom.get();
-
+		
 		if (room.getMemberIds() != null) {
 			room.getMemberIds().remove(userId);
 			room.setCurrentMembers(Math.max(0, room.getCurrentMembers() - 1));
 		}
-
+		
 		// 모든 참가자가 나갔으면 방 삭제
 		if (room.getCurrentMembers() <= 0 ||
-			(room.getMemberIds() != null && room.getMemberIds().isEmpty())) {
+				(room.getMemberIds() != null && room.getMemberIds().isEmpty())) {
 			roomRepository.delete(roomId);
 			logger.info("Room {} deleted (empty)", roomId);
 			return new LeaveResult(true, null, null);
 		}
-
+		
 		// 방장이 나갔으면 다음 멤버에게 방장 이전
 		String oldHostId = room.getHostId() != null ? room.getHostId() : room.getCreatedBy();
 		String newHostId = null;
-
+		
 		if (userId.equals(oldHostId)) {
 			// 첫 번째 남은 멤버가 새 방장
 			if (room.getMemberIds() != null && !room.getMemberIds().isEmpty()) {
@@ -172,17 +168,17 @@ public class ChatRoomCommandService {
 				logger.info("Host transferred from {} to {} in room {}", oldHostId, newHostId, roomId);
 			}
 		}
-
+		
 		roomRepository.save(room);
 		logger.info("User {} left room {}", userId, roomId);
-
+		
 		// 방장이 나갔으면 다음 멤버에게 방장 이전 후 WebSocket 알림
 		if (userId.equals(oldHostId) && newHostId != null) {
 			// 새 방장 닉네임 조회
 			String newHostNickname = userRepository.findByCognitoSub(newHostId)
 					.map(User::getNickname)
 					.orElse(newHostId);
-
+			
 			// WebSocket 알림 브로드캐스트
 			try {
 				List<Connection> connections = connectionRepository.findByRoomId(roomId);
@@ -195,7 +191,7 @@ public class ChatRoomCommandService {
 				logger.error("Failed to broadcast host change: {}", e.getMessage());
 			}
 		}
-
+		
 		return new LeaveResult(false, room, newHostId);
 	}
 	

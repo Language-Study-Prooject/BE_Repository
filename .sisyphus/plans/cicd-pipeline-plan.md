@@ -8,13 +8,13 @@
 
 ## 1. 요구사항 요약
 
-| 항목 | 선택 |
-|------|------|
-| 소스 저장소 | GitHub (유지) + CodePipeline v2 연결 |
-| 배포 환경 | prod 단일 환경 |
-| 트리거 | prod 브랜치 push 또는 PR merge |
-| 승인 프로세스 | 완전 자동 (테스트 통과 시 자동 배포) |
-| 알림 | AWS SNS → 이메일 |
+| 항목      | 선택                               |
+|---------|----------------------------------|
+| 소스 저장소  | GitHub (유지) + CodePipeline v2 연결 |
+| 배포 환경   | prod 단일 환경                       |
+| 트리거     | prod 브랜치 push 또는 PR merge        |
+| 승인 프로세스 | 완전 자동 (테스트 통과 시 자동 배포)           |
+| 알림      | AWS SNS → 이메일                    |
 
 ---
 
@@ -55,30 +55,32 @@
 
 ### 3.1 Source Stage
 
-| 설정 | 값 |
-|------|-----|
-| Provider | GitHub (v2 Connection) |
-| Repository | BE_Repository |
-| Branch | `prod` |
-| Trigger | Push / PR Merge |
-| Output Artifact | SourceArtifact |
+| 설정              | 값                      |
+|-----------------|------------------------|
+| Provider        | GitHub (v2 Connection) |
+| Repository      | BE_Repository          |
+| Branch          | `prod`                 |
+| Trigger         | Push / PR Merge        |
+| Output Artifact | SourceArtifact         |
 
 **GitHub Connection 설정 필요**:
+
 - AWS Console → CodePipeline → Settings → Connections
 - GitHub App 설치 및 Repository 권한 부여
 
 ### 3.2 Build Stage
 
-| 설정 | 값 |
-|------|-----|
-| Provider | AWS CodeBuild |
-| Environment | `aws/codebuild/amazonlinux2-x86_64-standard:5.0` |
-| Compute | `BUILD_GENERAL1_MEDIUM` (7GB RAM, 4 vCPU) |
-| Timeout | 30분 |
-| Input Artifact | SourceArtifact |
-| Output Artifact | BuildArtifact |
+| 설정              | 값                                                |
+|-----------------|--------------------------------------------------|
+| Provider        | AWS CodeBuild                                    |
+| Environment     | `aws/codebuild/amazonlinux2-x86_64-standard:5.0` |
+| Compute         | `BUILD_GENERAL1_MEDIUM` (7GB RAM, 4 vCPU)        |
+| Timeout         | 30분                                              |
+| Input Artifact  | SourceArtifact                                   |
+| Output Artifact | BuildArtifact                                    |
 
 **빌드 단계**:
+
 1. Java 21 환경 설정
 2. Gradle 빌드 및 테스트
 3. SAM 빌드
@@ -86,22 +88,22 @@
 
 ### 3.3 Deploy Stage
 
-| 설정 | 값 |
-|------|-----|
-| Provider | CloudFormation |
-| Action Mode | CREATE_UPDATE |
-| Stack Name | `group2-englishstudy-prod` |
-| Template | packaged-template.yaml |
+| 설정           | 값                                      |
+|--------------|----------------------------------------|
+| Provider     | CloudFormation                         |
+| Action Mode  | CREATE_UPDATE                          |
+| Stack Name   | `group2-englishstudy-prod`             |
+| Template     | packaged-template.yaml                 |
 | Capabilities | CAPABILITY_IAM, CAPABILITY_AUTO_EXPAND |
-| Role | CloudFormationExecutionRole |
+| Role         | CloudFormationExecutionRole            |
 
 ### 3.4 Notification Stage
 
-| 설정 | 값 |
-|------|-----|
-| Provider | AWS SNS |
-| Topic | `cicd-pipeline-notifications` |
-| Events | 성공, 실패, 시작 |
+| 설정       | 값                             |
+|----------|-------------------------------|
+| Provider | AWS SNS                       |
+| Topic    | `cicd-pipeline-notifications` |
+| Events   | 성공, 실패, 시작                    |
 
 ---
 
@@ -109,24 +111,24 @@
 
 ### 4.1 신규 생성 필요
 
-| 리소스 | 이름 | 용도 |
-|--------|------|------|
-| CodePipeline | `group2-englishstudy-pipeline` | CI/CD 오케스트레이션 |
-| CodeBuild Project | `group2-englishstudy-build` | 빌드 및 테스트 |
-| S3 Bucket | `group2-englishstudy-pipeline-artifacts` | 파이프라인 아티팩트 저장 |
-| GitHub Connection | `github-connection` | GitHub 연결 |
-| SNS Topic | `cicd-pipeline-notifications` | 알림 |
-| IAM Role | `CodePipelineServiceRole` | 파이프라인 실행 |
-| IAM Role | `CodeBuildServiceRole` | 빌드 실행 |
-| IAM Role | `CloudFormationExecutionRole` | 스택 배포 |
+| 리소스               | 이름                                       | 용도            |
+|-------------------|------------------------------------------|---------------|
+| CodePipeline      | `group2-englishstudy-pipeline`           | CI/CD 오케스트레이션 |
+| CodeBuild Project | `group2-englishstudy-build`              | 빌드 및 테스트      |
+| S3 Bucket         | `group2-englishstudy-pipeline-artifacts` | 파이프라인 아티팩트 저장 |
+| GitHub Connection | `github-connection`                      | GitHub 연결     |
+| SNS Topic         | `cicd-pipeline-notifications`            | 알림            |
+| IAM Role          | `CodePipelineServiceRole`                | 파이프라인 실행      |
+| IAM Role          | `CodeBuildServiceRole`                   | 빌드 실행         |
+| IAM Role          | `CloudFormationExecutionRole`            | 스택 배포         |
 
 ### 4.2 기존 활용
 
-| 리소스 | 용도 |
-|--------|------|
+| 리소스                      | 용도           |
+|--------------------------|--------------|
 | S3 `group2-englishstudy` | Lambda 코드 저장 |
-| DynamoDB Tables | 데이터 저장 |
-| Cognito User Pool | 인증 |
+| DynamoDB Tables          | 데이터 저장       |
+| Cognito User Pool        | 인증           |
 
 ---
 
@@ -164,9 +166,9 @@ phases:
       - sam build
       - echo "Packaging SAM application..."
       - sam package \
-          --s3-bucket ${ARTIFACT_BUCKET} \
-          --s3-prefix sam-packages \
-          --output-template-file packaged-template.yaml
+        --s3-bucket ${ARTIFACT_BUCKET} \
+        --s3-prefix sam-packages \
+        --output-template-file packaged-template.yaml
 
   post_build:
     commands:
@@ -394,11 +396,21 @@ aws sns subscribe \
 
 ```json
 {
-  "source": ["aws.codepipeline"],
-  "detail-type": ["CodePipeline Pipeline Execution State Change"],
+  "source": [
+    "aws.codepipeline"
+  ],
+  "detail-type": [
+    "CodePipeline Pipeline Execution State Change"
+  ],
   "detail": {
-    "pipeline": ["group2-englishstudy-pipeline"],
-    "state": ["SUCCEEDED", "FAILED", "STARTED"]
+    "pipeline": [
+      "group2-englishstudy-pipeline"
+    ],
+    "state": [
+      "SUCCEEDED",
+      "FAILED",
+      "STARTED"
+    ]
   }
 }
 ```
@@ -407,14 +419,14 @@ aws sns subscribe \
 
 ## 9. 비용 추정 (월간)
 
-| 서비스 | 예상 사용량 | 예상 비용 |
-|--------|------------|----------|
-| CodePipeline | 1 파이프라인, ~100회 실행 | $1.00 |
-| CodeBuild | ~100회 x 10분 = 1,000분 | $5.00 |
-| S3 (아티팩트) | ~10GB | $0.25 |
-| CloudWatch Logs | ~5GB | $2.50 |
-| SNS | ~100 알림 | $0.01 |
-| **총 예상 비용** | | **~$9/월** |
+| 서비스             | 예상 사용량               | 예상 비용     |
+|-----------------|----------------------|-----------|
+| CodePipeline    | 1 파이프라인, ~100회 실행    | $1.00     |
+| CodeBuild       | ~100회 x 10분 = 1,000분 | $5.00     |
+| S3 (아티팩트)       | ~10GB                | $0.25     |
+| CloudWatch Logs | ~5GB                 | $2.50     |
+| SNS             | ~100 알림              | $0.01     |
+| **총 예상 비용**     |                      | **~$9/월** |
 
 > 실제 비용은 배포 빈도와 빌드 시간에 따라 달라질 수 있습니다.
 
@@ -718,24 +730,31 @@ Outputs:
 ## 12. 트러블슈팅 가이드
 
 ### 빌드 실패: Java 버전 문제
+
 ```
 Error: Unsupported class file major version 65
 ```
+
 **해결**: CodeBuild 이미지에서 Java 21 (Corretto) 사용 확인
 
 ### 배포 실패: IAM 권한 부족
+
 ```
 User: arn:aws:sts::xxx is not authorized to perform: iam:CreateRole
 ```
+
 **해결**: CloudFormationExecutionRole에 IAM 권한 추가
 
 ### SAM 빌드 실패: 메모리 부족
+
 ```
 FATAL ERROR: CALL_AND_RETRY_LAST Allocation failed - JavaScript heap out of memory
 ```
+
 **해결**: CodeBuild compute type을 `BUILD_GENERAL1_LARGE`로 변경
 
 ### GitHub Connection 인증 실패
+
 **해결**: AWS Console에서 Connection 상태 확인 → GitHub App 재인증
 
 ---

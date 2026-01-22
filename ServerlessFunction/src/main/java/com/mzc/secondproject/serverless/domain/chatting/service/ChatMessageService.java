@@ -13,14 +13,14 @@ public class ChatMessageService {
 	private static final Logger logger = LoggerFactory.getLogger(ChatMessageService.class);
 	
 	private final ChatMessageRepository repository;
-
+	
 	/**
 	 * 기본 생성자 (Lambda에서 사용)
 	 */
 	public ChatMessageService() {
 		this(new ChatMessageRepository());
 	}
-
+	
 	/**
 	 * 의존성 주입 생성자 (테스트 용이성)
 	 */

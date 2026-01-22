@@ -4,7 +4,7 @@ import com.mzc.secondproject.serverless.common.exception.DomainErrorCode;
 
 /**
  * 단어 학습 도메인 에러 코드
- *
+ * <p>
  * 단어(Word), 사용자 단어(UserWord), 일일 학습(DailyStudy) 관련 에러 코드를 정의합니다.
  */
 public enum VocabularyErrorCode implements DomainErrorCode {

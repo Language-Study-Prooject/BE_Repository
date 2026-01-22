@@ -37,7 +37,7 @@ public class UserWordHandler implements RequestHandler<APIGatewayProxyRequestEve
 	public UserWordHandler() {
 		this(new UserWordCommandService(), new UserWordQueryService());
 	}
-
+	
 	/**
 	 * 의존성 주입 생성자 (테스트 용이성)
 	 */

@@ -24,46 +24,46 @@ import java.util.UUID;
  * EventBridge Scheduler에 의해 게임 시작 7분 후 호출됨
  */
 public class GameAutoCloseHandler implements RequestHandler<Map<String, String>, String> {
-
+	
 	private static final Logger logger = LoggerFactory.getLogger(GameAutoCloseHandler.class);
-
+	
 	private final GameService gameService;
 	private final ConnectionRepository connectionRepository;
 	private final WebSocketBroadcaster broadcaster;
-
+	
 	/**
 	 * 기본 생성자 (Lambda에서 사용)
 	 */
 	public GameAutoCloseHandler() {
 		this(new GameService(), new ConnectionRepository(), new WebSocketBroadcaster());
 	}
-
+	
 	/**
 	 * 의존성 주입 생성자 (테스트 용이성)
 	 */
 	public GameAutoCloseHandler(GameService gameService, ConnectionRepository connectionRepository,
-								WebSocketBroadcaster broadcaster) {
+	                            WebSocketBroadcaster broadcaster) {
 		this.gameService = gameService;
 		this.connectionRepository = connectionRepository;
 		this.broadcaster = broadcaster;
 	}
-
+	
 	@Override
 	public String handleRequest(Map<String, String> event, Context context) {
 		String gameSessionId = event.get("gameSessionId");
 		String roomId = event.get("roomId");
-
+		
 		logger.info("Game auto-close triggered: gameSessionId={}, roomId={}", gameSessionId, roomId);
-
+		
 		if (gameSessionId == null || roomId == null) {
 			logger.error("Missing required parameters: gameSessionId={}, roomId={}", gameSessionId, roomId);
 			return "FAILED: Missing parameters";
 		}
-
+		
 		try {
 			// 게임 종료 처리
 			CommandResult result = gameService.finishGameByTimeout(gameSessionId);
-
+			
 			if (result.success()) {
 				// WebSocket으로 게임 종료 알림 브로드캐스트
 				broadcastGameEnd(roomId, result.message());
@@ -73,20 +73,20 @@ public class GameAutoCloseHandler implements RequestHandler<Map<String, String>,
 				logger.info("Game auto-close skipped: gameSessionId={}, reason={}", gameSessionId, result.message());
 				return "SKIPPED: " + result.message();
 			}
-
+			
 		} catch (Exception e) {
 			logger.error("Game auto-close failed: gameSessionId={}, error={}", gameSessionId, e.getMessage(), e);
 			return "FAILED: " + e.getMessage();
 		}
 	}
-
+	
 	/**
 	 * 게임 종료 메시지 브로드캐스트
 	 */
 	private void broadcastGameEnd(String roomId, String message) {
 		String messageId = UUID.randomUUID().toString();
 		String now = Instant.now().toString();
-
+		
 		Map<String, Object> gameEndMessage = new HashMap<>();
 		gameEndMessage.put("domain", WebSocketMessageHelper.DOMAIN_GAME);
 		gameEndMessage.put("messageId", messageId);
@@ -97,11 +97,11 @@ public class GameAutoCloseHandler implements RequestHandler<Map<String, String>,
 		gameEndMessage.put("createdAt", now);
 		gameEndMessage.put("timestamp", System.currentTimeMillis());
 		gameEndMessage.put("reason", "TIME_EXPIRED");
-
+		
 		List<Connection> connections = connectionRepository.findByRoomId(roomId);
 		String broadcastPayload = ResponseGenerator.gson().toJson(gameEndMessage);
 		broadcaster.broadcast(connections, broadcastPayload);
-
+		
 		logger.info("Game end broadcasted: roomId={}, connections={}", roomId, connections.size());
 	}
 }

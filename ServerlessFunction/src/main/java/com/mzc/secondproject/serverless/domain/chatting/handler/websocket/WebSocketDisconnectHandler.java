@@ -22,36 +22,36 @@ import java.util.Optional;
  * 클라이언트 연결 해제 시 Connection 정보를 DynamoDB에서 삭제
  */
 public class WebSocketDisconnectHandler implements RequestHandler<Map<String, Object>, Map<String, Object>> {
-
+	
 	private static final Logger logger = LoggerFactory.getLogger(WebSocketDisconnectHandler.class);
-
+	
 	private final ConnectionRepository connectionRepository;
 	private final ChatRoomRepository chatRoomRepository;
 	private final GameSessionRepository gameSessionRepository;
-
+	
 	public WebSocketDisconnectHandler() {
 		this.connectionRepository = new ConnectionRepository();
 		this.chatRoomRepository = new ChatRoomRepository();
 		this.gameSessionRepository = new GameSessionRepository();
 	}
-
+	
 	@Override
 	public Map<String, Object> handleRequest(Map<String, Object> event, Context context) {
 		logger.info("WebSocket disconnect event: {}", event);
-
+		
 		try {
 			String connectionId = WebSocketEventUtil.extractConnectionId(event);
-
+			
 			Optional<Connection> connection = connectionRepository.findByConnectionId(connectionId);
-
+			
 			if (connection.isPresent()) {
 				Connection conn = connection.get();
 				String roomId = conn.getRoomId();
-
+				
 				connectionRepository.delete(connectionId);
 				logger.info("Connection deleted: connectionId={}, userId={}, roomId={}",
 						connectionId, conn.getUserId(), roomId);
-
+				
 				// 방에 남은 연결이 없으면 게임 상태 초기화
 				List<Connection> remainingConnections = connectionRepository.findByRoomId(roomId);
 				if (remainingConnections.isEmpty()) {
@@ -61,15 +61,15 @@ public class WebSocketDisconnectHandler implements RequestHandler<Map<String, Ob
 			} else {
 				logger.warn("Connection not found for deletion: connectionId={}", connectionId);
 			}
-
+			
 			return WebSocketEventUtil.ok("Disconnected");
-
+			
 		} catch (Exception e) {
 			logger.error("Error handling disconnect: {}", e.getMessage(), e);
 			return WebSocketEventUtil.serverError("Internal server error");
 		}
 	}
-
+	
 	/**
 	 * 게임 상태 초기화
 	 * 새 구조에서는 GameSession을 종료하고 ChatRoom의 상태를 WAITING으로 변경
@@ -85,7 +85,7 @@ public class WebSocketDisconnectHandler implements RequestHandler<Map<String, Ob
 				gameSessionRepository.finishGame(session.getGameSessionId(), now, ttl);
 				logger.info("Game session finished due to empty room: gameSessionId={}", session.getGameSessionId());
 			}
-
+			
 			// 채팅방 상태 초기화
 			Optional<ChatRoom> roomOpt = chatRoomRepository.findById(roomId);
 			if (roomOpt.isPresent()) {

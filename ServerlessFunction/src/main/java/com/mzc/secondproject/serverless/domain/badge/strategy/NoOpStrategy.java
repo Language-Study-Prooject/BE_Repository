@@ -8,23 +8,23 @@ import com.mzc.secondproject.serverless.domain.stats.model.UserStats;
  * PERFECT_TEST, ALL_BADGES 등은 별도 로직에서 처리
  */
 public class NoOpStrategy implements BadgeConditionStrategy {
-
+	
 	private final String category;
-
+	
 	public NoOpStrategy(String category) {
 		this.category = category;
 	}
-
+	
 	@Override
 	public boolean checkCondition(BadgeType type, UserStats stats) {
 		return false;
 	}
-
+	
 	@Override
 	public int calculateProgress(BadgeType type, UserStats stats) {
 		return 0;
 	}
-
+	
 	@Override
 	public String getCategory() {
 		return category;

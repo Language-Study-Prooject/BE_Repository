@@ -3,8 +3,8 @@ package com.mzc.secondproject.serverless.domain.chatting.service;
 import com.mzc.secondproject.serverless.domain.badge.model.UserBadge;
 import com.mzc.secondproject.serverless.domain.badge.service.BadgeService;
 import com.mzc.secondproject.serverless.domain.chatting.config.GameConfig;
-import com.mzc.secondproject.serverless.domain.chatting.model.GameSession;
 import com.mzc.secondproject.serverless.domain.chatting.model.GameRound;
+import com.mzc.secondproject.serverless.domain.chatting.model.GameSession;
 import com.mzc.secondproject.serverless.domain.chatting.repository.GameRoundRepository;
 import com.mzc.secondproject.serverless.domain.stats.model.UserStats;
 import com.mzc.secondproject.serverless.domain.stats.repository.UserStatsRepository;
@@ -23,14 +23,14 @@ public class GameStatsService {
 	private final UserStatsRepository userStatsRepository;
 	private final GameRoundRepository gameRoundRepository;
 	private final BadgeService badgeService;
-
+	
 	/**
 	 * 기본 생성자 (Lambda에서 사용)
 	 */
 	public GameStatsService() {
 		this(new UserStatsRepository(), new GameRoundRepository(), new BadgeService());
 	}
-
+	
 	/**
 	 * 의존성 주입 생성자 (테스트 용이성)
 	 */
@@ -48,10 +48,10 @@ public class GameStatsService {
 	public Map<String, List<UserBadge>> updateGameStats(GameSession session) {
 		Map<String, List<UserBadge>> newBadges = new HashMap<>();
 		String roomId = session.getRoomId();
-
+		
 		// 모든 라운드 조회
 		List<GameRound> rounds = gameRoundRepository.findByRoomId(roomId);
-
+		
 		// 참가자별 통계 수집
 		Map<String, Integer> scores = session.getScores() != null ? session.getScores() : Map.of();
 		Set<String> participants = new HashSet<>(scores.keySet());

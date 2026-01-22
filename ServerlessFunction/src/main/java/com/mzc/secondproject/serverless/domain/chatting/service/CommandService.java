@@ -18,18 +18,18 @@ import java.util.Optional;
 public class CommandService {
 	
 	private static final Logger logger = LoggerFactory.getLogger(CommandService.class);
-
+	
 	private final ConnectionRepository connectionRepository;
 	private final GameSessionRepository gameSessionRepository;
 	private final GameService gameService;
-
+	
 	/**
 	 * 기본 생성자 (Lambda에서 사용)
 	 */
 	public CommandService() {
 		this(new ConnectionRepository(), new GameSessionRepository(), new GameService());
 	}
-
+	
 	/**
 	 * 의존성 주입 생성자 (테스트 용이성)
 	 */
@@ -90,21 +90,21 @@ public class CommandService {
 	 */
 	private CommandResult handleStartCommand(String roomId, String userId) {
 		GameService.GameStartResult result = gameService.startGame(roomId, userId);
-
+		
 		if (!result.success()) {
 			return CommandResult.error(result.error());
 		}
-
+		
 		String message = String.format("""
 						🎮 게임 시작!
 						총 %d 라운드
-
+						
 						라운드 1 시작!
 						출제자: %s
 						""",
 				result.session().getTotalRounds(),
 				result.session().getCurrentDrawerId());
-
+		
 		return CommandResult.success(MessageType.GAME_START, message, result);
 	}
 	
@@ -123,18 +123,18 @@ public class CommandService {
 		if (optSession.isEmpty()) {
 			return CommandResult.error("진행 중인 게임이 없습니다.");
 		}
-
+		
 		GameSession session = optSession.get();
-
+		
 		if (session.getScores() == null || session.getScores().isEmpty()) {
 			return CommandResult.success(MessageType.SCORE_UPDATE, "아직 점수가 없습니다.");
 		}
-
+		
 		StringBuilder sb = new StringBuilder("📊 현재 점수:\n");
 		session.getScores().entrySet().stream()
 				.sorted((a, b) -> b.getValue().compareTo(a.getValue()))
 				.forEach(entry -> sb.append(String.format("  %s: %d점\n", entry.getKey(), entry.getValue())));
-
+		
 		return CommandResult.success(MessageType.SCORE_UPDATE, sb.toString(), session.getScores());
 	}
 	

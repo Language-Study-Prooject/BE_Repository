@@ -37,7 +37,7 @@ public class ChatMessageHandler implements RequestHandler<APIGatewayProxyRequest
 	public ChatMessageHandler() {
 		this(new ChatMessageService(), new ChatRoomRepository());
 	}
-
+	
 	/**
 	 * 의존성 주입 생성자 (테스트 용이성)
 	 */

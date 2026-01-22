@@ -2,16 +2,16 @@ package com.mzc.secondproject.serverless.common.exception;
 
 /**
  * 에러 코드 표준 인터페이스 (Sealed Interface)
- *
+ * <p>
  * 모든 에러 코드 enum이 구현해야 하는 표준 계약을 정의합니다.
  * Sealed interface를 사용하여 허용된 구현체만 존재하도록 제한합니다.
- *
+ * <p>
  * 계층 구조:
  * ErrorCode (sealed)
  * ├── CommonErrorCode (시스템/공통 에러)
  * └── DomainErrorCode (non-sealed) - 도메인별 에러
- *     ├── VocabularyErrorCode
- *     └── ChattingErrorCode
+ * ├── VocabularyErrorCode
+ * └── ChattingErrorCode
  */
 public sealed interface ErrorCode permits CommonErrorCode, DomainErrorCode {
 	

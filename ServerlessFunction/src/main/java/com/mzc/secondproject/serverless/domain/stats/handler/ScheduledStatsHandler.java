@@ -3,28 +3,27 @@ package com.mzc.secondproject.serverless.domain.stats.handler;
 import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.lambda.runtime.RequestHandler;
 import com.amazonaws.services.lambda.runtime.events.ScheduledEvent;
+import com.mzc.secondproject.serverless.common.config.AwsClients;
 import com.mzc.secondproject.serverless.common.config.EnvConfig;
 import com.mzc.secondproject.serverless.domain.stats.repository.UserStatsRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
+import software.amazon.awssdk.services.dynamodb.model.ScanRequest;
+import software.amazon.awssdk.services.dynamodb.model.ScanResponse;
 
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 
-import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
-import software.amazon.awssdk.services.dynamodb.model.ScanRequest;
-import software.amazon.awssdk.services.dynamodb.model.ScanResponse;
-import com.mzc.secondproject.serverless.common.config.AwsClients;
-
 /**
  * EventBridge Scheduler Handler
  * 매일 자정에 실행되어 Streak 리셋만 수행
- *
+ * <p>
  * 단어 학습 통계는 Write-through 방식으로 markWordLearned에서 직접 업데이트
  */
 public class ScheduledStatsHandler implements RequestHandler<ScheduledEvent, String> {
-
+	
 	private static final Logger logger = LoggerFactory.getLogger(ScheduledStatsHandler.class);
 	private static final String TABLE_NAME = EnvConfig.getRequired("VOCAB_TABLE_NAME");
 	private static final int BATCH_SIZE = 25;
@@ -37,7 +36,7 @@ public class ScheduledStatsHandler implements RequestHandler<ScheduledEvent, Str
 	public ScheduledStatsHandler() {
 		this(new UserStatsRepository());
 	}
-
+	
 	/**
 	 * 의존성 주입 생성자 (테스트 용이성)
 	 */
@@ -67,10 +66,10 @@ public class ScheduledStatsHandler implements RequestHandler<ScheduledEvent, Str
 	 */
 	private int checkAndResetStreaks(String yesterday) {
 		logger.info("Checking streaks for date: {}", yesterday);
-
+		
 		int resetCount = 0;
 		Map<String, AttributeValue> lastEvaluatedKey = null;
-
+		
 		do {
 			// SK = "STATS#TOTAL"인 레코드만 스캔 (currentStreak > 0 필터)
 			ScanRequest.Builder scanBuilder = ScanRequest.builder()
@@ -82,14 +81,14 @@ public class ScheduledStatsHandler implements RequestHandler<ScheduledEvent, Str
 							":yesterday", AttributeValue.builder().s(yesterday).build()
 					))
 					.limit(BATCH_SIZE);
-
+			
 			if (lastEvaluatedKey != null) {
 				scanBuilder.exclusiveStartKey(lastEvaluatedKey);
 			}
-
+			
 			ScanResponse response = AwsClients.dynamoDb().scan(scanBuilder.build());
 			List<Map<String, AttributeValue>> items = response.items();
-
+			
 			for (Map<String, AttributeValue> item : items) {
 				String pk = item.get("PK").s();
 				// PK 형식: "USERSTATS#{userId}" 에서 userId 추출
@@ -104,14 +103,14 @@ public class ScheduledStatsHandler implements RequestHandler<ScheduledEvent, Str
 					}
 				}
 			}
-
+			
 			lastEvaluatedKey = response.lastEvaluatedKey();
 		} while (lastEvaluatedKey != null && !lastEvaluatedKey.isEmpty());
-
+		
 		logger.info("Streak reset completed: {} users processed", resetCount);
 		return resetCount;
 	}
-
+	
 	/**
 	 * 사용자의 currentStreak을 0으로 리셋 (longestStreak은 유지)
 	 */
@@ -120,7 +119,7 @@ public class ScheduledStatsHandler implements RequestHandler<ScheduledEvent, Str
 				getCurrentLongestStreak(userId),
 				LocalDate.now().minusDays(1).toString());
 	}
-
+	
 	/**
 	 * 사용자의 현재 longestStreak 조회
 	 */

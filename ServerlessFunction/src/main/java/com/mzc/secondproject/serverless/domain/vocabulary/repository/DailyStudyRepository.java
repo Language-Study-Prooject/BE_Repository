@@ -27,14 +27,14 @@ public class DailyStudyRepository {
 	private static final String TABLE_NAME = EnvConfig.getRequired("VOCAB_TABLE_NAME");
 	
 	private final DynamoDbTable<DailyStudy> table;
-
+	
 	/**
 	 * 기본 생성자 (Lambda에서 사용)
 	 */
 	public DailyStudyRepository() {
 		this(AwsClients.dynamoDbEnhanced());
 	}
-
+	
 	/**
 	 * 의존성 주입 생성자 (테스트 용이성)
 	 */
