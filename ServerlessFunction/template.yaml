@@ -1699,7 +1699,7 @@ Resources:
           Type: Schedule
           Properties:
             Schedule: cron(0 9 * * ? *)
-            Name: news-collection-daily-schedule
+            Name: !Sub "${AWS::StackName}-news-collection-daily-schedule"
             Description: 매일 18시 KST (09:00 UTC)에 뉴스 수집
             Enabled: true
 
