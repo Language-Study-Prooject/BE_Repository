@@ -277,10 +277,31 @@ Resources:
               RunOrder: 1
 
   #############################################
+  # SNS Topic Policy for CodeStar Notifications
+  #############################################
+  NotificationTopicPolicy:
+    Type: AWS::SNS::TopicPolicy
+    Properties:
+      Topics:
+        - !Ref NotificationTopic
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: AllowCodeStarNotifications
+            Effect: Allow
+            Principal:
+              Service: codestar-notifications.amazonaws.com
+            Action: sns:Publish
+            Resource: !Ref NotificationTopic
+
+  #############################################
   # Pipeline Notification Rule
   #############################################
   PipelineNotificationRule:
     Type: AWS::CodeStarNotifications::NotificationRule
+    DependsOn:
+      - Pipeline
+      - NotificationTopicPolicy
     Properties:
       Name: group2-pipeline-notifications
       DetailType: FULL
