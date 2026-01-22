@@ -33,13 +33,13 @@ public class CreateRoomRequest {
 	
 	@Builder.Default
 	private Boolean isPrivate = false;
-
+	
 	private String password;
-
+	
 	@Builder.Default
 	private String type = "CHAT";  // CHAT or GAME
-
+	
 	private String gameType;       // CATCHMIND (nullable)
-
+	
 	private GameSettings gameSettings;  // 게임 설정 (nullable)
 }

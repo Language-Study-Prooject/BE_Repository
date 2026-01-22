@@ -13,7 +13,7 @@ import java.util.UUID;
 
 /**
  * Cognito Post Confirmation 트리거 핸들러
- *
+ * <p>
  * 사용자 이메일 인증을 완료한 직후 DB에 데이터 생성
  */
 public class PostConfirmationHandler implements RequestHandler<CognitoUserPoolPostConfirmationEvent, CognitoUserPoolPostConfirmationEvent> {

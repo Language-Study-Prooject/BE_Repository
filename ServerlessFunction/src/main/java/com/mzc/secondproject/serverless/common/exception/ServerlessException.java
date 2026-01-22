@@ -6,10 +6,10 @@ import java.util.Map;
 
 /**
  * 서버리스 애플리케이션 기본 예외 클래스
- *
+ * <p>
  * 모든 비즈니스 예외의 추상 기반 클래스입니다.
  * ErrorCode를 통해 표준화된 에러 정보를 제공합니다.
- *
+ * <p>
  * 사용 예시:
  * - CommonException: 공통/시스템 예외
  * - VocabularyException: 단어 학습 도메인 예외

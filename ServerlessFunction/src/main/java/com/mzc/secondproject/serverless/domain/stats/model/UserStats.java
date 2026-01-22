@@ -13,7 +13,7 @@ import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbSortK
  * 사용자 학습 통계
  * PK: USER#{userId}#STATS
  * SK: DAILY#{date} / WEEKLY#{year}-W{week} / MONTHLY#{year}-{month} / TOTAL
- *
+ * <p>
  * Write-time Aggregation 패턴:
  * - 이벤트 발생 시 Atomic Counter로 증분 업데이트
  * - 조회 시 Scan 없이 O(1) GetItem

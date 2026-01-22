@@ -79,10 +79,10 @@ public class WebSocketBroadcaster implements AutoCloseable {
 		
 		logger.info("Broadcast completed: total={}, failed={}",
 				connections.size(), failedConnections.size());
-
+		
 		return failedConnections;
 	}
-
+	
 	@Override
 	public void close() {
 		try {

@@ -21,6 +21,7 @@ ChatRoom.java (현재 - 혼합 모델)
 ```
 
 **문제점:**
+
 1. `roundStartTime`만 전송, `serverTime` 누락 → 클라이언트 타이머 동기화 불가
 2. 게임 세션이 채팅방에 종속 → 게임 상태 독립 관리 불가
 3. 재접속 시 게임 상태 복구 어려움
@@ -43,6 +44,7 @@ handleRequest() {
 ```
 
 **문제점:**
+
 - 채팅/게임 구분 없이 모든 메시지가 동일 핸들러에서 처리
 - 메시지에 `domain` 필드 없음
 
@@ -77,12 +79,12 @@ handleRequest() {
 
 ### 2.2 핵심 변경사항
 
-| 구분 | 현재 | 변경 후 |
-|------|------|---------|
-| 모델 | `ChatRoom`에 게임 필드 포함 | `ChatRoom` + `GameSession` 분리 |
+| 구분  | 현재                   | 변경 후                            |
+|-----|----------------------|---------------------------------|
+| 모델  | `ChatRoom`에 게임 필드 포함 | `ChatRoom` + `GameSession` 분리   |
 | 타이머 | `roundStartTime`만 전송 | `roundStartTime` + `serverTime` |
-| 메시지 | `messageType`만 존재 | `domain` + `messageType` |
-| API | 채팅방 API만 존재 | 게임 세션 API 추가 |
+| 메시지 | `messageType`만 존재    | `domain` + `messageType`        |
+| API | 채팅방 API만 존재          | 게임 세션 API 추가                    |
 
 ---
 
@@ -381,27 +383,27 @@ src/domains/
 
 ### 5.2 채팅 메시지
 
-| Type | 방향 | data 필드 |
-|------|------|-----------|
-| `TEXT` | 양방향 | `messageId`, `userId`, `content`, `createdAt` |
-| `USER_JOIN` | S→C | `userId`, `memberCount` |
-| `USER_LEAVE` | S→C | `userId`, `memberCount` |
-| `SYSTEM` | S→C | `content` |
+| Type         | 방향  | data 필드                                       |
+|--------------|-----|-----------------------------------------------|
+| `TEXT`       | 양방향 | `messageId`, `userId`, `content`, `createdAt` |
+| `USER_JOIN`  | S→C | `userId`, `memberCount`                       |
+| `USER_LEAVE` | S→C | `userId`, `memberCount`                       |
+| `SYSTEM`     | S→C | `content`                                     |
 
 ### 5.3 게임 메시지
 
-| Type | 방향 | data 필드 |
-|------|------|-----------|
-| `GAME_START` | S→C | `gameSessionId`, `totalRounds`, `currentDrawerId`, `roundStartTime`, `serverTime`, `roundDuration`, `players` |
-| `GAME_END` | S→C | `gameSessionId`, `reason`, `finalScores`, `winner` |
-| `ROUND_START` | S→C | `currentRound`, `currentDrawerId`, `roundStartTime`, `serverTime`, `roundDuration`, `currentWord`(출제자만) |
-| `ROUND_END` | S→C | `currentRound`, `answer`, `scores` |
-| `DRAWING` | 양방향 | `drawingData` |
-| `DRAWING_CLEAR` | 양방향 | - |
-| `GUESS` | C→S | `content` |
-| `CORRECT_ANSWER` | S→C | `userId`, `score`, `elapsedTime` |
-| `SCORE_UPDATE` | S→C | `scores`, `currentRound`, `totalRounds` |
-| `HINT` | S→C | `hint` |
+| Type             | 방향  | data 필드                                                                                                       |
+|------------------|-----|---------------------------------------------------------------------------------------------------------------|
+| `GAME_START`     | S→C | `gameSessionId`, `totalRounds`, `currentDrawerId`, `roundStartTime`, `serverTime`, `roundDuration`, `players` |
+| `GAME_END`       | S→C | `gameSessionId`, `reason`, `finalScores`, `winner`                                                            |
+| `ROUND_START`    | S→C | `currentRound`, `currentDrawerId`, `roundStartTime`, `serverTime`, `roundDuration`, `currentWord`(출제자만)       |
+| `ROUND_END`      | S→C | `currentRound`, `answer`, `scores`                                                                            |
+| `DRAWING`        | 양방향 | `drawingData`                                                                                                 |
+| `DRAWING_CLEAR`  | 양방향 | -                                                                                                             |
+| `GUESS`          | C→S | `content`                                                                                                     |
+| `CORRECT_ANSWER` | S→C | `userId`, `score`, `elapsedTime`                                                                              |
+| `SCORE_UPDATE`   | S→C | `scores`, `currentRound`, `totalRounds`                                                                       |
+| `HINT`           | S→C | `hint`                                                                                                        |
 
 ### 5.4 ROUND_START 상세 (핵심!)
 
@@ -461,13 +463,13 @@ Week 4: 안정화 및 추가 기능
 
 ## 7. 기대 효과
 
-| 항목 | 현재 | 개선 후 |
-|------|------|---------|
-| 타이머 정확도 | 클라이언트 시계 의존 | 서버 시간 기준 동기화 |
-| 재접속 | 게임 상태 유실 | 완전 복구 가능 |
-| 테스트 | 채팅/게임 분리 불가 | 독립 테스트 가능 |
-| 확장성 | 새 게임 추가 어려움 | gameType으로 확장 용이 |
-| 유지보수 | 책임 혼재 | 명확한 책임 분리 |
+| 항목      | 현재          | 개선 후             |
+|---------|-------------|------------------|
+| 타이머 정확도 | 클라이언트 시계 의존 | 서버 시간 기준 동기화     |
+| 재접속     | 게임 상태 유실    | 완전 복구 가능         |
+| 테스트     | 채팅/게임 분리 불가 | 독립 테스트 가능        |
+| 확장성     | 새 게임 추가 어려움 | gameType으로 확장 용이 |
+| 유지보수    | 책임 혼재       | 명확한 책임 분리        |
 
 ---
 
@@ -512,6 +514,7 @@ onRoundStart: (data) => {
 3. **중기 (3-4주)**: FE/BE 완전 분리 + 자동 종료 + 재접속 복구
 
 **핵심 원칙:**
+
 - 단일 WebSocket 엔드포인트 유지 (비용/복잡도)
 - `domain` 필드로 채팅/게임 구분
 - `serverTime`으로 정확한 타이머 동기화

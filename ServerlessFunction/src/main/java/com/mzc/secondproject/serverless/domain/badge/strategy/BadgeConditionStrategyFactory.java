@@ -8,10 +8,10 @@ import java.util.Map;
  * 카테고리별 전략 인스턴스를 관리하고 제공
  */
 public class BadgeConditionStrategyFactory {
-
+	
 	private static final Map<String, BadgeConditionStrategy> STRATEGIES = new HashMap<>();
 	private static final BadgeConditionStrategy DEFAULT_STRATEGY = new NoOpStrategy("DEFAULT");
-
+	
 	static {
 		register(new FirstStudyStrategy());
 		register(new StreakStrategy());
@@ -26,11 +26,11 @@ public class BadgeConditionStrategyFactory {
 		register(new NoOpStrategy("PERFECT_TEST"));
 		register(new NoOpStrategy("ALL_BADGES"));
 	}
-
+	
 	private static void register(BadgeConditionStrategy strategy) {
 		STRATEGIES.put(strategy.getCategory(), strategy);
 	}
-
+	
 	/**
 	 * 카테고리에 해당하는 전략 반환
 	 */

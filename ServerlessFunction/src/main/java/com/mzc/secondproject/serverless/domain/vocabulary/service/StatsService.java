@@ -4,6 +4,7 @@ import com.mzc.secondproject.serverless.common.dto.PaginatedResult;
 import com.mzc.secondproject.serverless.domain.vocabulary.model.DailyStudy;
 import com.mzc.secondproject.serverless.domain.vocabulary.model.TestResult;
 import com.mzc.secondproject.serverless.domain.vocabulary.model.UserWord;
+import com.mzc.secondproject.serverless.domain.vocabulary.model.Word;
 import com.mzc.secondproject.serverless.domain.vocabulary.repository.DailyStudyRepository;
 import com.mzc.secondproject.serverless.domain.vocabulary.repository.TestResultRepository;
 import com.mzc.secondproject.serverless.domain.vocabulary.repository.UserWordRepository;
@@ -14,7 +15,6 @@ import org.slf4j.LoggerFactory;
 import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import com.mzc.secondproject.serverless.domain.vocabulary.model.Word;
 
 public class StatsService {
 	
@@ -24,7 +24,7 @@ public class StatsService {
 	private final DailyStudyRepository dailyStudyRepository;
 	private final TestResultRepository testResultRepository;
 	private final WordRepository wordRepository;
-
+	
 	/**
 	 * 기본 생성자 (Lambda에서 사용)
 	 */
@@ -32,7 +32,7 @@ public class StatsService {
 		this(new UserWordRepository(), new DailyStudyRepository(),
 				new TestResultRepository(), new WordRepository());
 	}
-
+	
 	/**
 	 * 의존성 주입 생성자 (테스트 용이성)
 	 */
@@ -127,7 +127,7 @@ public class StatsService {
 			allUserWords.addAll(page.items());
 			cursor = page.nextCursor();
 		} while (cursor != null);
-
+		
 		if (allUserWords.isEmpty()) {
 			Map<String, Object> emptyResult = new HashMap<>();
 			emptyResult.put("weakestWords", List.of());
@@ -136,7 +136,7 @@ public class StatsService {
 			emptyResult.put("suggestions", List.of());
 			return emptyResult;
 		}
-
+		
 		// 배치 조회로 N+1 문제 해결: 모든 wordId를 수집하여 한 번에 조회
 		List<String> wordIds = allUserWords.stream()
 				.map(UserWord::getWordId)
@@ -145,7 +145,7 @@ public class StatsService {
 		List<Word> words = wordRepository.findByIds(wordIds);
 		Map<String, Word> wordMap = words.stream()
 				.collect(Collectors.toMap(Word::getWordId, Function.identity(), (a, b) -> a));
-
+		
 		List<Map<String, Object>> weakestWords = allUserWords.stream()
 				.filter(uw -> uw.getIncorrectCount() != null && uw.getIncorrectCount() > 0)
 				.sorted(Comparator.comparingInt(UserWord::getIncorrectCount).reversed())
@@ -156,7 +156,7 @@ public class StatsService {
 					wordInfo.put("incorrectCount", uw.getIncorrectCount());
 					wordInfo.put("correctCount", uw.getCorrectCount());
 					wordInfo.put("status", uw.getStatus());
-
+					
 					Word word = wordMap.get(uw.getWordId());
 					if (word != null) {
 						wordInfo.put("english", word.getEnglish());
@@ -164,28 +164,28 @@ public class StatsService {
 						wordInfo.put("level", word.getLevel());
 						wordInfo.put("category", word.getCategory());
 					}
-
+					
 					int total = (uw.getCorrectCount() != null ? uw.getCorrectCount() : 0) +
 							(uw.getIncorrectCount() != null ? uw.getIncorrectCount() : 0);
 					wordInfo.put("accuracy", total > 0 ?
 							(uw.getCorrectCount() != null ? uw.getCorrectCount() * 100.0 / total : 0) : 0);
-
+					
 					return wordInfo;
 				})
 				.collect(Collectors.toList());
-
+		
 		Map<String, Map<String, Object>> categoryAnalysis = new HashMap<>();
 		Map<String, Map<String, Object>> levelAnalysis = new HashMap<>();
-
+		
 		for (UserWord uw : allUserWords) {
 			Word word = wordMap.get(uw.getWordId());
 			if (word != null) {
 				String category = word.getCategory();
 				String level = word.getLevel();
-
+				
 				int correct = uw.getCorrectCount() != null ? uw.getCorrectCount() : 0;
 				int incorrect = uw.getIncorrectCount() != null ? uw.getIncorrectCount() : 0;
-
+				
 				categoryAnalysis.computeIfAbsent(category, k -> {
 					Map<String, Object> stats = new HashMap<>();
 					stats.put("totalCorrect", 0);
@@ -197,7 +197,7 @@ public class StatsService {
 				catStats.put("totalCorrect", (Integer) catStats.get("totalCorrect") + correct);
 				catStats.put("totalIncorrect", (Integer) catStats.get("totalIncorrect") + incorrect);
 				catStats.put("wordCount", (Integer) catStats.get("wordCount") + 1);
-
+				
 				levelAnalysis.computeIfAbsent(level, k -> {
 					Map<String, Object> stats = new HashMap<>();
 					stats.put("totalCorrect", 0);

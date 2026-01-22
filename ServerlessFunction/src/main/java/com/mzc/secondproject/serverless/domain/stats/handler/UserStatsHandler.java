@@ -37,7 +37,7 @@ public class UserStatsHandler implements RequestHandler<APIGatewayProxyRequestEv
 	public UserStatsHandler() {
 		this(new UserStatsRepository(), new DailyStudyRepository());
 	}
-
+	
 	/**
 	 * 의존성 주입 생성자 (테스트 용이성)
 	 */

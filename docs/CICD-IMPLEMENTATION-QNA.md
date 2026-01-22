@@ -23,26 +23,30 @@
 ## 2. 구성 요소 상세 설명
 
 ### 2.1 Source Stage (GitHub)
+
 - **트리거**: prod 브랜치에 Push 또는 PR Merge 시 자동 실행
 - **연결 방식**: AWS CodeConnections (구 CodeStar Connections)
 - **아티팩트**: 소스 코드를 ZIP으로 압축하여 다음 스테이지로 전달
 
 ### 2.2 Build Stage (CodeBuild)
+
 - **런타임**: Amazon Linux 2, Java Corretto 21
 - **빌드 단계**:
-  1. **Install**: SAM CLI 설치
-  2. **Pre-build**: Gradle 테스트 실행 (`./gradlew clean test`)
-  3. **Build**: SAM build & package
-  4. **Post-build**: 완료 로그
+	1. **Install**: SAM CLI 설치
+	2. **Pre-build**: Gradle 테스트 실행 (`./gradlew clean test`)
+	3. **Build**: SAM build & package
+	4. **Post-build**: 완료 로그
 - **캐싱**: Gradle 캐시를 S3에 저장하여 빌드 시간 단축
 - **리포트**: JUnit 테스트 결과, JaCoCo 코드 커버리지 리포트
 
 ### 2.3 Deploy Stage (CloudFormation)
+
 - **배포 방식**: CloudFormation CREATE_UPDATE
 - **템플릿**: SAM으로 패키징된 `packaged-template.yaml`
 - **기능**: CAPABILITY_IAM, CAPABILITY_AUTO_EXPAND
 
 ### 2.4 Notification (SNS)
+
 - **이벤트**: 파이프라인 시작, 성공, 실패 시 이메일 알림
 - **구현**: CodeStar Notifications + SNS Topic
 
@@ -60,11 +64,11 @@ BE_Repository/
 
 ## 4. IAM 역할 구성
 
-| 역할 | 목적 | 주요 권한 |
-|------|------|----------|
-| PipelineRole | CodePipeline 서비스 역할 | S3, CodeBuild, CloudFormation, SNS |
-| CodeBuildRole | CodeBuild 서비스 역할 | S3, CloudWatch Logs, CodeBuild Reports |
-| CloudFormationRole | 리소스 배포 역할 | AdministratorAccess (SAM 리소스 생성용) |
+| 역할                 | 목적                  | 주요 권한                                  |
+|--------------------|---------------------|----------------------------------------|
+| PipelineRole       | CodePipeline 서비스 역할 | S3, CodeBuild, CloudFormation, SNS     |
+| CodeBuildRole      | CodeBuild 서비스 역할    | S3, CloudWatch Logs, CodeBuild Reports |
+| CloudFormationRole | 리소스 배포 역할           | AdministratorAccess (SAM 리소스 생성용)      |
 
 ---
 
@@ -106,6 +110,7 @@ AWS CodeConnections(구 CodeStar Connections)를 사용하여 연동했습니다
 ```
 
 **연동 과정:**
+
 1. AWS Console에서 CodeConnections 생성
 2. GitHub OAuth 앱 승인
 3. Connection ARN을 파이프라인에 설정
@@ -119,23 +124,23 @@ AWS CodeConnections(구 CodeStar Connections)를 사용하여 연동했습니다
 
 ```yaml
 phases:
-  install:      # 빌드 환경 설정
+  install: # 빌드 환경 설정
     runtime-versions:
       java: corretto21
     commands:
       - pip3 install aws-sam-cli
 
-  pre_build:    # 테스트 실행 (품질 게이트)
+  pre_build: # 테스트 실행 (품질 게이트)
     commands:
       - cd ServerlessFunction
       - ./gradlew clean test
 
-  build:        # 실제 빌드 및 패키징
+  build: # 실제 빌드 및 패키징
     commands:
       - sam build
       - sam package --s3-bucket ... --output-template-file packaged-template.yaml
 
-  post_build:   # 후처리 (로깅, 정리)
+  post_build: # 후처리 (로깅, 정리)
     commands:
       - echo "Build completed"
 ```
@@ -153,6 +158,7 @@ phases:
 테스트 실패 시 배포가 자동으로 중단됩니다.
 
 **작동 원리:**
+
 1. `pre_build` 단계에서 `./gradlew clean test` 실행
 2. 테스트 실패 시 Gradle이 exit code 1 반환
 3. CodeBuild가 비정상 종료로 판단하여 빌드 실패 처리
@@ -176,11 +182,13 @@ Source ──▶ Build (테스트 실패) ──✗ Deploy
 SAM(Serverless Application Model)은 CloudFormation의 확장입니다.
 
 **관계:**
+
 - SAM 템플릿은 CloudFormation 템플릿의 상위 집합
 - `sam build`/`sam package` 실행 시 SAM 템플릿이 표준 CloudFormation 템플릿으로 변환
 - 변환된 템플릿(`packaged-template.yaml`)을 CloudFormation이 배포
 
 **SAM의 장점:**
+
 1. 간결한 문법: `AWS::Serverless::Function`으로 Lambda + API Gateway + IAM 역할 한번에 정의
 2. 로컬 테스트: `sam local invoke`로 Lambda 로컬 실행 가능
 3. 자동 패키징: 코드를 S3에 업로드하고 참조 자동 생성
@@ -210,16 +218,18 @@ Properties:
 CloudFormation의 기본 롤백 기능을 활용합니다.
 
 **설정:**
+
 ```yaml
 # samconfig.toml
 disable_rollback = false  # 롤백 활성화
 ```
 
 **롤백 시나리오:**
+
 1. **배포 실패 시**: CloudFormation이 자동으로 이전 상태로 롤백
 2. **Lambda 오류 시**:
-   - 현재는 기본 롤백만 사용
-   - 추가로 Canary/Linear 배포 설정 가능 (AWS CodeDeploy 연동)
+	- 현재는 기본 롤백만 사용
+	- 추가로 Canary/Linear 배포 설정 가능 (AWS CodeDeploy 연동)
 
 ```yaml
 # 점진적 배포 예시 (선택적 구현)
@@ -248,6 +258,7 @@ ArtifactBucket:
 ```
 
 **아티팩트 종류:**
+
 1. **SourceArtifact**: GitHub에서 가져온 소스 코드 ZIP
 2. **BuildArtifact**: 빌드된 `packaged-template.yaml`
 3. **Cache**: Gradle 캐시 (빌드 시간 단축용)
@@ -294,18 +305,22 @@ PipelineNotificationRule:
 **A9:**
 
 **문제 1: Gradle Wrapper를 찾을 수 없음**
+
 - 원인: `.gitignore`에서 `gradle/` 폴더 전체가 제외됨
 - 해결: `.gitignore` 수정하여 `!gradle/wrapper/` 예외 추가
 
 **문제 2: JAVA_HOME 환경 변수 오류**
+
 - 원인: CodeBuild에서 JAVA_HOME을 수동 설정했으나 경로 불일치
 - 해결: `runtime-versions: java: corretto21`만 사용하고 JAVA_HOME 수동 설정 제거
 
 **문제 3: SAM package S3 버킷 참조 오류**
+
 - 원인: 환경 변수를 사용한 멀티라인 명령어에서 변수 치환 실패
 - 해결: 단일 라인으로 버킷 이름 직접 지정
 
 **문제 4: Lambda 환경 변수 누락**
+
 - 원인: WebSocket Connect 함수에 `WEBSOCKET_ENDPOINT` 환경 변수 미설정
 - 해결: `template.yaml`에 환경 변수 추가
 
@@ -316,22 +331,22 @@ PipelineNotificationRule:
 **A10:**
 
 1. **테스트 커버리지 게이트**
-   - 현재: 테스트 실행만 함
-   - 개선: 커버리지 80% 미만 시 빌드 실패 설정
+	- 현재: 테스트 실행만 함
+	- 개선: 커버리지 80% 미만 시 빌드 실패 설정
 
 2. **점진적 배포 (Canary/Blue-Green)**
-   - 현재: 전체 교체 배포
-   - 개선: Lambda Alias + CodeDeploy로 Canary 배포 구현
+	- 현재: 전체 교체 배포
+	- 개선: Lambda Alias + CodeDeploy로 Canary 배포 구현
 
 3. **다중 환경 지원**
-   - 현재: prod 단일 환경
-   - 개선: dev, staging, prod 분리 및 승인 단계 추가
+	- 현재: prod 단일 환경
+	- 개선: dev, staging, prod 분리 및 승인 단계 추가
 
 4. **보안 스캔**
-   - 개선: 의존성 취약점 스캔 (OWASP Dependency-Check) 추가
+	- 개선: 의존성 취약점 스캔 (OWASP Dependency-Check) 추가
 
 5. **성능 테스트**
-   - 개선: 배포 전 부하 테스트 단계 추가
+	- 개선: 배포 전 부하 테스트 단계 추가
 
 ---
 
@@ -341,6 +356,7 @@ PipelineNotificationRule:
 파이프라인 자체도 CloudFormation 템플릿(`pipeline.yaml`)으로 정의했습니다.
 
 **장점:**
+
 1. **버전 관리**: 인프라 변경 이력을 Git으로 추적
 2. **재현성**: 동일한 파이프라인을 다른 프로젝트/계정에 쉽게 복제
 3. **리뷰 가능**: 인프라 변경도 코드 리뷰 프로세스 적용
@@ -353,16 +369,17 @@ PipelineNotificationRule:
 
 **A12:**
 
-| 항목 | CodeBuild | Jenkins |
-|------|-----------|---------|
-| 관리 | 완전 관리형 (서버리스) | 자체 서버 운영 필요 |
-| 비용 | 빌드 시간 기반 과금 | 서버 운영 비용 |
-| 확장성 | 자동 확장 | 수동 확장 필요 |
-| AWS 통합 | 네이티브 통합 | 플러그인 필요 |
+| 항목     | CodeBuild     | Jenkins              |
+|--------|---------------|----------------------|
+| 관리     | 완전 관리형 (서버리스) | 자체 서버 운영 필요          |
+| 비용     | 빌드 시간 기반 과금   | 서버 운영 비용             |
+| 확장성    | 자동 확장         | 수동 확장 필요             |
+| AWS 통합 | 네이티브 통합       | 플러그인 필요              |
 | 커스터마이징 | buildspec.yml | Jenkinsfile (Groovy) |
-| 플러그인 | 제한적 | 풍부한 생태계 |
+| 플러그인   | 제한적           | 풍부한 생태계              |
 
 **선택 이유:**
+
 - AWS 서비스 중심 아키텍처에서 네이티브 통합의 이점
 - 서버 관리 부담 없음
 - SAM/CloudFormation과의 원활한 연동
@@ -371,15 +388,15 @@ PipelineNotificationRule:
 
 ## 6. 핵심 용어 정리
 
-| 용어 | 설명 |
-|------|------|
-| CI (Continuous Integration) | 코드 변경을 자주 통합하고 자동 테스트하는 방식 |
-| CD (Continuous Delivery/Deployment) | 자동으로 프로덕션까지 배포하는 방식 |
-| Pipeline | 소스-빌드-배포로 이어지는 자동화된 워크플로우 |
-| Artifact | 빌드 결과물 (패키징된 코드, 템플릿 등) |
-| buildspec.yml | CodeBuild의 빌드 명세 파일 |
-| SAM | Serverless Application Model - 서버리스 앱 정의 프레임워크 |
-| IaC | Infrastructure as Code - 코드로 인프라 관리 |
+| 용어                                  | 설명                                             |
+|-------------------------------------|------------------------------------------------|
+| CI (Continuous Integration)         | 코드 변경을 자주 통합하고 자동 테스트하는 방식                     |
+| CD (Continuous Delivery/Deployment) | 자동으로 프로덕션까지 배포하는 방식                            |
+| Pipeline                            | 소스-빌드-배포로 이어지는 자동화된 워크플로우                      |
+| Artifact                            | 빌드 결과물 (패키징된 코드, 템플릿 등)                        |
+| buildspec.yml                       | CodeBuild의 빌드 명세 파일                            |
+| SAM                                 | Serverless Application Model - 서버리스 앱 정의 프레임워크 |
+| IaC                                 | Infrastructure as Code - 코드로 인프라 관리            |
 
 ---
 

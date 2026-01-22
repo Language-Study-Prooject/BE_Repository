@@ -29,7 +29,7 @@ public class BadgeHandler implements RequestHandler<APIGatewayProxyRequestEvent,
 	public BadgeHandler() {
 		this(new BadgeService());
 	}
-
+	
 	/**
 	 * 의존성 주입 생성자 (테스트 용이성)
 	 */

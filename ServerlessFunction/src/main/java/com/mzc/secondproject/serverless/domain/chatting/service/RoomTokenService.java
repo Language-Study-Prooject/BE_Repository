@@ -19,14 +19,14 @@ public class RoomTokenService {
 	private static final Logger logger = LoggerFactory.getLogger(RoomTokenService.class);
 	
 	private final RoomTokenRepository tokenRepository;
-
+	
 	/**
 	 * 기본 생성자 (Lambda에서 사용)
 	 */
 	public RoomTokenService() {
 		this(new RoomTokenRepository());
 	}
-
+	
 	/**
 	 * 의존성 주입 생성자 (테스트 용이성)
 	 */

@@ -18,17 +18,17 @@ import java.util.Optional;
 public class ChatRoomQueryService {
 	
 	private static final Logger logger = LoggerFactory.getLogger(ChatRoomQueryService.class);
-
+	
 	private final ChatRoomRepository roomRepository;
 	private final UserRepository userRepository;
-
+	
 	/**
 	 * 기본 생성자 (Lambda에서 사용)
 	 */
 	public ChatRoomQueryService() {
 		this(new ChatRoomRepository(), new UserRepository());
 	}
-
+	
 	/**
 	 * 의존성 주입 생성자 (테스트 용이성)
 	 */
@@ -63,7 +63,7 @@ public class ChatRoomQueryService {
 				.filter(room -> room.getMemberIds() != null && room.getMemberIds().contains(userId))
 				.toList();
 	}
-
+	
 	/**
 	 * 참가자 목록을 닉네임과 함께 조회
 	 *
@@ -72,9 +72,9 @@ public class ChatRoomQueryService {
 	 */
 	public List<RoomParticipant> getParticipantsWithNicknames(ChatRoom room) {
 		if (room.getMemberIds() == null) return List.of();
-
+		
 		String hostId = room.getHostId() != null ? room.getHostId() : room.getCreatedBy();
-
+		
 		return room.getMemberIds().stream()
 				.map(userId -> {
 					String nickname = userRepository.findByCognitoSub(userId)
@@ -88,7 +88,7 @@ public class ChatRoomQueryService {
 				})
 				.toList();
 	}
-
+	
 	/**
 	 * 방장 닉네임 조회
 	 *

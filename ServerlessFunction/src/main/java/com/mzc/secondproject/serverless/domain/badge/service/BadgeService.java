@@ -5,13 +5,12 @@ import com.mzc.secondproject.serverless.domain.badge.constants.BadgeKey;
 import com.mzc.secondproject.serverless.domain.badge.enums.BadgeType;
 import com.mzc.secondproject.serverless.domain.badge.model.UserBadge;
 import com.mzc.secondproject.serverless.domain.badge.repository.BadgeRepository;
+import com.mzc.secondproject.serverless.domain.badge.strategy.BadgeConditionStrategy;
+import com.mzc.secondproject.serverless.domain.badge.strategy.BadgeConditionStrategyFactory;
 import com.mzc.secondproject.serverless.domain.stats.model.UserStats;
 import com.mzc.secondproject.serverless.domain.stats.repository.UserStatsRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import com.mzc.secondproject.serverless.domain.badge.strategy.BadgeConditionStrategy;
-import com.mzc.secondproject.serverless.domain.badge.strategy.BadgeConditionStrategyFactory;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -25,14 +24,14 @@ public class BadgeService {
 	
 	private final BadgeRepository badgeRepository;
 	private final UserStatsRepository userStatsRepository;
-
+	
 	/**
 	 * 기본 생성자 (Lambda에서 사용)
 	 */
 	public BadgeService() {
 		this(new BadgeRepository(), new UserStatsRepository());
 	}
-
+	
 	/**
 	 * 의존성 주입 생성자 (테스트 용이성)
 	 */
@@ -145,14 +144,14 @@ public class BadgeService {
 	
 	private boolean checkBadgeCondition(BadgeType type, UserStats stats) {
 		if (stats == null) return false;
-
+		
 		BadgeConditionStrategy strategy = BadgeConditionStrategyFactory.getStrategy(type.getCategory());
 		return strategy.checkCondition(type, stats);
 	}
-
+	
 	private int calculateProgress(BadgeType type, UserStats stats) {
 		if (stats == null) return 0;
-
+		
 		BadgeConditionStrategy strategy = BadgeConditionStrategyFactory.getStrategy(type.getCategory());
 		return strategy.calculateProgress(type, stats);
 	}
