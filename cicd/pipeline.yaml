@@ -268,7 +268,7 @@ Resources:
                 Version: '1'
               Configuration:
                 ActionMode: CREATE_UPDATE
-                StackName: group2-englishstudy-prod
+                StackName: group2-englishstudy-chatting
                 TemplatePath: BuildArtifact::packaged-template.yaml
                 Capabilities: CAPABILITY_IAM,CAPABILITY_AUTO_EXPAND
                 RoleArn: !GetAtt CloudFormationRole.Arn
