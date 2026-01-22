@@ -66,7 +66,7 @@ public class GrammarConversationService {
 		
 		// 사용자 메시지 저장
 		saveMessage("USER", session, request.getMessage(), response.getGrammarCheck());
-
+		
 		// AI 응답 메시지 저장
 		saveMessage("ASSISTANT", session, response.getAiResponse(), null);
 		
@@ -146,7 +146,7 @@ public class GrammarConversationService {
 		String now = Instant.now().toString();
 		String messageId = UUID.randomUUID().toString();
 		long ttl = Instant.now().plus(GrammarConfig.sessionTtlDays(), ChronoUnit.DAYS).getEpochSecond();
-
+		
 		GrammarMessage message = GrammarMessage.builder()
 				.pk(GrammarKey.sessionPk(session.getUserId()))
 				.sk(GrammarKey.messageSk(now, messageId))
@@ -165,7 +165,7 @@ public class GrammarConversationService {
 				.createdAt(now)
 				.ttl(ttl)
 				.build();
-
+		
 		repository.saveMessage(message);
 	}
 	

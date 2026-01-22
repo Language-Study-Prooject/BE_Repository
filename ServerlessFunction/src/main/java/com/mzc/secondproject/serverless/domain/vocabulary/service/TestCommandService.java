@@ -109,49 +109,49 @@ public class TestCommandService {
 	                                   List<SubmitTestRequest.TestAnswer> answers, String startedAt) {
 		// 1. 답안 채점
 		GradingResult gradingResult = gradeAnswers(answers);
-
+		
 		// 2. 테스트 결과 저장
 		TestResult testResult = saveTestResult(userId, testId, testType, gradingResult, startedAt);
-
+		
 		// 3. 오답 단어 자동 북마크
 		bookmarkIncorrectWords(userId, gradingResult.incorrectWordIds());
-
+		
 		// 4. SNS 알림 발행
 		publishTestResultToSns(userId, gradingResult.results());
-
+		
 		logger.info("Test submitted: userId={}, testId={}, successRate={}%",
 				userId, testId, gradingResult.successRate());
-
+		
 		return new SubmitTestResult(
 				testId, testType, gradingResult.totalQuestions(),
 				gradingResult.correctCount(), gradingResult.incorrectCount(),
 				gradingResult.successRate(), gradingResult.results()
 		);
 	}
-
+	
 	private GradingResult gradeAnswers(List<SubmitTestRequest.TestAnswer> answers) {
 		List<String> wordIds = answers.stream()
 				.map(SubmitTestRequest.TestAnswer::getWordId)
 				.collect(Collectors.toList());
-
+		
 		Map<String, Word> wordMap = wordRepository.findByIds(wordIds).stream()
 				.collect(Collectors.toMap(Word::getWordId, w -> w));
-
+		
 		int correctCount = 0;
 		int incorrectCount = 0;
 		List<String> incorrectWordIds = new ArrayList<>();
 		List<Map<String, Object>> results = new ArrayList<>();
-
+		
 		for (SubmitTestRequest.TestAnswer answer : answers) {
 			String wordId = answer.getWordId();
 			String userAnswer = answer.getAnswer();
 			Word word = wordMap.get(wordId);
-
+			
 			if (word == null) continue;
-
+			
 			boolean isCorrect = isAnswerCorrect(userAnswer, word.getKorean());
 			results.add(buildResultItem(word, userAnswer, isCorrect));
-
+			
 			if (isCorrect) {
 				correctCount++;
 			} else {
@@ -159,20 +159,20 @@ public class TestCommandService {
 				incorrectWordIds.add(wordId);
 			}
 		}
-
+		
 		int totalQuestions = answers.size();
 		double successRate = totalQuestions > 0 ? (correctCount * 100.0 / totalQuestions) : 0;
-
+		
 		return new GradingResult(wordIds, correctCount, incorrectCount, incorrectWordIds,
 				totalQuestions, successRate, results);
 	}
-
+	
 	private boolean isAnswerCorrect(String userAnswer, String correctAnswer) {
 		return userAnswer != null
 				&& !userAnswer.isBlank()
 				&& correctAnswer.trim().equalsIgnoreCase(userAnswer.trim());
 	}
-
+	
 	private Map<String, Object> buildResultItem(Word word, String userAnswer, boolean isCorrect) {
 		Map<String, Object> resultItem = new HashMap<>();
 		resultItem.put("wordId", word.getWordId());
@@ -182,12 +182,12 @@ public class TestCommandService {
 		resultItem.put("isCorrect", isCorrect);
 		return resultItem;
 	}
-
+	
 	private TestResult saveTestResult(String userId, String testId, String testType,
-			GradingResult gradingResult, String startedAt) {
+	                                  GradingResult gradingResult, String startedAt) {
 		String now = Instant.now().toString();
 		String today = LocalDate.now().toString();
-
+		
 		TestResult testResult = TestResult.builder()
 				.pk("TEST#" + userId)
 				.sk("RESULT#" + now)
@@ -205,20 +205,10 @@ public class TestCommandService {
 				.startedAt(startedAt)
 				.completedAt(now)
 				.build();
-
+		
 		testResultRepository.save(testResult);
 		return testResult;
 	}
-
-	private record GradingResult(
-			List<String> wordIds,
-			int correctCount,
-			int incorrectCount,
-			List<String> incorrectWordIds,
-			int totalQuestions,
-			double successRate,
-			List<Map<String, Object>> results
-	) {}
 	
 	private void bookmarkIncorrectWords(String userId, List<String> incorrectWordIds) {
 		if (incorrectWordIds == null || incorrectWordIds.isEmpty()) {
@@ -303,6 +293,17 @@ public class TestCommandService {
 		} catch (Exception e) {
 			logger.error("Failed to publish test result to SNS for user: {}", userId, e);
 		}
+	}
+	
+	private record GradingResult(
+			List<String> wordIds,
+			int correctCount,
+			int incorrectCount,
+			List<String> incorrectWordIds,
+			int totalQuestions,
+			double successRate,
+			List<Map<String, Object>> results
+	) {
 	}
 	
 	public record StartTestResult(String testId, String testType, List<Map<String, Object>> questions,
