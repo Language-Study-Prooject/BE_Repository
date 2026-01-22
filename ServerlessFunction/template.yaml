@@ -1762,6 +1762,8 @@ Resources:
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref NewsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref VocabularyTable
         - S3CrudPolicy:
             BucketName: !Ref ContentBucket
         - Statement:
@@ -1799,6 +1801,36 @@ Resources:
           Properties:
             RestApiId: !Ref MainApi
             Path: /news/bookmarks
+            Method: GET
+        GetUserWords:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /news/words
+            Method: GET
+        SyncWordToVocab:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /news/words/{word}/sync
+            Method: POST
+        CollectWord:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /news/{articleId}/words
+            Method: POST
+        DeleteWord:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /news/{articleId}/words/{word}
+            Method: DELETE
+        GetWordDetail:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /news/{articleId}/words/{word}
             Method: GET
         GetQuizHistory:
           Type: Api
