@@ -232,6 +232,7 @@ Resources:
       Environment:
         Variables:
           WEBSOCKET_CONNECTION_TTL_SECONDS: "600"
+          WEBSOCKET_ENDPOINT: !Sub "https://${WebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/dev"
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref ChatTable
@@ -1177,6 +1178,9 @@ Resources:
       CodeUri: .
       Handler: com.mzc.secondproject.serverless.domain.grammar.handler.websocket.GrammarStreamingConnectHandler::handleRequest
       Description: Handle Grammar WebSocket $connect with JWT auth
+      Environment:
+        Variables:
+          WEBSOCKET_ENDPOINT: !Sub "https://${GrammarWebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/dev"
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref ChatTable
@@ -1196,6 +1200,9 @@ Resources:
       CodeUri: .
       Handler: com.mzc.secondproject.serverless.domain.grammar.handler.websocket.GrammarStreamingDisconnectHandler::handleRequest
       Description: Handle Grammar WebSocket $disconnect
+      Environment:
+        Variables:
+          WEBSOCKET_ENDPOINT: !Sub "https://${GrammarWebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/dev"
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref ChatTable
