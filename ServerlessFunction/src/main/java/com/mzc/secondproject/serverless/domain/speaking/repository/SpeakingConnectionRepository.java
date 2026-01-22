@@ -1,4 +1,4 @@
-현package com.mzc.secondproject.serverless.domain.speaking.repository;
+package com.mzc.secondproject.serverless.domain.speaking.repository;
 
 import com.mzc.secondproject.serverless.common.config.AwsClients;
 import com.mzc.secondproject.serverless.common.config.EnvConfig;
