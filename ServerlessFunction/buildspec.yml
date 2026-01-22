@@ -17,6 +17,7 @@ phases:
   pre_build:
     commands:
       - echo "Running tests..."
+      - cd ServerlessFunction
       - chmod +x gradlew
       - ./gradlew clean test
       - echo "Tests completed"
@@ -24,6 +25,7 @@ phases:
   build:
     commands:
       - echo "Building SAM application..."
+      - cd $CODEBUILD_SRC_DIR/ServerlessFunction
       - sam build
       - echo "Packaging SAM application..."
       - sam package \
@@ -38,8 +40,7 @@ phases:
 artifacts:
   files:
     - packaged-template.yaml
-    - samconfig.toml
-  base-directory: .
+  base-directory: ServerlessFunction
 
 cache:
   paths:
@@ -49,9 +50,9 @@ cache:
 reports:
   junit-reports:
     files:
-      - 'build/test-results/test/*.xml'
+      - 'ServerlessFunction/build/test-results/test/*.xml'
     file-format: JUNITXML
   jacoco-reports:
     files:
-      - 'build/reports/jacoco/test/jacocoTestReport.xml'
+      - 'ServerlessFunction/build/reports/jacoco/test/jacocoTestReport.xml'
     file-format: JACOCOXML
