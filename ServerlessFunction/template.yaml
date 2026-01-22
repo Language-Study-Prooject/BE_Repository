@@ -228,7 +228,7 @@ Resources:
       Environment:
         Variables:
           WEBSOCKET_CONNECTION_TTL_SECONDS: "600"
-          WEBSOCKET_ENDPOINT: !Sub "https://${WebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/dev"
+          WEBSOCKET_ENDPOINT: !Sub "https://${WebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/${Environment}"
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref ChatTable
@@ -257,7 +257,7 @@ Resources:
         ApplyOn: PublishedVersions
       Environment:
         Variables:
-          WEBSOCKET_ENDPOINT: !Sub "https://${WebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/dev"
+          WEBSOCKET_ENDPOINT: !Sub "https://${WebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/${Environment}"
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref ChatTable
@@ -286,7 +286,7 @@ Resources:
         ApplyOn: PublishedVersions
       Environment:
         Variables:
-          WEBSOCKET_ENDPOINT: !Sub "https://${WebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/dev"
+          WEBSOCKET_ENDPOINT: !Sub "https://${WebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/${Environment}"
           GAME_AUTO_CLOSE_LAMBDA_ARN: !GetAtt GameAutoCloseFunction.Arn
           SCHEDULER_ROLE_ARN: !GetAtt GameSchedulerRole.Arn
       Policies:
@@ -374,7 +374,7 @@ Resources:
         ApplyOn: PublishedVersions
       Environment:
         Variables:
-          WEBSOCKET_ENDPOINT: !Sub "https://${WebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/dev"
+          WEBSOCKET_ENDPOINT: !Sub "https://${WebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/${Environment}"
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref ChatTable
@@ -446,7 +446,7 @@ Resources:
         ApplyOn: PublishedVersions
       Environment:
         Variables:
-          WEBSOCKET_ENDPOINT: !Sub "https://${WebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/dev"
+          WEBSOCKET_ENDPOINT: !Sub "https://${WebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/${Environment}"
           GAME_AUTO_CLOSE_LAMBDA_ARN: !GetAtt GameAutoCloseFunction.Arn
           SCHEDULER_ROLE_ARN: !GetAtt GameSchedulerRole.Arn
       Policies:
@@ -520,7 +520,7 @@ Resources:
         ApplyOn: PublishedVersions
       Environment:
         Variables:
-          WEBSOCKET_ENDPOINT: !Sub "https://${WebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/dev"
+          WEBSOCKET_ENDPOINT: !Sub "https://${WebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/${Environment}"
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref ChatTable
@@ -1283,7 +1283,7 @@ Resources:
       Description: Handle Grammar WebSocket $connect with JWT auth
       Environment:
         Variables:
-          WEBSOCKET_ENDPOINT: !Sub "https://${GrammarWebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/dev"
+          WEBSOCKET_ENDPOINT: !Sub "https://${GrammarWebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/${Environment}"
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref ChatTable
@@ -1310,7 +1310,7 @@ Resources:
       Description: Handle Grammar WebSocket $disconnect
       Environment:
         Variables:
-          WEBSOCKET_ENDPOINT: !Sub "https://${GrammarWebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/dev"
+          WEBSOCKET_ENDPOINT: !Sub "https://${GrammarWebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/${Environment}"
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref ChatTable
@@ -1339,7 +1339,7 @@ Resources:
       MemorySize: 1024
       Environment:
         Variables:
-          GRAMMAR_WEBSOCKET_ENDPOINT: !Sub "https://${GrammarWebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/dev"
+          GRAMMAR_WEBSOCKET_ENDPOINT: !Sub "https://${GrammarWebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/${Environment}"
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref ChatTable
@@ -1873,6 +1873,33 @@ Resources:
         Enabled: true
 
   #############################################
+  # S3 Bucket for Content Storage
+  #############################################
+
+  ContentBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "${AWS::StackName}"
+      CorsConfiguration:
+        CorsRules:
+          - AllowedHeaders:
+              - "*"
+            AllowedMethods:
+              - GET
+              - PUT
+              - POST
+              - DELETE
+              - HEAD
+            AllowedOrigins:
+              - "*"
+            MaxAge: 3600
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: false
+        BlockPublicPolicy: false
+        IgnorePublicAcls: false
+        RestrictPublicBuckets: false
+
+  #############################################
   # SNS / SQS for Async Statistics Processing
   #############################################
 
@@ -1955,15 +1982,15 @@ Resources:
 Outputs:
   ApiUrl:
     Description: Unified API Gateway endpoint URL
-    Value: !Sub 'https://${MainApi}.execute-api.${AWS::Region}.amazonaws.com/dev/'
+    Value: !Sub 'https://${MainApi}.execute-api.${AWS::Region}.amazonaws.com/${Environment}/'
 
   WebSocketUrl:
     Description: WebSocket API Gateway endpoint URL
-    Value: !Sub 'wss://${WebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/dev'
+    Value: !Sub 'wss://${WebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/${Environment}'
 
   GrammarWebSocketUrl:
     Description: Grammar Streaming WebSocket API endpoint URL
-    Value: !Sub 'wss://${GrammarWebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/dev'
+    Value: !Sub 'wss://${GrammarWebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/${Environment}'
 
   ChatTableName:
     Description: Chat DynamoDB Table Name
@@ -1975,7 +2002,7 @@ Outputs:
 
   BucketName:
     Description: S3 Bucket Name
-    Value: !Sub "${AWS::StackName}"
+    Value: !Ref ContentBucket
 
   CognitoUserPoolId:
     Description: Cognito User Pool ID
