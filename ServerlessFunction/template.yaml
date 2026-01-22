@@ -140,6 +140,7 @@ Resources:
             application/json: '{"message": "Token expired", "statusCode": 401}'
       Auth:
         DefaultAuthorizer: CognitoAuthorizer
+        AddDefaultAuthorizerToCorsPreflight: false
         Authorizers:
           CognitoAuthorizer:
             UserPoolArn: !Sub "arn:aws:cognito-idp:${AWS::Region}:${AWS::AccountId}:userpool/${ExistingCognitoUserPoolId}"
