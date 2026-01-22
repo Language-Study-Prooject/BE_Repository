@@ -27,19 +27,23 @@ public class NewsCollectorService {
 	private final RssFeedParser rssFeedParser;
 	private final NewsDuplicateChecker duplicateChecker;
 	private final NewsArticleRepository articleRepository;
+	private final NewsAnalysisService analysisService;
 
 	public NewsCollectorService() {
 		this.rssFeedParser = new RssFeedParser();
 		this.duplicateChecker = new NewsDuplicateChecker();
 		this.articleRepository = new NewsArticleRepository();
+		this.analysisService = new NewsAnalysisService();
 	}
 
 	public NewsCollectorService(RssFeedParser rssFeedParser,
 								NewsDuplicateChecker duplicateChecker,
-								NewsArticleRepository articleRepository) {
+								NewsArticleRepository articleRepository,
+								NewsAnalysisService analysisService) {
 		this.rssFeedParser = rssFeedParser;
 		this.duplicateChecker = duplicateChecker;
 		this.articleRepository = articleRepository;
+		this.analysisService = analysisService;
 	}
 
 	/**
@@ -62,18 +66,22 @@ public class NewsCollectorService {
 		logger.info("중복 제거 후 {}개 기사", uniqueArticles.size());
 
 		int savedCount = 0;
+		int analyzedCount = 0;
 		for (RawNewsArticle rawArticle : uniqueArticles) {
 			try {
 				NewsArticle article = convertToNewsArticle(rawArticle);
-				articleRepository.save(article);
+
+				// AI 분석 수행 (난이도, 요약, 키워드, 퀴즈)
+				analysisService.analyzeArticle(article);
+				analyzedCount++;
 				savedCount++;
 			} catch (Exception e) {
-				logger.error("기사 저장 실패: {}", rawArticle.getTitle(), e);
+				logger.error("기사 처리 실패: {}", rawArticle.getTitle(), e);
 			}
 		}
 
 		long elapsed = System.currentTimeMillis() - startTime;
-		logger.info("뉴스 수집 완료 - 저장: {}, 소요시간: {}ms", savedCount, elapsed);
+		logger.info("뉴스 수집/분석 완료 - 저장: {}, 분석: {}, 소요시간: {}ms", savedCount, analyzedCount, elapsed);
 
 		return new CollectionResult(rssArticles.size(), savedCount, elapsed);
 	}
