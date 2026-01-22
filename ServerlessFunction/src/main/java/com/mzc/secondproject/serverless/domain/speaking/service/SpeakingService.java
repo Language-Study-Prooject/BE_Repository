@@ -5,8 +5,9 @@ import com.mzc.secondproject.serverless.common.config.AwsClients;
 import com.mzc.secondproject.serverless.common.config.EnvConfig;
 import com.mzc.secondproject.serverless.common.service.PollyService;
 import com.mzc.secondproject.serverless.domain.opic.service.TranscribeProxyService;
-import com.mzc.secondproject.serverless.domain.speaking.model.SpeakingConnection;
-import com.mzc.secondproject.serverless.domain.speaking.repository.SpeakingConnectionRepository;
+import com.mzc.secondproject.serverless.domain.speaking.model.SpeakingSession;
+import com.mzc.secondproject.serverless.domain.speaking.repository.SpeakingSessionRepository;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import software.amazon.awssdk.core.SdkBytes;
@@ -16,6 +17,7 @@ import software.amazon.awssdk.services.bedrockruntime.model.InvokeModelResponse;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 /**
  * AI와 대화하기 서비스
@@ -32,7 +34,29 @@ public class SpeakingService {
 
     private final TranscribeProxyService transcribeService;
     private final PollyService pollyService;
-    private final SpeakingConnectionRepository connectionRepository;
+    private final SpeakingSessionRepository sessionRepository;
+
+    /**
+     * 세션 생성 또는 조회
+     */
+    public SpeakingSession getOrCreateSession(String sessionId, String userId, String level) {
+        if (sessionId != null && !sessionId.isEmpty()) {
+            return sessionRepository.findBySessionId(sessionId)
+                    .orElseGet(() -> createNewSession(userId, level));
+        }
+        return createNewSession(userId, level);
+    }
+
+    /**
+     * 새 세션 생성
+     */
+    private SpeakingSession createNewSession(String userId, String level) {
+        String newSessionId = UUID.randomUUID().toString();
+        SpeakingSession session = SpeakingSession.create(newSessionId, userId, level);
+        sessionRepository.save(session);
+        logger.info("New speaking session created: sessionId={}, userId={}", newSessionId, userId);
+        return session;
+    }
 
     public SpeakingService() {
         this.transcribeService = new TranscribeProxyService();
@@ -40,33 +64,32 @@ public class SpeakingService {
                 EnvConfig.getRequired("BUCKET_NAME"),
                 "speaking/voice/"
         );
-        this.connectionRepository = new SpeakingConnectionRepository();
+        this.sessionRepository = new SpeakingSessionRepository();
     }
 
     /**
      * 음성 입력 처리 (전체 플로우)
      */
-    public SpeakingResponse processVoiceInput(String connectionId, String audioBase64) {
-        logger.info("Processing voice input for connectionId: {}", connectionId);
+    public SpeakingResponse processVoiceInput(String sessionId, String userId, String audioBase64, String level) {
+        logger.info("Processing voice input for sessionId: {}", sessionId);
 
-        // 연결 정보 조회
-        SpeakingConnection connection = connectionRepository.findByConnectionId(connectionId)
-                .orElseThrow(() -> new RuntimeException("Connection not found: " + connectionId));
+        // 세션 조회 또는 생성
+        SpeakingSession session = getOrCreateSession(sessionId, userId, level);
 
-        String targetLevel = connection.getTargetLevel();
+        String targetLevel = session.getTargetLevel();
 
         // STT: 음성 → 텍스트 (Transcribe Proxy 사용)
         logger.info("Step 1: Transcribing audio...");
         TranscribeProxyService.TranscribeResult sttResult = transcribeService.transcribe(
                 audioBase64,
-                connectionId,
+                sessionId,
                 "en-US"
         );
         String userText = sttResult.transcript();
         logger.info("Transcription complete: {} (confidence: {})", userText, sttResult.confidence());
 
         // 대화 히스토리 로드
-        List<Message> history = parseHistory(connection.getConversationHistory());
+        List<Message> history = parseHistory(session.getConversationHistory());
 
         // Bedrock: AI 응답 생성
         logger.info("Step 2: Generating AI response...");
@@ -79,12 +102,12 @@ public class SpeakingService {
         if (history.size() > MAX_HISTORY_SIZE * 2) {
             history = new ArrayList<>(history.subList(history.size() - MAX_HISTORY_SIZE * 2, history.size()));
         }
-        connection.setConversationHistory(toJson(history));
-        connectionRepository.update(connection);
+        session.setConversationHistory(toJson(history));
+        sessionRepository.update(session);
 
         // TTS: 텍스트 → 음성 (Polly 사용)
         logger.info("Step 3: Synthesizing speech...");
-        String audioId = connectionId + "_" + System.currentTimeMillis();
+        String audioId = session.getSessionId() + "_" + System.currentTimeMillis();
         PollyService.VoiceSynthesisResult ttsResult = pollyService.synthesizeSpeech(
                 audioId,
                 aiResponse,
@@ -93,6 +116,7 @@ public class SpeakingService {
         logger.info("Speech synthesis complete: cached={}", ttsResult.isCached());
 
         return new SpeakingResponse(
+                session.getSessionId(),
                 userText,
                 aiResponse,
                 ttsResult.getAudioUrl(),
@@ -103,20 +127,17 @@ public class SpeakingService {
     /**
      * 텍스트 입력 처리 (음성 없이 텍스트만)
      */
-    public SpeakingResponse processTextInput(String connectionId, String userText) {
-        logger.info("Processing text input for connectionId: {}", connectionId);
+    public SpeakingResponse processTextInput(String sessionId, String userId, String userText, String level){
+        logger.info("Processing text input for sessionId: {}", sessionId);
 
-        // 연결 정보 조회
-        SpeakingConnection connection = connectionRepository.findByConnectionId(connectionId)
-                .orElseThrow(() -> new RuntimeException("Connection not found: " + connectionId));
-
-        String targetLevel = connection.getTargetLevel();
+        // 세션 조회 또는 생성
+        SpeakingSession session = getOrCreateSession(sessionId, userId, level);
 
         // 대화 히스토리 로드
-        List<Message> history = parseHistory(connection.getConversationHistory());
+        List<Message> history = parseHistory(session.getConversationHistory());
 
         // AI 응답 생성
-        String aiResponse = generateAiResponse(userText, history, targetLevel);
+        String aiResponse = generateAiResponse(userText, history, session.getTargetLevel());
 
         // 히스토리 업데이트
         history.add(new Message("user", userText));
@@ -124,40 +145,46 @@ public class SpeakingService {
         if (history.size() > MAX_HISTORY_SIZE * 2) {
             history = new ArrayList<>(history.subList(history.size() - MAX_HISTORY_SIZE * 2, history.size()));
         }
-        connection.setConversationHistory(toJson(history));
-        connectionRepository.update(connection);
+        session.setConversationHistory(toJson(history));
+        sessionRepository.update(session);
 
         // TTS 생성
-        String audioId = connectionId + "_" + System.currentTimeMillis();
+        String audioId = session.getSessionId() + "_" + System.currentTimeMillis();
         PollyService.VoiceSynthesisResult ttsResult = pollyService.synthesizeSpeech(
                 audioId, aiResponse, "FEMALE"
         );
 
-        return new SpeakingResponse(userText, aiResponse, ttsResult.getAudioUrl(), 1.0);
+        return new SpeakingResponse(
+                session.getSessionId(),
+                userText,
+                aiResponse,
+                ttsResult.getAudioUrl(),
+                1.0
+        );
     }
 
     /**
      * 레벨 변경
      */
-    public void updateLevel(String connectionId, String level) {
-        SpeakingConnection connection = connectionRepository.findByConnectionId(connectionId)
-                .orElseThrow(() -> new RuntimeException("Connection not found: " + connectionId));
+    public void updateLevel(String sessionId, String level) {
+        SpeakingSession session = sessionRepository.findBySessionId(sessionId)
+                .orElseThrow(() -> new RuntimeException("session not found: " + sessionId));
 
-        connection.setTargetLevel(level.toUpperCase());
-        connectionRepository.update(connection);
-        logger.info("Level updated for connectionId {}: {}", connectionId, level);
+        session.setTargetLevel(level.toUpperCase());
+        sessionRepository.update(session);
+        logger.info("Level updated for sessionId {}: {}", sessionId, level);
     }
 
     /**
      * 대화 히스토리 초기화
      */
-    public void resetConversation(String connectionId) {
-        SpeakingConnection connection = connectionRepository.findByConnectionId(connectionId)
-                .orElseThrow(() -> new RuntimeException("Connection not found: " + connectionId));
+    public void resetConversation(String sessionId) {
+        SpeakingSession session = sessionRepository.findBySessionId(sessionId)
+                .orElseThrow(() -> new RuntimeException("session not found: " + sessionId));
 
-        connection.setConversationHistory("[]");
-        connectionRepository.update(connection);
-        logger.info("Conversation reset for connectionId: {}", connectionId);
+        session.setConversationHistory("[]");
+        sessionRepository.update(session);
+        logger.info("Conversation reset for sessionId: {}", sessionId);
     }
 
 
@@ -309,6 +336,7 @@ public class SpeakingService {
      * Speaking 응답 DTO
      */
     public record SpeakingResponse(
+            String sessionId,         // 세션 ID (다음 요청에 사용)
             String userTranscript,    // 사용자가 말한 내용 (STT 결과)
             String aiText,            // AI 응답 텍스트
             String aiAudioUrl,        // AI 응답 음성 URL (Polly)
