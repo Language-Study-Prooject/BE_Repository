@@ -1395,9 +1395,9 @@ Resources:
   SpeakingFunction:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: group2-englishstudy-speaking-handler
+      FunctionName: !Sub "${AWS::StackName}-speaking-handler"
       CodeUri: .
-      Handler: com.mzc.secondproject.serverless.domain.speaking.handler.SpeakingHandler::handleRequest
+      Handler: com.mzc.secondproject.serverless.domain.speaking.handler.websocket.SpeakingHandler::handleRequest
       Description: Handle Speaking AI conversation (REST API)
       Timeout: 120
       MemorySize: 1024
@@ -1405,12 +1405,13 @@ Resources:
         ApplyOn: PublishedVersions
       Environment:
         Variables:
+          SPEAKING_TABLE_NAME: !Ref SpeakingTable
           TRANSCRIBE_API_KEY: "/opic/transcribe-proxy-api-key"
       Policies:
         - DynamoDBCrudPolicy:
-            TableName: !Ref ChatTable
+            TableName: !Ref SpeakingTable
         - S3CrudPolicy:
-            BucketName: group2-englishstudy
+            BucketName: !Sub "${AWS::StackName}"
         - Statement:
             - Effect: Allow
               Action:
@@ -1707,6 +1708,38 @@ Resources:
     Type: AWS::DynamoDB::Table
     Properties:
       TableName: !Sub "${AWS::StackName}-opic"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: PK
+          AttributeType: S
+        - AttributeName: SK
+          AttributeType: S
+        - AttributeName: GSI1PK
+          AttributeType: S
+        - AttributeName: GSI1SK
+          AttributeType: S
+      KeySchema:
+        - AttributeName: PK
+          KeyType: HASH
+        - AttributeName: SK
+          KeyType: RANGE
+      GlobalSecondaryIndexes:
+        - IndexName: GSI1
+          KeySchema:
+            - AttributeName: GSI1PK
+              KeyType: HASH
+            - AttributeName: GSI1SK
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+
+  SpeakingTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub "${AWS::StackName}-speaking"
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
         - AttributeName: PK
@@ -2072,3 +2105,7 @@ Outputs:
   OPIcTableName:
     Description: OPIc DynamoDB Table Name
     Value: !Ref OPIcTable
+
+  SpeakingTableName:
+    Description: Speaking DynamoDB Table Name
+    Value: !Ref SpeakingTable
