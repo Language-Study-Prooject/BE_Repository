@@ -19,12 +19,12 @@ import java.util.List;
 @AllArgsConstructor
 @DynamoDbBean
 public class NewsQuizResult {
-
+	
 	private String pk;          // USER#{userId}#NEWS
 	private String sk;          // QUIZ#{articleId}
 	private String gsi1pk;      // USER_NEWS_STAT#{userId}
 	private String gsi1sk;      // {date}#QUIZ
-
+	
 	private String userId;
 	private String articleId;
 	private String articleTitle;
@@ -36,25 +36,25 @@ public class NewsQuizResult {
 	private Integer timeTaken;  // 소요 시간 (초)
 	private String submittedAt;
 	private Long ttl;
-
+	
 	@DynamoDbPartitionKey
 	@DynamoDbAttribute("PK")
 	public String getPk() {
 		return pk;
 	}
-
+	
 	@DynamoDbSortKey
 	@DynamoDbAttribute("SK")
 	public String getSk() {
 		return sk;
 	}
-
+	
 	@DynamoDbSecondaryPartitionKey(indexNames = "GSI1")
 	@DynamoDbAttribute("GSI1PK")
 	public String getGsi1pk() {
 		return gsi1pk;
 	}
-
+	
 	@DynamoDbSecondarySortKey(indexNames = "GSI1")
 	@DynamoDbAttribute("GSI1SK")
 	public String getGsi1sk() {

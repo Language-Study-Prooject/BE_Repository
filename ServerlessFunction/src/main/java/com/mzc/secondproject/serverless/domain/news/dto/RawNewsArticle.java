@@ -14,7 +14,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class RawNewsArticle {
-
+	
 	private String title;
 	private String description;
 	private String url;
@@ -22,7 +22,7 @@ public class RawNewsArticle {
 	private String source;
 	private String publishedAt;
 	private String content;
-
+	
 	/**
 	 * URL 기반 고유 식별자 생성
 	 */
@@ -32,7 +32,7 @@ public class RawNewsArticle {
 		}
 		return String.valueOf(url.hashCode());
 	}
-
+	
 	/**
 	 * 유효한 기사인지 검증
 	 */
