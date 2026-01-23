@@ -49,6 +49,7 @@ public class UserStatsHandler implements RequestHandler<APIGatewayProxyRequestEv
 	
 	private HandlerRouter initRouter() {
 		return new HandlerRouter().addRoutes(
+				Route.getAuth("/stats/dashboard", this::getDashboardStats),
 				Route.getAuth("/stats/daily", this::getDailyStats),
 				Route.getAuth("/stats/weekly", this::getWeeklyStats),
 				Route.getAuth("/stats/monthly", this::getMonthlyStats),
@@ -62,7 +63,88 @@ public class UserStatsHandler implements RequestHandler<APIGatewayProxyRequestEv
 		logger.info("Received request: {} {}", request.getHttpMethod(), request.getPath());
 		return router.route(request);
 	}
-	
+
+	/**
+	 * 대시보드용 통합 통계 조회 (프론트엔드 요청 형식)
+	 * GET /stats/dashboard
+	 */
+	private APIGatewayProxyResponseEvent getDashboardStats(APIGatewayProxyRequestEvent request, String userId) {
+		String today = LocalDate.now().toString();
+
+		// 오늘 통계 조회
+		Optional<UserStats> dailyStats = statsRepository.findDailyStats(userId, today);
+		// 전체 통계 조회
+		Optional<UserStats> totalStats = statsRepository.findTotalStats(userId);
+		// 최근 7일 히스토리 조회
+		PaginatedResult<UserStats> weekHistory = statsRepository.findRecentDailyStats(userId, 7, null);
+		// 오늘 학습 목표 조회
+		Optional<DailyStudy> dailyStudy = dailyStudyRepository.findByUserIdAndDate(userId, today);
+
+		Map<String, Object> response = new HashMap<>();
+
+		// today 섹션
+		Map<String, Object> todaySection = new HashMap<>();
+		if (dailyStats.isPresent()) {
+			UserStats ds = dailyStats.get();
+			todaySection.put("wordsLearned", ds.getNewWordsLearned() != null ? ds.getNewWordsLearned() : 0);
+			todaySection.put("newsRead", ds.getNewsRead() != null ? ds.getNewsRead() : 0);
+			todaySection.put("quizzesTaken", (ds.getTestsCompleted() != null ? ds.getTestsCompleted() : 0) +
+					(ds.getNewsQuizCompleted() != null ? ds.getNewsQuizCompleted() : 0));
+		} else {
+			todaySection.put("wordsLearned", 0);
+			todaySection.put("newsRead", 0);
+			todaySection.put("quizzesTaken", 0);
+		}
+		todaySection.put("wordsTotal", dailyStudy.map(ds -> ds.getTotalWords() != null ? ds.getTotalWords() : 25).orElse(25));
+		response.put("today", todaySection);
+
+		// overall 섹션
+		Map<String, Object> overallSection = new HashMap<>();
+		if (totalStats.isPresent()) {
+			UserStats ts = totalStats.get();
+			overallSection.put("totalWordsLearned", ts.getNewWordsLearned() != null ? ts.getNewWordsLearned() : 0);
+			overallSection.put("totalNewsRead", ts.getNewsRead() != null ? ts.getNewsRead() : 0);
+			overallSection.put("totalQuizzes", (ts.getTestsCompleted() != null ? ts.getTestsCompleted() : 0) +
+					(ts.getNewsQuizCompleted() != null ? ts.getNewsQuizCompleted() : 0));
+			overallSection.put("averageAccuracy", calculateSuccessRate(ts));
+			overallSection.put("currentStreak", ts.getCurrentStreak() != null ? ts.getCurrentStreak() : 0);
+			overallSection.put("longestStreak", ts.getLongestStreak() != null ? ts.getLongestStreak() : 0);
+			overallSection.put("lastStudyDate", ts.getLastStudyDate());
+		} else {
+			overallSection.put("totalWordsLearned", 0);
+			overallSection.put("totalNewsRead", 0);
+			overallSection.put("totalQuizzes", 0);
+			overallSection.put("averageAccuracy", 0.0);
+			overallSection.put("currentStreak", 0);
+			overallSection.put("longestStreak", 0);
+			overallSection.put("lastStudyDate", null);
+		}
+		// totalStudyDays 계산 (최근 히스토리에서 실제 학습한 날 수)
+		overallSection.put("totalStudyDays", weekHistory.items().size());
+		response.put("overall", overallSection);
+
+		// weeklyProgress 섹션
+		List<Map<String, Object>> weeklyProgress = weekHistory.items().stream()
+				.map(stats -> {
+					Map<String, Object> dayStats = new HashMap<>();
+					dayStats.put("date", stats.getPeriod());
+					dayStats.put("wordsLearned", stats.getNewWordsLearned() != null ? stats.getNewWordsLearned() : 0);
+					dayStats.put("newsRead", stats.getNewsRead() != null ? stats.getNewsRead() : 0);
+					return dayStats;
+				})
+				.collect(Collectors.toList());
+		response.put("weeklyProgress", weeklyProgress);
+
+		// levelDistribution (현재 미구현 - 향후 추가 가능)
+		Map<String, Integer> levelDistribution = new HashMap<>();
+		levelDistribution.put("beginner", 0);
+		levelDistribution.put("intermediate", 0);
+		levelDistribution.put("advanced", 0);
+		response.put("levelDistribution", levelDistribution);
+
+		return ResponseGenerator.ok("학습 통계 조회 성공", response);
+	}
+
 	/**
 	 * 오늘의 통계 조회
 	 */
@@ -172,7 +254,7 @@ public class UserStatsHandler implements RequestHandler<APIGatewayProxyRequestEv
 		Map<String, Object> response = new HashMap<>();
 		response.put("periodType", periodType);
 		response.put("period", period);
-		
+
 		if (stats.isPresent()) {
 			UserStats s = stats.get();
 			response.put("testsCompleted", s.getTestsCompleted() != null ? s.getTestsCompleted() : 0);
@@ -182,6 +264,11 @@ public class UserStatsHandler implements RequestHandler<APIGatewayProxyRequestEv
 			response.put("successRate", calculateSuccessRate(s));
 			response.put("newWordsLearned", s.getNewWordsLearned() != null ? s.getNewWordsLearned() : 0);
 			response.put("wordsReviewed", s.getWordsReviewed() != null ? s.getWordsReviewed() : 0);
+			// 뉴스 관련 통계
+			response.put("newsRead", s.getNewsRead() != null ? s.getNewsRead() : 0);
+			response.put("newsQuizCompleted", s.getNewsQuizCompleted() != null ? s.getNewsQuizCompleted() : 0);
+			response.put("newsQuizPerfect", s.getNewsQuizPerfect() != null ? s.getNewsQuizPerfect() : 0);
+			response.put("newsWordsCollected", s.getNewsWordsCollected() != null ? s.getNewsWordsCollected() : 0);
 		} else {
 			response.put("testsCompleted", 0);
 			response.put("questionsAnswered", 0);
@@ -190,8 +277,13 @@ public class UserStatsHandler implements RequestHandler<APIGatewayProxyRequestEv
 			response.put("successRate", 0.0);
 			response.put("newWordsLearned", 0);
 			response.put("wordsReviewed", 0);
+			// 뉴스 관련 통계
+			response.put("newsRead", 0);
+			response.put("newsQuizCompleted", 0);
+			response.put("newsQuizPerfect", 0);
+			response.put("newsWordsCollected", 0);
 		}
-		
+
 		return response;
 	}
 	

@@ -111,7 +111,7 @@ public class NewsHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
 			result = queryService.getTodayNews(limit, cursor);
 		}
 
-		return buildPaginatedResponse(result);
+		return buildPaginatedResponse(result, getUserId(request));
 	}
 
 	/**
@@ -126,7 +126,7 @@ public class NewsHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
 		int limit = parseLimit(params.get("limit"));
 
 		PaginatedResult<NewsArticle> result = queryService.getTodayNews(limit, cursor);
-		return buildPaginatedResponse(result);
+		return buildPaginatedResponse(result, getUserId(request));
 	}
 
 	/**
@@ -143,7 +143,7 @@ public class NewsHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
 		int limit = parseLimit(params.get("limit"));
 
 		PaginatedResult<NewsArticle> result = queryService.getRecommendedNews(userLevel, limit, cursor);
-		return buildPaginatedResponse(result);
+		return buildPaginatedResponse(result, getUserId(request));
 	}
 
 	/**
@@ -158,15 +158,64 @@ public class NewsHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
 			return ResponseGenerator.fail(NewsErrorCode.ARTICLE_NOT_FOUND);
 		}
 
-		return ResponseGenerator.ok("뉴스 조회 성공", article.get());
+		// 로그인한 사용자의 경우 북마크/읽기 상태 추가
+		String userId = getUserId(request);
+		Map<String, Object> response = new HashMap<>();
+		response.put("article", article.get());
+
+		if (userId != null) {
+			response.put("isBookmarked", learningService.isBookmarked(userId, articleId));
+			response.put("isRead", learningService.hasRead(userId, articleId));
+		} else {
+			response.put("isBookmarked", false);
+			response.put("isRead", false);
+		}
+
+		return ResponseGenerator.ok("뉴스 조회 성공", response);
 	}
 
 	/**
 	 * 페이지네이션 응답 생성
 	 */
 	private APIGatewayProxyResponseEvent buildPaginatedResponse(PaginatedResult<NewsArticle> result) {
+		return buildPaginatedResponse(result, null);
+	}
+
+	/**
+	 * 페이지네이션 응답 생성 (북마크 상태 포함)
+	 */
+	private APIGatewayProxyResponseEvent buildPaginatedResponse(PaginatedResult<NewsArticle> result, String userId) {
+		List<Map<String, Object>> articlesWithStatus = new java.util.ArrayList<>();
+		java.util.Set<String> bookmarkedIds = java.util.Collections.emptySet();
+
+		// 로그인한 사용자의 경우 북마크 상태 조회
+		if (userId != null && !result.items().isEmpty()) {
+			List<String> articleIds = result.items().stream()
+					.map(NewsArticle::getArticleId)
+					.toList();
+			bookmarkedIds = learningService.getBookmarkedArticleIds(userId, articleIds);
+		}
+
+		for (NewsArticle article : result.items()) {
+			Map<String, Object> articleWithStatus = new HashMap<>();
+			articleWithStatus.put("articleId", article.getArticleId());
+			articleWithStatus.put("title", article.getTitle());
+			articleWithStatus.put("summary", article.getSummary());
+			articleWithStatus.put("source", article.getSource());
+			articleWithStatus.put("publishedAt", article.getPublishedAt());
+			articleWithStatus.put("keywords", article.getKeywords());
+			articleWithStatus.put("highlightWords", article.getHighlightWords());
+			articleWithStatus.put("category", article.getCategory());
+			articleWithStatus.put("level", article.getLevel());
+			articleWithStatus.put("cefrLevel", article.getCefrLevel());
+			articleWithStatus.put("imageUrl", article.getImageUrl());
+			articleWithStatus.put("readCount", article.getReadCount());
+			articleWithStatus.put("isBookmarked", bookmarkedIds.contains(article.getArticleId()));
+			articlesWithStatus.add(articleWithStatus);
+		}
+
 		Map<String, Object> response = new HashMap<>();
-		response.put("articles", result.items());
+		response.put("articles", articlesWithStatus);
 		response.put("nextCursor", result.nextCursor());
 		response.put("hasMore", result.hasMore());
 		response.put("count", result.items().size());
@@ -231,7 +280,7 @@ public class NewsHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
 		if (params == null) params = new HashMap<>();
 
 		int limit = parseLimit(params.get("limit"));
-		List<UserNewsRecord> bookmarks = learningService.getUserBookmarks(userId, limit);
+		List<Map<String, Object>> bookmarks = learningService.getUserBookmarks(userId, limit);
 
 		Map<String, Object> response = new HashMap<>();
 		response.put("bookmarks", bookmarks);
@@ -413,16 +462,26 @@ public class NewsHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
 		String articleId = request.getPathParameters().get("articleId");
 
 		JsonObject body = gson.fromJson(request.getBody(), JsonObject.class);
+		if (body == null || !body.has("word") || body.get("word").isJsonNull()) {
+			return ResponseGenerator.fail(NewsErrorCode.INVALID_REQUEST);
+		}
 		String word = body.get("word").getAsString();
-		String context = body.has("context") ? body.get("context").getAsString() : "";
+		String context = body.has("context") && !body.get("context").isJsonNull()
+				? body.get("context").getAsString() : "";
 
-		NewsWordCollect collected = wordService.collectWord(userId, articleId, word, context);
+		NewsWordService.WordCollectResult result = wordService.collectWord(userId, articleId, word, context);
 
-		if (collected == null) {
+		if (result == null || result.wordCollect() == null) {
 			return ResponseGenerator.fail(NewsErrorCode.WORD_ALREADY_COLLECTED);
 		}
 
-		return ResponseGenerator.ok("단어 수집 성공", collected);
+		Map<String, Object> responseData = new java.util.HashMap<>();
+		responseData.put("wordCollect", result.wordCollect());
+		if (result.newBadges() != null && !result.newBadges().isEmpty()) {
+			responseData.put("newBadges", result.newBadges());
+		}
+
+		return ResponseGenerator.ok("단어 수집 성공", responseData);
 	}
 
 	/**
