@@ -1055,6 +1055,14 @@ Resources:
         - DynamoDBCrudPolicy:
             TableName: !Ref VocabTable
       Events:
+        GetDashboardStats:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /stats/dashboard
+            Method: GET
+            Auth:
+              Authorizer: CognitoAuthorizer
         GetDailyStats:
           Type: Api
           Properties:
