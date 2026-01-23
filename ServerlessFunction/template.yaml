@@ -1089,6 +1089,14 @@ Resources:
             Method: GET
             Auth:
               Authorizer: CognitoAuthorizer
+        GetDashboard:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /stats/dashboard
+            Method: GET
+            Auth:
+              Authorizer: CognitoAuthorizer
         GetStatsHistory:
           Type: Api
           Properties:
