@@ -4,14 +4,15 @@ import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.lambda.runtime.RequestHandler;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyRequestEvent;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyResponseEvent;
-import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.mzc.secondproject.serverless.common.dto.PaginatedResult;
 import com.mzc.secondproject.serverless.common.router.HandlerRouter;
 import com.mzc.secondproject.serverless.common.router.Route;
 import com.mzc.secondproject.serverless.common.util.CognitoUtil;
+import com.mzc.secondproject.serverless.common.util.JsonUtil;
 import com.mzc.secondproject.serverless.common.util.ResponseGenerator;
+import com.mzc.secondproject.serverless.domain.news.config.NewsConfig;
 import com.mzc.secondproject.serverless.domain.news.exception.NewsErrorCode;
 import com.mzc.secondproject.serverless.domain.news.model.NewsArticle;
 import com.mzc.secondproject.serverless.domain.news.model.NewsQuizResult;
@@ -32,12 +33,9 @@ import java.util.Optional;
  * 뉴스 학습 API 핸들러
  */
 public class NewsHandler implements RequestHandler<APIGatewayProxyRequestEvent, APIGatewayProxyResponseEvent> {
-	
+
 	private static final Logger logger = LoggerFactory.getLogger(NewsHandler.class);
-	private static final int DEFAULT_LIMIT = 10;
-	private static final int MAX_LIMIT = 50;
-	private static final Gson gson = new Gson();
-	
+
 	private final NewsQueryService queryService;
 	private final NewsLearningService learningService;
 	private final NewsQuizService quizService;
@@ -226,13 +224,7 @@ public class NewsHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
 	 * limit 파싱
 	 */
 	private int parseLimit(String limitStr) {
-		if (limitStr == null) return DEFAULT_LIMIT;
-		try {
-			int limit = Integer.parseInt(limitStr);
-			return Math.min(Math.max(limit, 1), MAX_LIMIT);
-		} catch (NumberFormatException e) {
-			return DEFAULT_LIMIT;
-		}
+		return NewsConfig.parseLimit(limitStr);
 	}
 	
 	/**
@@ -374,7 +366,7 @@ public class NewsHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
 		String articleId = request.getPathParameters().get("articleId");
 		
 		// 요청 바디 파싱
-		JsonObject body = gson.fromJson(request.getBody(), JsonObject.class);
+		JsonObject body = JsonUtil.fromJson(request.getBody(), JsonObject.class);
 		JsonArray answersArray = body.getAsJsonArray("answers");
 		Integer timeTaken = body.has("timeTaken") ? body.get("timeTaken").getAsInt() : null;
 		
@@ -460,7 +452,7 @@ public class NewsHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
 		
 		String articleId = request.getPathParameters().get("articleId");
 		
-		JsonObject body = gson.fromJson(request.getBody(), JsonObject.class);
+		JsonObject body = JsonUtil.fromJson(request.getBody(), JsonObject.class);
 		String word = body.get("word").getAsString();
 		String context = body.has("context") ? body.get("context").getAsString() : "";
 		
@@ -519,7 +511,7 @@ public class NewsHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
 		
 		String word = request.getPathParameters().get("word");
 		
-		JsonObject body = gson.fromJson(request.getBody(), JsonObject.class);
+		JsonObject body = JsonUtil.fromJson(request.getBody(), JsonObject.class);
 		String articleId = body.get("articleId").getAsString();
 		
 		boolean synced = wordService.syncToVocabulary(userId, word, articleId);
