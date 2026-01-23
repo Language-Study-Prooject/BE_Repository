@@ -1566,11 +1566,19 @@ Resources:
       Description: Handle speaking chat API
       SnapStart:
         ApplyOn: PublishedVersions
+      Environment:
+        Variables:
+          TRANSCRIBE_API_KEY: "/opic/transcribe-proxy-api-key"
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref SpeakingTable
         - S3CrudPolicy:
             BucketName: !Sub "${AWS::StackName}"
+        - Statement:
+            - Effect: Allow
+              Action:
+                - ssm:GetParameter
+              Resource: !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/opic/*"
         - Statement:
             - Effect: Allow
               Action:
