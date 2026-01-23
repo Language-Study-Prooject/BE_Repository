@@ -94,7 +94,7 @@ Resources:
       Name: !Sub "${AWS::StackName}-api"
       StageName: !Ref Environment
       Cors:
-        AllowMethods: "'GET,POST,PUT,DELETE,OPTIONS'"
+        AllowMethods: "'GET,POST,PUT,PATCH,DELETE,OPTIONS'"
         AllowHeaders: "'Content-Type,Authorization,X-Amz-Date,X-Api-Key,X-Requested-With,Accept'"
         AllowOrigin: "'*'"
         AllowCredentials: false
