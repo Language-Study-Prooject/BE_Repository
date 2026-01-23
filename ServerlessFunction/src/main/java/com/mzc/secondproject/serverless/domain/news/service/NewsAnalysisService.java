@@ -58,17 +58,22 @@ public class NewsAnalysisService {
 			article.setCefrLevel(cefrLevel);
 			article.setLevel(mapCefrToLevel(cefrLevel));
 
-			// 2. 핵심 단어 추출 (Comprehend)
-			List<KeywordInfo> keywords = extractKeywords(content);
-			article.setKeywords(keywords);
-
-			// 3. 3줄 요약 + 퀴즈 생성 (Bedrock - 한 번에 처리)
+			// 2. 3줄 요약 + 키워드 + 퀴즈 생성 (Bedrock - 한 번에 처리)
 			AnalysisResult result = generateSummaryAndQuiz(content, cefrLevel);
 			if (result.summary() != null) {
 				article.setSummary(result.summary());
 			}
 			article.setQuiz(result.quiz());
 			article.setHighlightWords(result.highlightWords());
+
+			// Bedrock 키워드 사용 (meaningKo 포함)
+			if (result.keywords() != null && !result.keywords().isEmpty()) {
+				article.setKeywords(result.keywords());
+			} else {
+				// fallback: Comprehend로 키워드 추출
+				List<KeywordInfo> keywords = extractKeywords(content);
+				article.setKeywords(keywords);
+			}
 
 			// 4. GSI 키 설정
 			article.setGsi1pk("LEVEL#" + article.getLevel());
@@ -222,7 +227,7 @@ public class NewsAnalysisService {
 			return parseAnalysisResult(response);
 		} catch (Exception e) {
 			logger.error("요약/퀴즈 생성 실패", e);
-			return new AnalysisResult(null, new ArrayList<>(), new ArrayList<>());
+			return new AnalysisResult(null, new ArrayList<>(), new ArrayList<>(), new ArrayList<>());
 		}
 	}
 
@@ -293,7 +298,7 @@ public class NewsAnalysisService {
 			});
 		}
 
-		return new AnalysisResult(summary, highlightWords, quiz);
+		return new AnalysisResult(summary, keywords, highlightWords, quiz);
 	}
 
 	private String extractJson(String response) {
@@ -315,6 +320,7 @@ public class NewsAnalysisService {
 	 */
 	private record AnalysisResult(
 			String summary,
+			List<KeywordInfo> keywords,
 			List<String> highlightWords,
 			List<QuizQuestion> quiz
 	) {}
