@@ -31,31 +31,7 @@ public enum BadgeType {
 	PERFECT_DRAWER("완벽한 출제자", "출제 시 전원이 정답을 맞췄습니다", "perfect_drawer.png", "PERFECT_DRAWS", 1),
 	
 	// 특별
-	MASTER("학습 마스터", "모든 업적을 달성했습니다", "master.png", "ALL_BADGES", 1),
-
-	// 뉴스 - 읽기
-	NEWS_FIRST_READ("뉴스 첫 발걸음", "첫 번째 뉴스 읽기 완료", "news_first_read.png", "NEWS_READ", 1),
-	NEWS_READ_10("뉴스 탐험가", "뉴스 10개 읽기 완료", "news_read_10.png", "NEWS_READ", 10),
-	NEWS_READ_50("뉴스 애호가", "뉴스 50개 읽기 완료", "news_read_50.png", "NEWS_READ", 50),
-	NEWS_READ_100("뉴스 전문가", "뉴스 100개 읽기 완료", "news_read_100.png", "NEWS_READ", 100),
-
-	// 뉴스 - 퀴즈
-	NEWS_QUIZ_FIRST("퀴즈 도전", "첫 뉴스 퀴즈 완료", "news_quiz_first.png", "NEWS_QUIZ", 1),
-	NEWS_QUIZ_PERFECT("완벽한 이해", "뉴스 퀴즈에서 만점 달성", "news_quiz_perfect.png", "NEWS_QUIZ_PERFECT", 1),
-	NEWS_QUIZ_10("퀴즈 탐험가", "뉴스 퀴즈 10회 완료", "news_quiz_10.png", "NEWS_QUIZ", 10),
-	NEWS_QUIZ_50("퀴즈 마스터", "뉴스 퀴즈 50회 완료", "news_quiz_50.png", "NEWS_QUIZ", 50),
-
-	// 뉴스 - 단어 수집
-	NEWS_WORD_10("단어 수집가", "뉴스에서 단어 10개 수집", "news_word_10.png", "NEWS_WORD", 10),
-	NEWS_WORD_50("단어 사냥꾼", "뉴스에서 단어 50개 수집", "news_word_50.png", "NEWS_WORD", 50),
-	NEWS_WORD_100("단어 전문가", "뉴스에서 단어 100개 수집", "news_word_100.png", "NEWS_WORD", 100),
-
-	// 뉴스 - 연속 학습
-	NEWS_STREAK_7("일주일 뉴스 습관", "7일 연속 뉴스 읽기", "news_streak_7.png", "NEWS_STREAK", 7),
-	NEWS_STREAK_30("한 달 뉴스 습관", "30일 연속 뉴스 읽기", "news_streak_30.png", "NEWS_STREAK", 30),
-
-	// 뉴스 - 종합
-	NEWS_MASTER("뉴스 마스터", "읽기100+퀴즈50+단어100 달성", "news_master.png", "NEWS_MASTER", 1);
+	MASTER("학습 마스터", "모든 업적을 달성했습니다", "master.png", "ALL_BADGES", 1);
 
 	private static final String BUCKET_NAME = System.getenv("BUCKET_NAME");
 	private static final String BASE_URL = getBaseUrl();

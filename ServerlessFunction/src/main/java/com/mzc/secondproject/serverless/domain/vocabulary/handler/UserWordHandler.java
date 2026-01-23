@@ -66,18 +66,19 @@ public class UserWordHandler implements RequestHandler<APIGatewayProxyRequestEve
 	
 	private APIGatewayProxyResponseEvent getUserWords(APIGatewayProxyRequestEvent request, String userId) {
 		Map<String, String> queryParams = request.getQueryStringParameters();
-		
+
 		String status = queryParams != null ? queryParams.get("status") : null;
 		String cursor = queryParams != null ? queryParams.get("cursor") : null;
 		String bookmarked = queryParams != null ? queryParams.get("bookmarked") : null;
 		String incorrectOnly = queryParams != null ? queryParams.get("incorrectOnly") : null;
-		
+		String category = queryParams != null ? queryParams.get("category") : null;
+
 		int limit = 20;
 		if (queryParams != null && queryParams.get("limit") != null) {
 			limit = Math.min(Integer.parseInt(queryParams.get("limit")), 50);
 		}
-		
-		UserWordQueryService.UserWordsResult result = queryService.getUserWords(userId, status, bookmarked, incorrectOnly, limit, cursor);
+
+		UserWordQueryService.UserWordsResult result = queryService.getUserWords(userId, status, bookmarked, incorrectOnly, category, limit, cursor);
 		
 		Map<String, Object> response = new HashMap<>();
 		response.put("userWords", result.userWords());

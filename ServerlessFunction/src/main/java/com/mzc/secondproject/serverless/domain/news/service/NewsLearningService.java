@@ -13,10 +13,7 @@ import com.mzc.secondproject.serverless.domain.stats.repository.UserStatsReposit
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 
 /**
  * 뉴스 학습 부가 기능 서비스
@@ -63,6 +60,12 @@ public class NewsLearningService {
 			return new ArrayList<>();
 		}
 
+		// 이미 읽은 기사인지 확인 (중복 조회수 증가 방지)
+		if (userNewsRepository.hasRead(userId, articleId)) {
+			logger.debug("이미 읽은 기사: userId={}, articleId={}", userId, articleId);
+			return new ArrayList<>();
+		}
+
 		NewsArticle a = article.get();
 		userNewsRepository.saveReadRecord(
 				userId,
@@ -72,7 +75,7 @@ public class NewsLearningService {
 				a.getCategory()
 		);
 
-		// 조회수 증가
+		// 조회수 증가 (새로운 읽기만)
 		String date = extractDateFromPk(a.getPk());
 		if (date != null) {
 			articleRepository.incrementReadCount(date, articleId);
@@ -136,10 +139,46 @@ public class NewsLearningService {
 	}
 
 	/**
-	 * 사용자 북마크 목록 조회
+	 * 읽기 여부 확인
 	 */
-	public List<UserNewsRecord> getUserBookmarks(String userId, int limit) {
-		return userNewsRepository.getUserBookmarks(userId, limit);
+	public boolean hasRead(String userId, String articleId) {
+		return userNewsRepository.hasRead(userId, articleId);
+	}
+
+	/**
+	 * 여러 기사의 북마크 여부 확인 (배치)
+	 */
+	public Set<String> getBookmarkedArticleIds(String userId, List<String> articleIds) {
+		return userNewsRepository.getBookmarkedArticleIds(userId, articleIds);
+	}
+
+	/**
+	 * 사용자 북마크 목록 조회 (기사 정보 포함)
+	 */
+	public List<Map<String, Object>> getUserBookmarks(String userId, int limit) {
+		List<UserNewsRecord> bookmarks = userNewsRepository.getUserBookmarks(userId, limit);
+		List<Map<String, Object>> result = new ArrayList<>();
+
+		for (UserNewsRecord bookmark : bookmarks) {
+			Optional<NewsArticle> articleOpt = articleRepository.findById(bookmark.getArticleId());
+			if (articleOpt.isPresent()) {
+				NewsArticle article = articleOpt.get();
+				Map<String, Object> bookmarkWithArticle = new HashMap<>();
+				bookmarkWithArticle.put("articleId", article.getArticleId());
+				bookmarkWithArticle.put("title", article.getTitle());
+				bookmarkWithArticle.put("summary", article.getSummary());
+				bookmarkWithArticle.put("source", article.getSource());
+				bookmarkWithArticle.put("publishedAt", article.getPublishedAt());
+				bookmarkWithArticle.put("keywords", article.getKeywords());
+				bookmarkWithArticle.put("highlightWords", article.getHighlightWords());
+				bookmarkWithArticle.put("category", article.getCategory());
+				bookmarkWithArticle.put("level", article.getLevel());
+				bookmarkWithArticle.put("imageUrl", article.getImageUrl());
+				bookmarkWithArticle.put("bookmarkedAt", bookmark.getCreatedAt());
+				result.add(bookmarkWithArticle);
+			}
+		}
+		return result;
 	}
 
 	/**

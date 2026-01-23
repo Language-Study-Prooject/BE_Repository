@@ -1,14 +1,10 @@
 package com.mzc.secondproject.serverless.domain.news.service;
 
-import com.mzc.secondproject.serverless.domain.badge.model.UserBadge;
-import com.mzc.secondproject.serverless.domain.badge.service.BadgeService;
 import com.mzc.secondproject.serverless.domain.news.constants.NewsKey;
 import com.mzc.secondproject.serverless.domain.news.model.NewsArticle;
 import com.mzc.secondproject.serverless.domain.news.model.NewsWordCollect;
 import com.mzc.secondproject.serverless.domain.news.repository.NewsArticleRepository;
 import com.mzc.secondproject.serverless.domain.news.repository.NewsWordRepository;
-import com.mzc.secondproject.serverless.domain.stats.model.UserStats;
-import com.mzc.secondproject.serverless.domain.stats.repository.UserStatsRepository;
 import com.mzc.secondproject.serverless.domain.vocabulary.model.Word;
 import com.mzc.secondproject.serverless.domain.vocabulary.repository.WordRepository;
 import com.mzc.secondproject.serverless.domain.vocabulary.service.UserWordCommandService;
@@ -16,7 +12,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -32,53 +27,82 @@ public class NewsWordService {
 	private final NewsArticleRepository articleRepository;
 	private final WordRepository wordRepository;
 	private final UserWordCommandService userWordCommandService;
-	private final UserStatsRepository userStatsRepository;
-	private final BadgeService badgeService;
 
 	public NewsWordService() {
 		this.newsWordRepository = new NewsWordRepository();
 		this.articleRepository = new NewsArticleRepository();
 		this.wordRepository = new WordRepository();
 		this.userWordCommandService = new UserWordCommandService();
-		this.userStatsRepository = new UserStatsRepository();
-		this.badgeService = new BadgeService();
 	}
 
 	public NewsWordService(NewsWordRepository newsWordRepository,
 						   NewsArticleRepository articleRepository,
 						   WordRepository wordRepository,
-						   UserWordCommandService userWordCommandService,
-						   UserStatsRepository userStatsRepository,
-						   BadgeService badgeService) {
+						   UserWordCommandService userWordCommandService) {
 		this.newsWordRepository = newsWordRepository;
 		this.articleRepository = articleRepository;
 		this.wordRepository = wordRepository;
 		this.userWordCommandService = userWordCommandService;
-		this.userStatsRepository = userStatsRepository;
-		this.badgeService = badgeService;
 	}
 
 	/**
-	 * 단어 수집
-	 * @return 수집 결과 (단어 정보 + 새로 획득한 배지)
+	 * 단어 수집 (자동으로 Word 테이블 + UserWord에 추가)
 	 */
-	public WordCollectResult collectWord(String userId, String articleId, String word, String context) {
+	public NewsWordCollect collectWord(String userId, String articleId, String word, String context) {
 		// 이미 수집했는지 확인
 		if (newsWordRepository.hasCollected(userId, word, articleId)) {
 			logger.warn("이미 수집한 단어: userId={}, word={}", userId, word);
-			NewsWordCollect existing = newsWordRepository.findByUserWordArticle(userId, word, articleId).orElse(null);
-			return new WordCollectResult(existing, new ArrayList<>());
+			return newsWordRepository.findByUserWordArticle(userId, word, articleId).orElse(null);
 		}
 
 		// 기사 조회
 		Optional<NewsArticle> articleOpt = articleRepository.findById(articleId);
 		String articleTitle = articleOpt.map(NewsArticle::getTitle).orElse("");
+		String articleLevel = articleOpt.map(NewsArticle::getLevel).orElse("INTERMEDIATE");
+
+		// 기사 키워드에서 단어 정보 추출
+		String meaningKo = "";
+		String meaningEn = "";
+		String example = "";
+		if (articleOpt.isPresent() && articleOpt.get().getKeywords() != null) {
+			for (var keyword : articleOpt.get().getKeywords()) {
+				if (keyword.getWord() != null && keyword.getWord().equalsIgnoreCase(word)) {
+					meaningKo = keyword.getMeaningKo() != null ? keyword.getMeaningKo() : "";
+					meaningEn = keyword.getMeaning() != null ? keyword.getMeaning() : "";
+					example = keyword.getExample() != null ? keyword.getExample() : "";
+					break;
+				}
+			}
+		}
 
 		// 단어 정보 조회 (Word 테이블에서)
 		String wordId = word.toLowerCase().trim();
 		Optional<Word> wordOpt = wordRepository.findById(wordId);
-		String meaning = wordOpt.map(Word::getKorean).orElse("");
-		String pronunciation = "";
+		String meaning = meaningKo;
+
+		// Word 테이블에 없으면 자동 생성
+		if (wordOpt.isEmpty() && !meaningKo.isEmpty()) {
+			String now = Instant.now().toString();
+			Word newWord = Word.builder()
+					.pk("WORD#" + wordId)
+					.sk("METADATA")
+					.gsi1pk("LEVEL#" + articleLevel)
+					.gsi1sk("WORD#" + wordId)
+					.gsi2pk("CATEGORY#NEWS")
+					.gsi2sk("WORD#" + wordId)
+					.wordId(wordId)
+					.english(word)
+					.korean(meaningKo)
+					.example(example)
+					.level(articleLevel)
+					.category("NEWS")
+					.createdAt(now)
+					.build();
+			wordRepository.save(newWord);
+			logger.info("Word 테이블에 단어 자동 추가: wordId={}, korean={}", wordId, meaningKo);
+		} else if (wordOpt.isPresent()) {
+			meaning = wordOpt.get().getKorean();
+		}
 
 		String now = Instant.now().toString();
 
@@ -90,39 +114,28 @@ public class NewsWordService {
 				.userId(userId)
 				.word(word)
 				.meaning(meaning)
-				.pronunciation(pronunciation)
+				.pronunciation("")
 				.context(context)
 				.articleId(articleId)
 				.articleTitle(articleTitle)
 				.collectedAt(now)
-				.syncedToVocab(false)
+				.syncedToVocab(true)  // 자동 연동됨
+				.vocabUserWordId(wordId)
 				.build();
 
 		newsWordRepository.save(wordCollect);
 		logger.info("단어 수집 완료: userId={}, word={}, articleId={}", userId, word, articleId);
 
-		// 통계 업데이트 및 배지 체크
-		List<UserBadge> newBadges = new ArrayList<>();
+		// UserWord에 자동 추가 (NEW 상태로)
 		try {
-			UserStats updatedStats = userStatsRepository.incrementNewsWordStats(userId, 1);
-			if (updatedStats != null) {
-				newBadges = badgeService.checkAndAwardBadges(userId, updatedStats);
-				if (!newBadges.isEmpty()) {
-					logger.info("새 배지 획득: userId={}, badges={}", userId,
-							newBadges.stream().map(UserBadge::getBadgeType).toList());
-				}
-			}
+			userWordCommandService.updateWordStatus(userId, wordId, "NEW");
+			logger.info("UserWord에 자동 추가: userId={}, wordId={}", userId, wordId);
 		} catch (Exception e) {
-			logger.error("통계/배지 업데이트 실패: userId={}, error={}", userId, e.getMessage());
+			logger.warn("UserWord 추가 실패 (이미 존재할 수 있음): userId={}, wordId={}, error={}", userId, wordId, e.getMessage());
 		}
 
-		return new WordCollectResult(wordCollect, newBadges);
+		return wordCollect;
 	}
-
-	/**
-	 * 단어 수집 결과
-	 */
-	public record WordCollectResult(NewsWordCollect wordCollect, List<UserBadge> newBadges) {}
 
 	/**
 	 * 수집한 단어 삭제
