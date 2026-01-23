@@ -1,4 +1,4 @@
-package com.mzc.secondproject.serverless.domain.speaking.handler.websocket;
+package com.mzc.secondproject.serverless.domain.speaking.handler;
 
 import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.lambda.runtime.RequestHandler;
@@ -9,6 +9,7 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.mzc.secondproject.serverless.common.util.JwtUtil;
+import com.mzc.secondproject.serverless.domain.speaking.dto.response.SpeakingResponse;
 import com.mzc.secondproject.serverless.domain.speaking.service.SpeakingService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -102,7 +103,7 @@ public class SpeakingHandler implements RequestHandler<APIGatewayProxyRequestEve
         String audio = request.has("audio") ? request.get("audio").getAsString() : null;
         String text = request.has("text") ? request.get("text").getAsString() : null;
 
-        SpeakingService.SpeakingResponse result;
+        SpeakingResponse result;
 
         if (audio != null && !audio.isEmpty()) {
             // 음성 입력 처리
@@ -134,7 +135,7 @@ public class SpeakingHandler implements RequestHandler<APIGatewayProxyRequestEve
         }
 
         JsonObject request = JsonParser.parseString(body).getAsJsonObject();
-        String sessionId = request.has("sessionId") ? request.get("sessionId").getAsString() : null;
+        String sessionId = getStringOrNull(request, "sessionId");
 
         if (sessionId == null || sessionId.isEmpty()) {
             return response(400, Map.of("error", "sessionId is required"));
@@ -176,4 +177,6 @@ public class SpeakingHandler implements RequestHandler<APIGatewayProxyRequestEve
                 .withHeaders(CORS_HEADERS)
                 .withBody(gson.toJson(body));
     }
+
+
 }

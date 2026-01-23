@@ -5,6 +5,7 @@ import com.mzc.secondproject.serverless.common.config.AwsClients;
 import com.mzc.secondproject.serverless.common.config.EnvConfig;
 import com.mzc.secondproject.serverless.common.service.PollyService;
 import com.mzc.secondproject.serverless.domain.opic.service.TranscribeProxyService;
+import com.mzc.secondproject.serverless.domain.speaking.dto.response.SpeakingResponse;
 import com.mzc.secondproject.serverless.domain.speaking.model.SpeakingSession;
 import com.mzc.secondproject.serverless.domain.speaking.repository.SpeakingSessionRepository;
 
@@ -82,7 +83,7 @@ public class SpeakingService {
         logger.info("Step 1: Transcribing audio...");
         TranscribeProxyService.TranscribeResult sttResult = transcribeService.transcribe(
                 audioBase64,
-                sessionId,
+                session.getSessionId(),
                 "en-US"
         );
         String userText = sttResult.transcript();
@@ -314,6 +315,7 @@ public class SpeakingService {
         return history;
     }
 
+
     /**
      * 히스토리 JSON 변환
      */
@@ -328,18 +330,9 @@ public class SpeakingService {
         return array.toString();
     }
 
-    // ==================== Inner Classes ====================
-
+    /**
+     * 대화 메시지 (히스토리용)
+     */
     private record Message(String role, String content) {}
 
-    /**
-     * Speaking 응답 DTO
-     */
-    public record SpeakingResponse(
-            String sessionId,         // 세션 ID (다음 요청에 사용)
-            String userTranscript,    // 사용자가 말한 내용 (STT 결과)
-            String aiText,            // AI 응답 텍스트
-            String aiAudioUrl,        // AI 응답 음성 URL (Polly)
-            double confidence         // STT 신뢰도comp
-    ) {}
 }

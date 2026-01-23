@@ -7,8 +7,10 @@ import com.mzc.secondproject.serverless.domain.user.model.User;
 import com.mzc.secondproject.serverless.domain.user.repository.UserRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
+import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
 import software.amazon.awssdk.services.s3.presigner.model.PresignedPutObjectRequest;
 import software.amazon.awssdk.services.s3.presigner.model.PutObjectPresignRequest;
 
@@ -52,18 +54,53 @@ public class UserService {
 	 * @return User 객체
 	 */
 	public User getProfile(String userId, APIGatewayProxyRequestEvent request) {
-		
-		return userRepository.findByCognitoSub(userId)
-				.map(user -> {
-					// 정상 DB에서 조회 완료
-					user.updateLastLoginAt();
-					userRepository.update(user);
-					return user;
+
+		User user = userRepository.findByCognitoSub(userId)
+				.map(u -> {
+					u.updateLastLoginAt();
+					userRepository.update(u);
+					return u;
 				})
-				.orElseGet(() -> {
-					// PostConfirmation 실패 대비 fallback
-					return createUserFromRequest(userId, request);
-				});
+				.orElseGet(() -> createUserFromRequest(userId, request));
+
+		// 프로필 URL을 Presigned URL로 변환
+		String presignedProfileUrl = getPresignedProfileUrl(user.getProfileUrl());
+		user.setProfileUrlForResponse(presignedProfileUrl);  // 응답용으로만 설정
+
+		return user;
+	}
+
+	public String getPresignedProfileUrl(String s3Url) {
+		if (s3Url == null || s3Url.isEmpty()) {
+			return generateGetPresignedUrl("profile/default.png");
+		}
+		String key = extractKeyFromS3Url(s3Url);
+		return generateGetPresignedUrl(key);
+	}
+
+	private String generateGetPresignedUrl(String imageKey) {
+		GetObjectRequest getObjectRequest = GetObjectRequest.builder()
+				.bucket(BUCKET_NAME)
+				.key(imageKey)
+				.build();
+
+		GetObjectPresignRequest presignRequest = GetObjectPresignRequest.builder()
+				.signatureDuration(Duration.ofHours(24))
+				.getObjectRequest(getObjectRequest)
+				.build();
+
+		return s3Presigner.presignGetObject(presignRequest).url().toString();
+	}
+
+
+	private String extractKeyFromS3Url(String s3Url) {
+		// https://group2-englishstudy.s3.amazonaws.com/profile/user123/img.png
+		// → profile/user123/img.png
+		String prefix = String.format("https://%s.s3.amazonaws.com/", BUCKET_NAME);
+		if (s3Url.startsWith(prefix)) {
+			return s3Url.substring(prefix.length());
+		}
+		return s3Url;
 	}
 	
 	/**
