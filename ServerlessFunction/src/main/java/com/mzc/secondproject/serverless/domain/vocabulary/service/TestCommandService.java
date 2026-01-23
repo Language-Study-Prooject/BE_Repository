@@ -4,6 +4,7 @@ import com.mzc.secondproject.serverless.common.config.AwsClients;
 import com.mzc.secondproject.serverless.common.config.EnvConfig;
 import com.mzc.secondproject.serverless.common.dto.PaginatedResult;
 import com.mzc.secondproject.serverless.common.util.ResponseGenerator;
+import com.mzc.secondproject.serverless.domain.notification.service.NotificationPublisher;
 import com.mzc.secondproject.serverless.domain.vocabulary.dto.request.SubmitTestRequest;
 import com.mzc.secondproject.serverless.domain.vocabulary.exception.VocabularyException;
 import com.mzc.secondproject.serverless.domain.vocabulary.model.DailyStudy;
@@ -33,26 +34,29 @@ public class TestCommandService {
 	private final DailyStudyRepository dailyStudyRepository;
 	private final WordRepository wordRepository;
 	private final UserWordCommandService userWordCommandService;
-	
+	private final NotificationPublisher notificationPublisher;
+
 	/**
 	 * 기본 생성자 (Lambda에서 사용)
 	 */
 	public TestCommandService() {
 		this(new TestResultRepository(), new DailyStudyRepository(),
-				new WordRepository(), new UserWordCommandService());
+				new WordRepository(), new UserWordCommandService(), NotificationPublisher.getInstance());
 	}
-	
+
 	/**
 	 * 의존성 주입 생성자 (테스트 용이성)
 	 */
 	public TestCommandService(TestResultRepository testResultRepository,
 	                          DailyStudyRepository dailyStudyRepository,
 	                          WordRepository wordRepository,
-	                          UserWordCommandService userWordCommandService) {
+	                          UserWordCommandService userWordCommandService,
+	                          NotificationPublisher notificationPublisher) {
 		this.testResultRepository = testResultRepository;
 		this.dailyStudyRepository = dailyStudyRepository;
 		this.wordRepository = wordRepository;
 		this.userWordCommandService = userWordCommandService;
+		this.notificationPublisher = notificationPublisher;
 	}
 	
 	public StartTestResult startTest(String userId, String testType) {
@@ -116,12 +120,23 @@ public class TestCommandService {
 		// 3. 오답 단어 자동 북마크
 		bookmarkIncorrectWords(userId, gradingResult.incorrectWordIds());
 		
-		// 4. SNS 알림 발행
+		// 4. SNS 알림 발행 (통계 업데이트용)
 		publishTestResultToSns(userId, gradingResult.results());
-		
+
+		// 5. 실시간 알림 발행
+		boolean isPerfect = gradingResult.correctCount() == gradingResult.totalQuestions();
+		notificationPublisher.publishTestComplete(
+				userId,
+				testId,
+				(int) Math.round(gradingResult.successRate()),
+				gradingResult.correctCount(),
+				gradingResult.totalQuestions(),
+				isPerfect
+		);
+
 		logger.info("Test submitted: userId={}, testId={}, successRate={}%",
 				userId, testId, gradingResult.successRate());
-		
+
 		return new SubmitTestResult(
 				testId, testType, gradingResult.totalQuestions(),
 				gradingResult.correctCount(), gradingResult.incorrectCount(),

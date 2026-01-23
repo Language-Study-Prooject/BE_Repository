@@ -13,6 +13,7 @@ import com.mzc.secondproject.serverless.domain.chatting.repository.ChatRoomRepos
 import com.mzc.secondproject.serverless.domain.chatting.repository.ConnectionRepository;
 import com.mzc.secondproject.serverless.domain.chatting.repository.GameRoundRepository;
 import com.mzc.secondproject.serverless.domain.chatting.repository.GameSessionRepository;
+import com.mzc.secondproject.serverless.domain.notification.service.NotificationPublisher;
 import com.mzc.secondproject.serverless.domain.vocabulary.model.Word;
 import com.mzc.secondproject.serverless.domain.vocabulary.repository.WordRepository;
 import org.slf4j.Logger;
@@ -37,23 +38,25 @@ public class GameService {
 	private final WordRepository wordRepository;
 	private final GameStatsService gameStatsService;
 	private final GameSchedulerClient gameSchedulerClient;
-	
+	private final NotificationPublisher notificationPublisher;
+
 	/**
 	 * 기본 생성자 (Lambda에서 사용)
 	 */
 	public GameService() {
 		this(new ChatRoomRepository(), new ConnectionRepository(),
 				new GameRoundRepository(), new GameSessionRepository(),
-				new WordRepository(), new GameStatsService(), new GameSchedulerClient());
+				new WordRepository(), new GameStatsService(), new GameSchedulerClient(),
+				NotificationPublisher.getInstance());
 	}
-	
+
 	/**
 	 * 의존성 주입 생성자 (테스트 용이성)
 	 */
 	public GameService(ChatRoomRepository chatRoomRepository, ConnectionRepository connectionRepository,
 	                   GameRoundRepository gameRoundRepository, GameSessionRepository gameSessionRepository,
 	                   WordRepository wordRepository, GameStatsService gameStatsService,
-	                   GameSchedulerClient gameSchedulerClient) {
+	                   GameSchedulerClient gameSchedulerClient, NotificationPublisher notificationPublisher) {
 		this.chatRoomRepository = chatRoomRepository;
 		this.connectionRepository = connectionRepository;
 		this.gameRoundRepository = gameRoundRepository;
@@ -61,6 +64,7 @@ public class GameService {
 		this.wordRepository = wordRepository;
 		this.gameStatsService = gameStatsService;
 		this.gameSchedulerClient = gameSchedulerClient;
+		this.notificationPublisher = notificationPublisher;
 	}
 	
 	/**
@@ -508,7 +512,10 @@ public class GameService {
 		} catch (Exception e) {
 			logger.error("Failed to update game stats: roomId={}, error={}", room.getRoomId(), e.getMessage());
 		}
-		
+
+		// 게임 종료 알림 발행 (각 플레이어별)
+		publishGameEndNotifications(session, room.getRoomId());
+
 		// 최종 점수 정렬
 		StringBuilder sb = new StringBuilder("🎮 게임 종료!\n\n📊 최종 순위:\n");
 		if (session.getScores() != null && !session.getScores().isEmpty()) {
@@ -698,11 +705,11 @@ public class GameService {
 		if (scores == null || scores.isEmpty()) {
 			return List.of();
 		}
-		
+
 		List<Map.Entry<String, Integer>> sorted = scores.entrySet().stream()
 				.sorted(Map.Entry.<String, Integer>comparingByValue().reversed())
 				.toList();
-		
+
 		List<Map<String, Object>> ranking = new ArrayList<>();
 		for (int i = 0; i < sorted.size(); i++) {
 			Map<String, Object> entry = new HashMap<>();
@@ -713,7 +720,39 @@ public class GameService {
 		}
 		return ranking;
 	}
-	
+
+	/**
+	 * 게임 종료 알림 발행
+	 */
+	private void publishGameEndNotifications(GameSession session, String roomId) {
+		if (session.getScores() == null || session.getScores().isEmpty()) {
+			return;
+		}
+
+		List<Map.Entry<String, Integer>> sorted = session.getScores().entrySet().stream()
+				.sorted((a, b) -> b.getValue().compareTo(a.getValue()))
+				.toList();
+
+		int totalPlayers = sorted.size();
+
+		for (int i = 0; i < sorted.size(); i++) {
+			int rank = i + 1;
+			String userId = sorted.get(i).getKey();
+			int score = sorted.get(i).getValue();
+			boolean isWinner = rank == 1;
+
+			notificationPublisher.publishGameEnd(
+					userId,
+					roomId,
+					session.getGameSessionId(),
+					rank,
+					totalPlayers,
+					score,
+					isWinner
+			);
+		}
+	}
+
 	// ========== Result DTOs ==========
 	
 	public record GameStartResult(
