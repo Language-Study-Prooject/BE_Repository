@@ -8,7 +8,7 @@ import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbBean;
 
 /**
  * 뉴스 기사 내 키워드 정보
- * 단어, 뜻, 예문, 난이도, 위치 정보를 포함
+ * 단어, 뜻, 난이도, 위치 정보를 포함
  */
 @Data
 @Builder

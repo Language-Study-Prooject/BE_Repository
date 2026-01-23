@@ -1,13 +1,9 @@
 package com.mzc.secondproject.serverless.domain.news.service;
 
-import com.mzc.secondproject.serverless.domain.badge.model.UserBadge;
-import com.mzc.secondproject.serverless.domain.badge.service.BadgeService;
 import com.mzc.secondproject.serverless.domain.news.constants.NewsKey;
 import com.mzc.secondproject.serverless.domain.news.model.*;
 import com.mzc.secondproject.serverless.domain.news.repository.NewsArticleRepository;
 import com.mzc.secondproject.serverless.domain.news.repository.NewsQuizRepository;
-import com.mzc.secondproject.serverless.domain.stats.model.UserStats;
-import com.mzc.secondproject.serverless.domain.stats.repository.UserStatsRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -24,22 +20,15 @@ public class NewsQuizService {
 
 	private final NewsArticleRepository articleRepository;
 	private final NewsQuizRepository quizRepository;
-	private final UserStatsRepository userStatsRepository;
-	private final BadgeService badgeService;
 
 	public NewsQuizService() {
 		this.articleRepository = new NewsArticleRepository();
 		this.quizRepository = new NewsQuizRepository();
-		this.userStatsRepository = new UserStatsRepository();
-		this.badgeService = new BadgeService();
 	}
 
-	public NewsQuizService(NewsArticleRepository articleRepository, NewsQuizRepository quizRepository,
-						   UserStatsRepository userStatsRepository, BadgeService badgeService) {
+	public NewsQuizService(NewsArticleRepository articleRepository, NewsQuizRepository quizRepository) {
 		this.articleRepository = articleRepository;
 		this.quizRepository = quizRepository;
-		this.userStatsRepository = userStatsRepository;
-		this.badgeService = badgeService;
 	}
 
 	/**
@@ -169,29 +158,12 @@ public class NewsQuizService {
 		// 피드백 생성
 		String feedback = generateFeedback(score, answerResults);
 
-		// 통계 업데이트 및 배지 체크
-		List<UserBadge> newBadges = new ArrayList<>();
-		try {
-			boolean isPerfect = score == 100;
-			UserStats updatedStats = userStatsRepository.incrementNewsQuizStats(userId, isPerfect);
-			if (updatedStats != null) {
-				newBadges = badgeService.checkAndAwardBadges(userId, updatedStats);
-				if (!newBadges.isEmpty()) {
-					logger.info("새 배지 획득: userId={}, badges={}", userId,
-							newBadges.stream().map(UserBadge::getBadgeType).toList());
-				}
-			}
-		} catch (Exception e) {
-			logger.error("통계/배지 업데이트 실패: userId={}, error={}", userId, e.getMessage());
-		}
-
 		return QuizSubmitResult.builder()
 				.score(score)
 				.earnedPoints(earnedPoints)
 				.totalPoints(totalPoints)
 				.results(answerResults)
 				.feedback(feedback)
-				.newBadges(newBadges)
 				.build();
 	}
 
@@ -287,6 +259,5 @@ public class NewsQuizService {
 		private int totalPoints;
 		private List<QuizAnswerResult> results;
 		private String feedback;
-		private List<UserBadge> newBadges;
 	}
 }

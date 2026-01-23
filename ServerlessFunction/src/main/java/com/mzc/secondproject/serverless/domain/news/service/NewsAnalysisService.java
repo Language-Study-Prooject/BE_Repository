@@ -58,25 +58,17 @@ public class NewsAnalysisService {
 			article.setCefrLevel(cefrLevel);
 			article.setLevel(mapCefrToLevel(cefrLevel));
 
-			// 2. 3줄 요약 + 퀴즈 + 카테고리 + 키워드 생성 (Bedrock - 한 번에 처리)
+			// 2. 핵심 단어 추출 (Comprehend)
+			List<KeywordInfo> keywords = extractKeywords(content);
+			article.setKeywords(keywords);
+
+			// 3. 3줄 요약 + 퀴즈 생성 (Bedrock - 한 번에 처리)
 			AnalysisResult result = generateSummaryAndQuiz(content, cefrLevel);
 			if (result.summary() != null) {
 				article.setSummary(result.summary());
 			}
 			article.setQuiz(result.quiz());
 			article.setHighlightWords(result.highlightWords());
-			if (result.category() != null) {
-				article.setCategory(result.category());
-			}
-
-			// 3. 키워드 설정 (Bedrock AI에서 추출한 키워드 사용)
-			if (result.keywords() != null && !result.keywords().isEmpty()) {
-				article.setKeywords(result.keywords());
-			} else {
-				// Bedrock 키워드 추출 실패 시 Comprehend 폴백
-				List<KeywordInfo> fallbackKeywords = extractKeywords(content);
-				article.setKeywords(fallbackKeywords);
-			}
 
 			// 4. GSI 키 설정
 			article.setGsi1pk("LEVEL#" + article.getLevel());
@@ -181,7 +173,7 @@ public class NewsAnalysisService {
 	}
 
 	/**
-	 * 요약 + 퀴즈 + 카테고리 + 키워드 생성 (Bedrock)
+	 * 요약 + 퀴즈 생성 (Bedrock)
 	 */
 	private AnalysisResult generateSummaryAndQuiz(String content, String cefrLevel) {
 		String systemPrompt = """
@@ -195,7 +187,6 @@ public class NewsAnalysisService {
 				    {"word": "policy", "meaning": "a plan of action adopted by government", "meaningKo": "정책", "example": "The new policy affects all citizens."}
 				  ],
 				  "highlightWords": ["word1", "word2", "word3"],
-				  "category": "WORLD",
 				  "quiz": [
 				    {
 				      "questionId": "q1",
@@ -242,7 +233,7 @@ public class NewsAnalysisService {
 			return parseAnalysisResult(response);
 		} catch (Exception e) {
 			logger.error("요약/퀴즈 생성 실패", e);
-			return new AnalysisResult(null, new ArrayList<>(), new ArrayList<>(), new ArrayList<>(), null);
+			return new AnalysisResult(null, new ArrayList<>(), new ArrayList<>());
 		}
 	}
 
@@ -328,7 +319,7 @@ public class NewsAnalysisService {
 			});
 		}
 
-		return new AnalysisResult(summary, keywords, highlightWords, quiz, category);
+		return new AnalysisResult(summary, highlightWords, quiz);
 	}
 
 	private String extractJson(String response) {
@@ -350,9 +341,7 @@ public class NewsAnalysisService {
 	 */
 	private record AnalysisResult(
 			String summary,
-			List<KeywordInfo> keywords,
 			List<String> highlightWords,
-			List<QuizQuestion> quiz,
-			String category
+			List<QuizQuestion> quiz
 	) {}
 }

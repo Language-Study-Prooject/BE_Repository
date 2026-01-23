@@ -22,13 +22,6 @@ public class BadgeConditionStrategyFactory {
 		register(new GamesWonStrategy());
 		register(new QuickGuessesStrategy());
 		register(new PerfectDrawsStrategy());
-		// 뉴스 관련 전략
-		register(new NewsReadStrategy());
-		register(new NewsQuizStrategy());
-		register(new NewsQuizPerfectStrategy());
-		register(new NewsWordStrategy());
-		register(new NewsStreakStrategy());
-		register(new NewsMasterStrategy());
 		// 별도 로직이 필요한 카테고리
 		register(new NoOpStrategy("PERFECT_TEST"));
 		register(new NoOpStrategy("ALL_BADGES"));
