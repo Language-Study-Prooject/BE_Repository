@@ -231,7 +231,7 @@ public class NewsHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
 		if (params == null) params = new HashMap<>();
 
 		int limit = parseLimit(params.get("limit"));
-		List<UserNewsRecord> bookmarks = learningService.getUserBookmarks(userId, limit);
+		List<Map<String, Object>> bookmarks = learningService.getUserBookmarks(userId, limit);
 
 		Map<String, Object> response = new HashMap<>();
 		response.put("bookmarks", bookmarks);
