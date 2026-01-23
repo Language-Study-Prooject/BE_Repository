@@ -136,10 +136,32 @@ public class NewsLearningService {
 	}
 
 	/**
-	 * 사용자 북마크 목록 조회
+	 * 사용자 북마크 목록 조회 (기사 정보 포함)
 	 */
-	public List<UserNewsRecord> getUserBookmarks(String userId, int limit) {
-		return userNewsRepository.getUserBookmarks(userId, limit);
+	public List<Map<String, Object>> getUserBookmarks(String userId, int limit) {
+		List<UserNewsRecord> bookmarks = userNewsRepository.getUserBookmarks(userId, limit);
+		List<Map<String, Object>> result = new ArrayList<>();
+
+		for (UserNewsRecord bookmark : bookmarks) {
+			Optional<NewsArticle> articleOpt = articleRepository.findById(bookmark.getArticleId());
+			if (articleOpt.isPresent()) {
+				NewsArticle article = articleOpt.get();
+				Map<String, Object> bookmarkWithArticle = new java.util.HashMap<>();
+				bookmarkWithArticle.put("articleId", article.getArticleId());
+				bookmarkWithArticle.put("title", article.getTitle());
+				bookmarkWithArticle.put("summary", article.getSummary());
+				bookmarkWithArticle.put("source", article.getSource());
+				bookmarkWithArticle.put("publishedAt", article.getPublishedAt());
+				bookmarkWithArticle.put("keywords", article.getKeywords());
+				bookmarkWithArticle.put("highlightWords", article.getHighlightWords());
+				bookmarkWithArticle.put("category", article.getCategory());
+				bookmarkWithArticle.put("level", article.getLevel());
+				bookmarkWithArticle.put("imageUrl", article.getImageUrl());
+				bookmarkWithArticle.put("bookmarkedAt", bookmark.getCreatedAt());
+				result.add(bookmarkWithArticle);
+			}
+		}
+		return result;
 	}
 
 	/**
