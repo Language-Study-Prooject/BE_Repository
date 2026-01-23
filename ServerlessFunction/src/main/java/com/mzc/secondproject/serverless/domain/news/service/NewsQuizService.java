@@ -7,6 +7,7 @@ import com.mzc.secondproject.serverless.domain.news.model.QuizAnswerResult;
 import com.mzc.secondproject.serverless.domain.news.model.QuizQuestion;
 import com.mzc.secondproject.serverless.domain.news.repository.NewsArticleRepository;
 import com.mzc.secondproject.serverless.domain.news.repository.NewsQuizRepository;
+import com.mzc.secondproject.serverless.domain.notification.service.NotificationPublisher;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -20,18 +21,22 @@ import java.util.*;
 public class NewsQuizService {
 	
 	private static final Logger logger = LoggerFactory.getLogger(NewsQuizService.class);
-	
+
 	private final NewsArticleRepository articleRepository;
 	private final NewsQuizRepository quizRepository;
-	
+	private final NotificationPublisher notificationPublisher;
+
 	public NewsQuizService() {
 		this.articleRepository = new NewsArticleRepository();
 		this.quizRepository = new NewsQuizRepository();
+		this.notificationPublisher = NotificationPublisher.getInstance();
 	}
-	
-	public NewsQuizService(NewsArticleRepository articleRepository, NewsQuizRepository quizRepository) {
+
+	public NewsQuizService(NewsArticleRepository articleRepository, NewsQuizRepository quizRepository,
+						   NotificationPublisher notificationPublisher) {
 		this.articleRepository = articleRepository;
 		this.quizRepository = quizRepository;
+		this.notificationPublisher = notificationPublisher;
 	}
 	
 	/**
@@ -157,10 +162,23 @@ public class NewsQuizService {
 		
 		quizRepository.save(result);
 		logger.info("퀴즈 제출 완료: userId={}, articleId={}, score={}", userId, articleId, score);
-		
+
+		// 알림 발행
+		int correctCount = (int) answerResults.stream().filter(QuizAnswerResult::isCorrect).count();
+		boolean isPerfect = score == 100;
+		notificationPublisher.publishNewsQuizComplete(
+				userId,
+				articleId,
+				article.getTitle(),
+				score,
+				correctCount,
+				answerResults.size(),
+				isPerfect
+		);
+
 		// 피드백 생성
 		String feedback = generateFeedback(score, answerResults);
-		
+
 		return QuizSubmitResult.builder()
 				.score(score)
 				.earnedPoints(earnedPoints)

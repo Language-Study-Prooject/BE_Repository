@@ -291,6 +291,7 @@ Resources:
           WEBSOCKET_ENDPOINT: !Sub "https://${WebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/${Environment}"
           GAME_AUTO_CLOSE_LAMBDA_ARN: !GetAtt GameAutoCloseFunction.Arn
           SCHEDULER_ROLE_ARN: !GetAtt GameSchedulerRole.Arn
+          NOTIFICATION_TOPIC_ARN: !Ref NotificationTopic
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref ChatTable
@@ -314,6 +315,8 @@ Resources:
               Action:
                 - iam:PassRole
               Resource: !GetAtt GameSchedulerRole.Arn
+        - SNSPublishMessagePolicy:
+            TopicName: !GetAtt NotificationTopic.TopicName
 
   WebSocketMessagePermission:
     Type: AWS::Lambda::Permission
@@ -865,9 +868,14 @@ Resources:
       Description: Handle daily study word assignment
       SnapStart:
         ApplyOn: PublishedVersions
+      Environment:
+        Variables:
+          NOTIFICATION_TOPIC_ARN: !Ref NotificationTopic
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref VocabTable
+        - SNSPublishMessagePolicy:
+            TopicName: !GetAtt NotificationTopic.TopicName
       Events:
         GetDailyWords:
           Type: Api
@@ -898,11 +906,14 @@ Resources:
       Environment:
         Variables:
           TEST_RESULT_TOPIC_ARN: !Ref TestResultTopic
+          NOTIFICATION_TOPIC_ARN: !Ref NotificationTopic
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref VocabTable
         - SNSPublishMessagePolicy:
             TopicName: !GetAtt TestResultTopic.TopicName
+        - SNSPublishMessagePolicy:
+            TopicName: !GetAtt NotificationTopic.TopicName
       Events:
         StartTest:
           Type: Api
@@ -1115,11 +1126,16 @@ Resources:
       Description: Handle user badges and achievements
       SnapStart:
         ApplyOn: PublishedVersions
+      Environment:
+        Variables:
+          NOTIFICATION_TOPIC_ARN: !Ref NotificationTopic
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref VocabTable
         - S3ReadPolicy:
             BucketName: !Sub "${AWS::StackName}"
+        - SNSPublishMessagePolicy:
+            TopicName: !GetAtt NotificationTopic.TopicName
       Events:
         GetAllBadges:
           Type: Api
@@ -1415,6 +1431,7 @@ Resources:
       Environment:
         Variables:
           TRANSCRIBE_API_KEY: "/opic/transcribe-proxy-api-key"
+          NOTIFICATION_TOPIC_ARN: !Ref NotificationTopic
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref OPIcTable
@@ -1438,6 +1455,8 @@ Resources:
               Action:
                 - ssm:GetParameter
               Resource: !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/opic/*"
+        - SNSPublishMessagePolicy:
+            TopicName: !GetAtt NotificationTopic.TopicName
       Events:
         # 세션 생성
         CreateSession:
@@ -1722,6 +1741,9 @@ Resources:
       Description: 뉴스 학습 API
       MemorySize: 256
       Timeout: 30
+      Environment:
+        Variables:
+          NOTIFICATION_TOPIC_ARN: !Ref NotificationTopic
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref NewsTable
@@ -1729,6 +1751,8 @@ Resources:
             TableName: !Ref VocabTable
         - S3CrudPolicy:
             BucketName: !Sub "${AWS::StackName}"
+        - SNSPublishMessagePolicy:
+            TopicName: !GetAtt NotificationTopic.TopicName
         - Statement:
             - Effect: Allow
               Action:
@@ -1962,6 +1986,59 @@ Resources:
       Endpoint: !GetAtt StatisticsQueue.Arn
       RawMessageDelivery: true
 
+  #############################################
+  # SNS / SQS for Real-time Notifications (SSE)
+  #############################################
+
+  # SNS Topic - 알림 이벤트 발행 (배지, 학습완료, 테스트결과 등)
+  NotificationTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub "${AWS::StackName}-notification-topic"
+
+  # SQS Dead Letter Queue - 실패한 알림 메시지 보관
+  NotificationDeadLetterQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub "${AWS::StackName}-notification-dlq"
+      MessageRetentionPeriod: 1209600  # 14일
+
+  # SQS Queue - SSE 알림 처리용
+  NotificationQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub "${AWS::StackName}-notification-queue"
+      VisibilityTimeout: 30
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt NotificationDeadLetterQueue.Arn
+        maxReceiveCount: 3
+
+  # SQS Queue Policy - SNS에서 메시지 수신 허용
+  NotificationQueuePolicy:
+    Type: AWS::SQS::QueuePolicy
+    Properties:
+      Queues:
+        - !Ref NotificationQueue
+      PolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: sns.amazonaws.com
+            Action: sqs:SendMessage
+            Resource: !GetAtt NotificationQueue.Arn
+            Condition:
+              ArnEquals:
+                aws:SourceArn: !Ref NotificationTopic
+
+  # SNS → SQS 구독
+  NotificationQueueSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      Protocol: sqs
+      TopicArn: !Ref NotificationTopic
+      Endpoint: !GetAtt NotificationQueue.Arn
+      RawMessageDelivery: true
+
   # Statistics Processor Lambda - SQS에서 메시지 소비하여 통계 업데이트
   StatisticsProcessorFunction:
     Type: AWS::Serverless::Function
@@ -1984,6 +2061,38 @@ Resources:
           Properties:
             Queue: !GetAtt StatisticsQueue.Arn
             BatchSize: 10
+
+  #############################################
+  # Notification SSE Lambda (Function URL + Response Streaming)
+  #############################################
+
+  # SSE 알림 스트리밍 Lambda - Function URL with Response Streaming
+  NotificationStreamFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-notification-stream"
+      CodeUri: .
+      Handler: com.mzc.secondproject.serverless.domain.notification.handler.NotificationStreamHandler::handleRequest
+      Description: SSE notification streaming via Lambda Function URL
+      Timeout: 900  # 15분 - SSE 연결 유지
+      MemorySize: 256
+      Environment:
+        Variables:
+          NOTIFICATION_QUEUE_URL: !Ref NotificationQueue
+      Policies:
+        - SQSPollerPolicy:
+            QueueName: !GetAtt NotificationQueue.QueueName
+      FunctionUrlConfig:
+        AuthType: NONE
+        InvokeMode: RESPONSE_STREAM
+        Cors:
+          AllowCredentials: false
+          AllowHeaders:
+            - "*"
+          AllowMethods:
+            - GET
+          AllowOrigins:
+            - "*"
 
 #############################################
 # Outputs
@@ -2025,3 +2134,11 @@ Outputs:
   OPIcTableName:
     Description: OPIc DynamoDB Table Name
     Value: !Ref OPIcTable
+
+  NotificationStreamUrl:
+    Description: Notification SSE Stream Function URL
+    Value: !GetAtt NotificationStreamFunctionUrl.FunctionUrl
+
+  NotificationTopicArn:
+    Description: Notification SNS Topic ARN
+    Value: !Ref NotificationTopic
