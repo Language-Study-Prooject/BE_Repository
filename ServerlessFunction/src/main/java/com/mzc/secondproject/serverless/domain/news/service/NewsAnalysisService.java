@@ -62,13 +62,16 @@ public class NewsAnalysisService {
 			List<KeywordInfo> keywords = extractKeywords(content);
 			article.setKeywords(keywords);
 
-			// 3. 3줄 요약 + 퀴즈 생성 (Bedrock - 한 번에 처리)
+			// 3. 3줄 요약 + 퀴즈 + 카테고리 생성 (Bedrock - 한 번에 처리)
 			AnalysisResult result = generateSummaryAndQuiz(content, cefrLevel);
 			if (result.summary() != null) {
 				article.setSummary(result.summary());
 			}
 			article.setQuiz(result.quiz());
 			article.setHighlightWords(result.highlightWords());
+			if (result.category() != null) {
+				article.setCategory(result.category());
+			}
 
 			// 4. GSI 키 설정
 			article.setGsi1pk("LEVEL#" + article.getLevel());
@@ -173,7 +176,7 @@ public class NewsAnalysisService {
 	}
 
 	/**
-	 * 요약 + 퀴즈 생성 (Bedrock)
+	 * 요약 + 퀴즈 + 카테고리 생성 (Bedrock)
 	 */
 	private AnalysisResult generateSummaryAndQuiz(String content, String cefrLevel) {
 		String systemPrompt = """
@@ -183,6 +186,7 @@ public class NewsAnalysisService {
 				{
 				  "summary": "3-line summary in English (each line separated by newline)",
 				  "highlightWords": ["word1", "word2", "word3"],
+				  "category": "WORLD",
 				  "quiz": [
 				    {
 				      "questionId": "q1",
@@ -211,6 +215,7 @@ public class NewsAnalysisService {
 				  ]
 				}
 
+				For category, choose EXACTLY ONE from: WORLD, POLITICS, BUSINESS, TECH, SCIENCE, HEALTH, SPORTS, ENTERTAINMENT, LIFESTYLE
 				Create exactly 3 quiz questions.
 				highlightWords should contain 3-5 difficult words for learners.
 				Adjust difficulty based on CEFR level: """ + cefrLevel;
@@ -222,7 +227,7 @@ public class NewsAnalysisService {
 			return parseAnalysisResult(response);
 		} catch (Exception e) {
 			logger.error("요약/퀴즈 생성 실패", e);
-			return new AnalysisResult(null, new ArrayList<>(), new ArrayList<>());
+			return new AnalysisResult(null, new ArrayList<>(), new ArrayList<>(), null);
 		}
 	}
 
@@ -268,6 +273,7 @@ public class NewsAnalysisService {
 		JsonObject json = gson.fromJson(jsonStr, JsonObject.class);
 
 		String summary = json.has("summary") ? json.get("summary").getAsString() : null;
+		String category = json.has("category") ? json.get("category").getAsString().toUpperCase() : "WORLD";
 
 		List<String> highlightWords = new ArrayList<>();
 		if (json.has("highlightWords")) {
@@ -293,7 +299,7 @@ public class NewsAnalysisService {
 			});
 		}
 
-		return new AnalysisResult(summary, highlightWords, quiz);
+		return new AnalysisResult(summary, highlightWords, quiz, category);
 	}
 
 	private String extractJson(String response) {
@@ -316,6 +322,7 @@ public class NewsAnalysisService {
 	private record AnalysisResult(
 			String summary,
 			List<String> highlightWords,
-			List<QuizQuestion> quiz
+			List<QuizQuestion> quiz,
+			String category
 	) {}
 }
