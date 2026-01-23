@@ -24,20 +24,20 @@ import java.util.stream.Collectors;
  * 사용자 학습 통계 API Handler
  */
 public class UserStatsHandler implements RequestHandler<APIGatewayProxyRequestEvent, APIGatewayProxyResponseEvent> {
-
+	
 	private static final Logger logger = LoggerFactory.getLogger(UserStatsHandler.class);
-
+	
 	private final UserStatsRepository statsRepository;
 	private final DailyStudyRepository dailyStudyRepository;
 	private final HandlerRouter router;
-
+	
 	/**
 	 * 기본 생성자 (Lambda에서 사용)
 	 */
 	public UserStatsHandler() {
 		this(new UserStatsRepository(), new DailyStudyRepository());
 	}
-
+	
 	/**
 	 * 의존성 주입 생성자 (테스트 용이성)
 	 */
@@ -46,7 +46,7 @@ public class UserStatsHandler implements RequestHandler<APIGatewayProxyRequestEv
 		this.dailyStudyRepository = dailyStudyRepository;
 		this.router = initRouter();
 	}
-
+	
 	private HandlerRouter initRouter() {
 		return new HandlerRouter().addRoutes(
 				Route.getAuth("/stats/dashboard", this::getDashboardStats),
@@ -57,20 +57,20 @@ public class UserStatsHandler implements RequestHandler<APIGatewayProxyRequestEv
 				Route.getAuth("/stats/history", this::getStatsHistory)
 		);
 	}
-
+	
 	@Override
 	public APIGatewayProxyResponseEvent handleRequest(APIGatewayProxyRequestEvent request, Context context) {
 		logger.info("Received request: {} {}", request.getHttpMethod(), request.getPath());
 		return router.route(request);
 	}
-
+	
 	/**
 	 * 대시보드용 통합 통계 조회 (프론트엔드 요청 형식)
 	 * GET /stats/dashboard
 	 */
 	private APIGatewayProxyResponseEvent getDashboardStats(APIGatewayProxyRequestEvent request, String userId) {
 		String today = LocalDate.now().toString();
-
+		
 		// 오늘 통계 조회
 		Optional<UserStats> dailyStats = statsRepository.findDailyStats(userId, today);
 		// 전체 통계 조회
@@ -79,9 +79,9 @@ public class UserStatsHandler implements RequestHandler<APIGatewayProxyRequestEv
 		PaginatedResult<UserStats> weekHistory = statsRepository.findRecentDailyStats(userId, 7, null);
 		// 오늘 학습 목표 조회
 		Optional<DailyStudy> dailyStudy = dailyStudyRepository.findByUserIdAndDate(userId, today);
-
+		
 		Map<String, Object> response = new HashMap<>();
-
+		
 		// today 섹션
 		Map<String, Object> todaySection = new HashMap<>();
 		if (dailyStats.isPresent()) {
@@ -97,7 +97,7 @@ public class UserStatsHandler implements RequestHandler<APIGatewayProxyRequestEv
 		}
 		todaySection.put("wordsTotal", dailyStudy.map(ds -> ds.getTotalWords() != null ? ds.getTotalWords() : 25).orElse(25));
 		response.put("today", todaySection);
-
+		
 		// overall 섹션
 		Map<String, Object> overallSection = new HashMap<>();
 		if (totalStats.isPresent()) {
@@ -122,7 +122,7 @@ public class UserStatsHandler implements RequestHandler<APIGatewayProxyRequestEv
 		// totalStudyDays 계산 (최근 히스토리에서 실제 학습한 날 수)
 		overallSection.put("totalStudyDays", weekHistory.items().size());
 		response.put("overall", overallSection);
-
+		
 		// weeklyProgress 섹션
 		List<Map<String, Object>> weeklyProgress = weekHistory.items().stream()
 				.map(stats -> {
@@ -134,17 +134,17 @@ public class UserStatsHandler implements RequestHandler<APIGatewayProxyRequestEv
 				})
 				.collect(Collectors.toList());
 		response.put("weeklyProgress", weeklyProgress);
-
+		
 		// levelDistribution (현재 미구현 - 향후 추가 가능)
 		Map<String, Integer> levelDistribution = new HashMap<>();
 		levelDistribution.put("beginner", 0);
 		levelDistribution.put("intermediate", 0);
 		levelDistribution.put("advanced", 0);
 		response.put("levelDistribution", levelDistribution);
-
+		
 		return ResponseGenerator.ok("학습 통계 조회 성공", response);
 	}
-
+	
 	/**
 	 * 오늘의 통계 조회
 	 */
@@ -152,12 +152,12 @@ public class UserStatsHandler implements RequestHandler<APIGatewayProxyRequestEv
 		Map<String, String> queryParams = request.getQueryStringParameters();
 		String date = queryParams != null && queryParams.get("date") != null ?
 				queryParams.get("date") : LocalDate.now().toString();
-
+		
 		Optional<UserStats> stats = statsRepository.findDailyStats(userId, date);
-
+		
 		return ResponseGenerator.ok("Daily stats retrieved", buildStatsResponse(stats, "DAILY", date));
 	}
-
+	
 	/**
 	 * 이번 주 통계 조회
 	 */
@@ -165,12 +165,12 @@ public class UserStatsHandler implements RequestHandler<APIGatewayProxyRequestEv
 		Map<String, String> queryParams = request.getQueryStringParameters();
 		String yearWeek = queryParams != null && queryParams.get("week") != null ?
 				queryParams.get("week") : getCurrentYearWeek();
-
+		
 		Optional<UserStats> stats = statsRepository.findWeeklyStats(userId, yearWeek);
-
+		
 		return ResponseGenerator.ok("Weekly stats retrieved", buildStatsResponse(stats, "WEEKLY", yearWeek));
 	}
-
+	
 	/**
 	 * 이번 달 통계 조회
 	 */
@@ -178,20 +178,20 @@ public class UserStatsHandler implements RequestHandler<APIGatewayProxyRequestEv
 		Map<String, String> queryParams = request.getQueryStringParameters();
 		String yearMonth = queryParams != null && queryParams.get("month") != null ?
 				queryParams.get("month") : getCurrentYearMonth();
-
+		
 		Optional<UserStats> stats = statsRepository.findMonthlyStats(userId, yearMonth);
-
+		
 		return ResponseGenerator.ok("Monthly stats retrieved", buildStatsResponse(stats, "MONTHLY", yearMonth));
 	}
-
+	
 	/**
 	 * 전체 통계 조회
 	 */
 	private APIGatewayProxyResponseEvent getTotalStats(APIGatewayProxyRequestEvent request, String userId) {
 		Optional<UserStats> stats = statsRepository.findTotalStats(userId);
-
+		
 		Map<String, Object> response = buildStatsResponse(stats, "TOTAL", "ALL");
-
+		
 		// 전체 통계에는 streak 정보 추가
 		if (stats.isPresent()) {
 			UserStats s = stats.get();
@@ -203,24 +203,24 @@ public class UserStatsHandler implements RequestHandler<APIGatewayProxyRequestEv
 			response.put("longestStreak", 0);
 			response.put("lastStudyDate", null);
 		}
-
+		
 		return ResponseGenerator.ok("Total stats retrieved", response);
 	}
-
+	
 	/**
 	 * 최근 일별 통계 히스토리 조회
 	 */
 	private APIGatewayProxyResponseEvent getStatsHistory(APIGatewayProxyRequestEvent request, String userId) {
 		Map<String, String> queryParams = request.getQueryStringParameters();
 		String cursor = queryParams != null ? queryParams.get("cursor") : null;
-
+		
 		int limit = 7;  // 기본 7일
 		if (queryParams != null && queryParams.get("limit") != null) {
 			limit = Math.min(Integer.parseInt(queryParams.get("limit")), 100);
 		}
-
+		
 		PaginatedResult<UserStats> result = statsRepository.findRecentDailyStats(userId, limit, cursor);
-
+		
 		// 각 날짜별 isCompleted 정보 조회 및 응답 구성
 		List<Map<String, Object>> historyWithCompletion = result.items().stream()
 				.map(stats -> {
@@ -233,28 +233,28 @@ public class UserStatsHandler implements RequestHandler<APIGatewayProxyRequestEv
 					item.put("successRate", calculateSuccessRate(stats));
 					item.put("newWordsLearned", stats.getNewWordsLearned() != null ? stats.getNewWordsLearned() : 0);
 					item.put("wordsReviewed", stats.getWordsReviewed() != null ? stats.getWordsReviewed() : 0);
-
+					
 					// DailyStudy에서 isCompleted 조회
 					Optional<DailyStudy> dailyStudy = dailyStudyRepository.findByUserIdAndDate(userId, stats.getPeriod());
 					item.put("isCompleted", dailyStudy.map(ds -> ds.getIsCompleted() != null && ds.getIsCompleted()).orElse(false));
-
+					
 					return item;
 				})
 				.collect(Collectors.toList());
-
+		
 		Map<String, Object> response = new HashMap<>();
 		response.put("history", historyWithCompletion);
 		response.put("nextCursor", result.nextCursor());
 		response.put("hasMore", result.hasMore());
-
+		
 		return ResponseGenerator.ok("Stats history retrieved", response);
 	}
-
+	
 	private Map<String, Object> buildStatsResponse(Optional<UserStats> stats, String periodType, String period) {
 		Map<String, Object> response = new HashMap<>();
 		response.put("periodType", periodType);
 		response.put("period", period);
-
+		
 		if (stats.isPresent()) {
 			UserStats s = stats.get();
 			response.put("testsCompleted", s.getTestsCompleted() != null ? s.getTestsCompleted() : 0);
@@ -283,16 +283,16 @@ public class UserStatsHandler implements RequestHandler<APIGatewayProxyRequestEv
 			response.put("newsQuizPerfect", 0);
 			response.put("newsWordsCollected", 0);
 		}
-
+		
 		return response;
 	}
-
+	
 	private double calculateSuccessRate(UserStats stats) {
 		int correct = stats.getCorrectAnswers() != null ? stats.getCorrectAnswers() : 0;
 		int total = stats.getQuestionsAnswered() != null ? stats.getQuestionsAnswered() : 0;
 		return total > 0 ? (correct * 100.0 / total) : 0.0;
 	}
-
+	
 	private String getCurrentYearWeek() {
 		LocalDate now = LocalDate.now();
 		WeekFields weekFields = WeekFields.of(Locale.getDefault());
@@ -300,7 +300,7 @@ public class UserStatsHandler implements RequestHandler<APIGatewayProxyRequestEv
 		int year = now.get(weekFields.weekBasedYear());
 		return String.format("%d-W%02d", year, week);
 	}
-
+	
 	private String getCurrentYearMonth() {
 		LocalDate now = LocalDate.now();
 		return String.format("%d-%02d", now.getYear(), now.getMonthValue());

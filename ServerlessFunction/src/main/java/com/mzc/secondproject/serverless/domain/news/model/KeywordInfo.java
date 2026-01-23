@@ -16,7 +16,7 @@ import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbBean;
 @AllArgsConstructor
 @DynamoDbBean
 public class KeywordInfo {
-
+	
 	private String word;        // 영어 단어
 	private String meaning;     // 영어 뜻 (간단한 정의)
 	private String meaningKo;   // 한국어 뜻
