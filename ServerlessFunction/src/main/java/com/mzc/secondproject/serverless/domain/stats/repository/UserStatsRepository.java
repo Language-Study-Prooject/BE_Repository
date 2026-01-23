@@ -527,6 +527,31 @@ public class UserStatsRepository {
 	}
 	
 	/**
+	 * 연속 학습 중인 사용자 목록 조회 (streak >= 1)
+	 * GSI1을 사용하여 TOTAL 통계만 조회 후 필터링
+	 */
+	public List<UserStats> findUsersWithActiveStreak() {
+		QueryConditional queryConditional = QueryConditional
+				.keyEqualTo(Key.builder()
+						.partitionValue("STATS#ALL")
+						.sortValue(StatsKey.statsTotalSk())
+						.build());
+
+		QueryEnhancedRequest request = QueryEnhancedRequest.builder()
+				.queryConditional(queryConditional)
+				.build();
+
+		List<UserStats> results = new ArrayList<>();
+		table.index("GSI1").query(request).forEach(page -> {
+			page.items().stream()
+					.filter(stats -> stats.getCurrentStreak() != null && stats.getCurrentStreak() >= 1)
+					.forEach(results::add);
+		});
+
+		return results;
+	}
+
+	/**
 	 * 현재 연도-주차 반환 (예: 2026-W02)
 	 */
 	private String getYearWeek() {

@@ -126,4 +126,16 @@ public final class NewsKey {
 	public static String userNewsStatPk(String userId) {
 		return "USER_NEWS_STAT#" + userId;
 	}
+
+	// === Utility Methods ===
+
+	/**
+	 * PK에서 날짜 추출 (NEWS#2024-01-15 → 2024-01-15)
+	 */
+	public static String extractDateFromPk(String pk) {
+		if (pk == null || !pk.startsWith(NEWS)) {
+			return null;
+		}
+		return pk.substring(NEWS.length());
+	}
 }
