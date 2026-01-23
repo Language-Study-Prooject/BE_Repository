@@ -2,13 +2,18 @@ package com.mzc.secondproject.serverless.domain.news.service;
 
 import com.mzc.secondproject.serverless.common.config.EnvConfig;
 import com.mzc.secondproject.serverless.common.service.PollyService;
+import com.mzc.secondproject.serverless.domain.badge.model.UserBadge;
+import com.mzc.secondproject.serverless.domain.badge.service.BadgeService;
 import com.mzc.secondproject.serverless.domain.news.model.NewsArticle;
 import com.mzc.secondproject.serverless.domain.news.model.UserNewsRecord;
 import com.mzc.secondproject.serverless.domain.news.repository.NewsArticleRepository;
 import com.mzc.secondproject.serverless.domain.news.repository.UserNewsRepository;
+import com.mzc.secondproject.serverless.domain.stats.model.UserStats;
+import com.mzc.secondproject.serverless.domain.stats.repository.UserStatsRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -24,29 +29,38 @@ public class NewsLearningService {
 	private final NewsArticleRepository articleRepository;
 	private final UserNewsRepository userNewsRepository;
 	private final PollyService pollyService;
+	private final UserStatsRepository userStatsRepository;
+	private final BadgeService badgeService;
 
 	public NewsLearningService() {
 		this.articleRepository = new NewsArticleRepository();
 		this.userNewsRepository = new UserNewsRepository();
 		this.pollyService = new PollyService(BUCKET_NAME, "news/audio/");
+		this.userStatsRepository = new UserStatsRepository();
+		this.badgeService = new BadgeService();
 	}
 
 	public NewsLearningService(NewsArticleRepository articleRepository,
 							   UserNewsRepository userNewsRepository,
-							   PollyService pollyService) {
+							   PollyService pollyService,
+							   UserStatsRepository userStatsRepository,
+							   BadgeService badgeService) {
 		this.articleRepository = articleRepository;
 		this.userNewsRepository = userNewsRepository;
 		this.pollyService = pollyService;
+		this.userStatsRepository = userStatsRepository;
+		this.badgeService = badgeService;
 	}
 
 	/**
 	 * 뉴스 읽기 완료 기록
+	 * @return 새로 획득한 배지 목록
 	 */
-	public void markAsRead(String userId, String articleId) {
+	public List<UserBadge> markAsRead(String userId, String articleId) {
 		Optional<NewsArticle> article = articleRepository.findById(articleId);
 		if (article.isEmpty()) {
 			logger.warn("기사를 찾을 수 없음: {}", articleId);
-			return;
+			return new ArrayList<>();
 		}
 
 		NewsArticle a = article.get();
@@ -65,6 +79,23 @@ public class NewsLearningService {
 		}
 
 		logger.info("읽기 완료 기록: userId={}, articleId={}", userId, articleId);
+
+		// 통계 업데이트 및 배지 체크
+		List<UserBadge> newBadges = new ArrayList<>();
+		try {
+			UserStats updatedStats = userStatsRepository.incrementNewsReadStats(userId);
+			if (updatedStats != null) {
+				newBadges = badgeService.checkAndAwardBadges(userId, updatedStats);
+				if (!newBadges.isEmpty()) {
+					logger.info("새 배지 획득: userId={}, badges={}", userId,
+							newBadges.stream().map(UserBadge::getBadgeType).toList());
+				}
+			}
+		} catch (Exception e) {
+			logger.error("통계/배지 업데이트 실패: userId={}, error={}", userId, e.getMessage());
+		}
+
+		return newBadges;
 	}
 
 	/**

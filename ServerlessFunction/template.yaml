@@ -1397,7 +1397,7 @@ Resources:
     Properties:
       FunctionName: !Sub "${AWS::StackName}-speaking-handler"
       CodeUri: .
-      Handler: com.mzc.secondproject.serverless.domain.speaking.handler.websocket.SpeakingHandler::handleRequest
+      Handler: com.mzc.secondproject.serverless.domain.speaking.handler.SpeakingHandler::handleRequest
       Description: Handle Speaking AI conversation (REST API)
       Timeout: 120
       MemorySize: 1024
@@ -1411,7 +1411,7 @@ Resources:
         - DynamoDBCrudPolicy:
             TableName: !Ref SpeakingTable
         - S3CrudPolicy:
-            BucketName: !Sub "${AWS::StackName}"
+            BucketName: !Ref ContentBucket
         - Statement:
             - Effect: Allow
               Action:
