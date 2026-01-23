@@ -1857,48 +1857,64 @@ Resources:
             RestApiId: !Ref MainApi
             Path: /news/stats
             Method: GET
+            Auth:
+              Authorizer: CognitoAuthorizer
         GetBookmarks:
           Type: Api
           Properties:
             RestApiId: !Ref MainApi
             Path: /news/bookmarks
             Method: GET
+            Auth:
+              Authorizer: CognitoAuthorizer
         GetUserWords:
           Type: Api
           Properties:
             RestApiId: !Ref MainApi
             Path: /news/words
             Method: GET
+            Auth:
+              Authorizer: CognitoAuthorizer
         SyncWordToVocab:
           Type: Api
           Properties:
             RestApiId: !Ref MainApi
             Path: /news/words/{word}/sync
             Method: POST
+            Auth:
+              Authorizer: CognitoAuthorizer
         CollectWord:
           Type: Api
           Properties:
             RestApiId: !Ref MainApi
             Path: /news/{articleId}/words
             Method: POST
+            Auth:
+              Authorizer: CognitoAuthorizer
         DeleteWord:
           Type: Api
           Properties:
             RestApiId: !Ref MainApi
             Path: /news/{articleId}/words/{word}
             Method: DELETE
+            Auth:
+              Authorizer: CognitoAuthorizer
         GetWordDetail:
           Type: Api
           Properties:
             RestApiId: !Ref MainApi
             Path: /news/{articleId}/words/{word}
             Method: GET
+            Auth:
+              Authorizer: CognitoAuthorizer
         GetQuizHistory:
           Type: Api
           Properties:
             RestApiId: !Ref MainApi
             Path: /news/quiz/history
             Method: GET
+            Auth:
+              Authorizer: CognitoAuthorizer
         GetQuiz:
           Type: Api
           Properties:
@@ -1911,24 +1927,32 @@ Resources:
             RestApiId: !Ref MainApi
             Path: /news/{articleId}/quiz
             Method: POST
+            Auth:
+              Authorizer: CognitoAuthorizer
         MarkAsRead:
           Type: Api
           Properties:
             RestApiId: !Ref MainApi
             Path: /news/{articleId}/read
             Method: POST
+            Auth:
+              Authorizer: CognitoAuthorizer
         ToggleBookmark:
           Type: Api
           Properties:
             RestApiId: !Ref MainApi
             Path: /news/{articleId}/bookmark
             Method: POST
+            Auth:
+              Authorizer: CognitoAuthorizer
         GetAudio:
           Type: Api
           Properties:
             RestApiId: !Ref MainApi
             Path: /news/{articleId}/audio
             Method: GET
+            Auth:
+              Authorizer: CognitoAuthorizer
         GetNewsDetail:
           Type: Api
           Properties:

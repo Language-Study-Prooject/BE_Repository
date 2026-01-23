@@ -58,11 +58,7 @@ public class NewsAnalysisService {
 			article.setCefrLevel(cefrLevel);
 			article.setLevel(mapCefrToLevel(cefrLevel));
 
-			// 2. 핵심 단어 추출 (Comprehend)
-			List<KeywordInfo> keywords = extractKeywords(content);
-			article.setKeywords(keywords);
-
-			// 3. 3줄 요약 + 퀴즈 + 카테고리 생성 (Bedrock - 한 번에 처리)
+			// 2. 3줄 요약 + 퀴즈 + 카테고리 + 키워드 생성 (Bedrock - 한 번에 처리)
 			AnalysisResult result = generateSummaryAndQuiz(content, cefrLevel);
 			if (result.summary() != null) {
 				article.setSummary(result.summary());
@@ -71,6 +67,15 @@ public class NewsAnalysisService {
 			article.setHighlightWords(result.highlightWords());
 			if (result.category() != null) {
 				article.setCategory(result.category());
+			}
+
+			// 3. 키워드 설정 (Bedrock AI에서 추출한 키워드 사용)
+			if (result.keywords() != null && !result.keywords().isEmpty()) {
+				article.setKeywords(result.keywords());
+			} else {
+				// Bedrock 키워드 추출 실패 시 Comprehend 폴백
+				List<KeywordInfo> fallbackKeywords = extractKeywords(content);
+				article.setKeywords(fallbackKeywords);
 			}
 
 			// 4. GSI 키 설정
@@ -176,7 +181,7 @@ public class NewsAnalysisService {
 	}
 
 	/**
-	 * 요약 + 퀴즈 + 카테고리 생성 (Bedrock)
+	 * 요약 + 퀴즈 + 카테고리 + 키워드 생성 (Bedrock)
 	 */
 	private AnalysisResult generateSummaryAndQuiz(String content, String cefrLevel) {
 		String systemPrompt = """
@@ -185,6 +190,10 @@ public class NewsAnalysisService {
 				Respond in this exact JSON format:
 				{
 				  "summary": "3-line summary in English (each line separated by newline)",
+				  "keywords": [
+				    {"word": "economy", "meaning": "the system of trade and industry", "example": "The economy is growing steadily."},
+				    {"word": "policy", "meaning": "a plan of action adopted by government", "example": "The new policy affects all citizens."}
+				  ],
 				  "highlightWords": ["word1", "word2", "word3"],
 				  "category": "WORLD",
 				  "quiz": [
@@ -215,10 +224,12 @@ public class NewsAnalysisService {
 				  ]
 				}
 
-				For category, choose EXACTLY ONE from: WORLD, POLITICS, BUSINESS, TECH, SCIENCE, HEALTH, SPORTS, ENTERTAINMENT, LIFESTYLE
-				Create exactly 3 quiz questions.
-				highlightWords should contain 3-5 difficult words for learners.
-				Adjust difficulty based on CEFR level: """ + cefrLevel;
+				IMPORTANT:
+				- keywords: Extract 5-8 important vocabulary words from the article. Include word, meaning (simple definition), and example sentence from the article.
+				- highlightWords: 3-5 difficult words that learners should pay attention to (just the words, no definitions).
+				- category: Choose EXACTLY ONE from: WORLD, POLITICS, BUSINESS, TECH, SCIENCE, HEALTH, SPORTS, ENTERTAINMENT, LIFESTYLE
+				- Create exactly 3 quiz questions.
+				- Adjust difficulty based on CEFR level: """ + cefrLevel;
 
 		String userPrompt = "Create learning materials for this article:\n\n" + truncate(content, 1500);
 
@@ -227,7 +238,7 @@ public class NewsAnalysisService {
 			return parseAnalysisResult(response);
 		} catch (Exception e) {
 			logger.error("요약/퀴즈 생성 실패", e);
-			return new AnalysisResult(null, new ArrayList<>(), new ArrayList<>(), null);
+			return new AnalysisResult(null, new ArrayList<>(), new ArrayList<>(), new ArrayList<>(), null);
 		}
 	}
 
@@ -275,6 +286,19 @@ public class NewsAnalysisService {
 		String summary = json.has("summary") ? json.get("summary").getAsString() : null;
 		String category = json.has("category") ? json.get("category").getAsString().toUpperCase() : "WORLD";
 
+		// keywords 파싱
+		List<KeywordInfo> keywords = new ArrayList<>();
+		if (json.has("keywords")) {
+			json.getAsJsonArray("keywords").forEach(e -> {
+				JsonObject k = e.getAsJsonObject();
+				keywords.add(KeywordInfo.builder()
+						.word(k.has("word") ? k.get("word").getAsString() : "")
+						.meaning(k.has("meaning") ? k.get("meaning").getAsString() : "")
+						.example(k.has("example") ? k.get("example").getAsString() : "")
+						.build());
+			});
+		}
+
 		List<String> highlightWords = new ArrayList<>();
 		if (json.has("highlightWords")) {
 			json.getAsJsonArray("highlightWords").forEach(e -> highlightWords.add(e.getAsString()));
@@ -299,7 +323,7 @@ public class NewsAnalysisService {
 			});
 		}
 
-		return new AnalysisResult(summary, highlightWords, quiz, category);
+		return new AnalysisResult(summary, keywords, highlightWords, quiz, category);
 	}
 
 	private String extractJson(String response) {
@@ -321,6 +345,7 @@ public class NewsAnalysisService {
 	 */
 	private record AnalysisResult(
 			String summary,
+			List<KeywordInfo> keywords,
 			List<String> highlightWords,
 			List<QuizQuestion> quiz,
 			String category
