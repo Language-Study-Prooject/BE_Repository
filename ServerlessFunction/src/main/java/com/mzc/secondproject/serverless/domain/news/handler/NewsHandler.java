@@ -416,13 +416,19 @@ public class NewsHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
 		String word = body.get("word").getAsString();
 		String context = body.has("context") ? body.get("context").getAsString() : "";
 
-		NewsWordCollect collected = wordService.collectWord(userId, articleId, word, context);
+		NewsWordService.WordCollectResult result = wordService.collectWord(userId, articleId, word, context);
 
-		if (collected == null) {
+		if (result == null || result.wordCollect() == null) {
 			return ResponseGenerator.fail(NewsErrorCode.WORD_ALREADY_COLLECTED);
 		}
 
-		return ResponseGenerator.ok("단어 수집 성공", collected);
+		Map<String, Object> responseData = new java.util.HashMap<>();
+		responseData.put("wordCollect", result.wordCollect());
+		if (result.newBadges() != null && !result.newBadges().isEmpty()) {
+			responseData.put("newBadges", result.newBadges());
+		}
+
+		return ResponseGenerator.ok("단어 수집 성공", responseData);
 	}
 
 	/**
