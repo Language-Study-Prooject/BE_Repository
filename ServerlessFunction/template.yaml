@@ -19,6 +19,7 @@ Parameters:
 
   ExistingCognitoClientId:
     Type: String
+    Default: ""
     Description: Existing Cognito User Pool Client ID
 
 Globals:
