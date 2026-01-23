@@ -32,27 +32,25 @@ public enum BadgeType {
 	
 	// 특별
 	MASTER("학습 마스터", "모든 업적을 달성했습니다", "master.png", "ALL_BADGES", 1);
-
+	
 	private static final String BUCKET_NAME = System.getenv("BUCKET_NAME");
 	private static final String BASE_URL = getBaseUrl();
-
-	private static String getBaseUrl() {
-		String bucket = BUCKET_NAME != null ? BUCKET_NAME : "group2-englishstudy";
-		return String.format("https://%s.s3.ap-northeast-2.amazonaws.com/badges/", bucket);
-	}
-	
 	private final String name;
 	private final String description;
 	private final String imageFile;
 	private final String category;
 	private final int threshold;
-	
 	BadgeType(String name, String description, String imageFile, String category, int threshold) {
 		this.name = name;
 		this.description = description;
 		this.imageFile = imageFile;
 		this.category = category;
 		this.threshold = threshold;
+	}
+	
+	private static String getBaseUrl() {
+		String bucket = BUCKET_NAME != null ? BUCKET_NAME : "group2-englishstudy";
+		return String.format("https://%s.s3.ap-northeast-2.amazonaws.com/badges/", bucket);
 	}
 	
 	public static BadgeType fromString(String value) {

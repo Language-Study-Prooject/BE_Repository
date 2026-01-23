@@ -60,10 +60,10 @@ public class UserHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
 			String userId // cognitoSub
 	) {
 		User user = userService.getProfile(userId, request);
-
+		
 		// profileUrl을 Presigned URL로 변환
 		String presignedUrl = userService.getPresignedProfileUrl(user.getProfileUrl());
-
+		
 		ProfileResponse response = ProfileResponse.builder()
 				.userId(user.getCognitoSub())
 				.email(user.getEmail())

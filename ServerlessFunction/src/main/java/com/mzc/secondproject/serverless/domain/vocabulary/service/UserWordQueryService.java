@@ -39,7 +39,7 @@ public class UserWordQueryService {
 	public UserWordsResult getUserWords(String userId, String status, String bookmarked,
 	                                    String incorrectOnly, String category, int limit, String cursor) {
 		PaginatedResult<UserWord> userWordPage;
-
+		
 		if ("true".equalsIgnoreCase(bookmarked)) {
 			userWordPage = userWordRepository.findBookmarkedWords(userId, limit * 3, cursor);
 		} else if ("true".equalsIgnoreCase(incorrectOnly)) {
@@ -49,9 +49,9 @@ public class UserWordQueryService {
 		} else {
 			userWordPage = userWordRepository.findByUserIdWithPagination(userId, limit * 3, cursor);
 		}
-
+		
 		List<Map<String, Object>> enrichedUserWords = enrichWithWordInfo(userWordPage.items());
-
+		
 		// 카테고리 필터링 (Word 테이블 조인 후 필터)
 		if (category != null && !category.isEmpty()) {
 			String upperCategory = category.toUpperCase();
@@ -64,7 +64,7 @@ public class UserWordQueryService {
 					.limit(limit)
 					.collect(Collectors.toList());
 		}
-
+		
 		return new UserWordsResult(enrichedUserWords, userWordPage.nextCursor(), userWordPage.hasMore());
 	}
 	

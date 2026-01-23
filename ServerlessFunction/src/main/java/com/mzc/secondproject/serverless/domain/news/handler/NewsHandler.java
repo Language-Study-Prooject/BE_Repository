@@ -4,6 +4,9 @@ import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.lambda.runtime.RequestHandler;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyRequestEvent;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyResponseEvent;
+import com.google.gson.Gson;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
 import com.mzc.secondproject.serverless.common.dto.PaginatedResult;
 import com.mzc.secondproject.serverless.common.router.HandlerRouter;
 import com.mzc.secondproject.serverless.common.router.Route;
@@ -13,14 +16,10 @@ import com.mzc.secondproject.serverless.domain.news.exception.NewsErrorCode;
 import com.mzc.secondproject.serverless.domain.news.model.NewsArticle;
 import com.mzc.secondproject.serverless.domain.news.model.NewsQuizResult;
 import com.mzc.secondproject.serverless.domain.news.model.NewsWordCollect;
-import com.mzc.secondproject.serverless.domain.news.model.UserNewsRecord;
 import com.mzc.secondproject.serverless.domain.news.service.NewsLearningService;
 import com.mzc.secondproject.serverless.domain.news.service.NewsQueryService;
 import com.mzc.secondproject.serverless.domain.news.service.NewsQuizService;
 import com.mzc.secondproject.serverless.domain.news.service.NewsWordService;
-import com.google.gson.Gson;
-import com.google.gson.JsonArray;
-import com.google.gson.JsonObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -33,31 +32,31 @@ import java.util.Optional;
  * 뉴스 학습 API 핸들러
  */
 public class NewsHandler implements RequestHandler<APIGatewayProxyRequestEvent, APIGatewayProxyResponseEvent> {
-
+	
 	private static final Logger logger = LoggerFactory.getLogger(NewsHandler.class);
 	private static final int DEFAULT_LIMIT = 10;
 	private static final int MAX_LIMIT = 50;
 	private static final Gson gson = new Gson();
-
+	
 	private final NewsQueryService queryService;
 	private final NewsLearningService learningService;
 	private final NewsQuizService quizService;
 	private final NewsWordService wordService;
 	private final HandlerRouter router;
-
+	
 	public NewsHandler() {
 		this(new NewsQueryService(), new NewsLearningService(), new NewsQuizService(), new NewsWordService());
 	}
-
+	
 	public NewsHandler(NewsQueryService queryService, NewsLearningService learningService,
-					   NewsQuizService quizService, NewsWordService wordService) {
+	                   NewsQuizService quizService, NewsWordService wordService) {
 		this.queryService = queryService;
 		this.learningService = learningService;
 		this.quizService = quizService;
 		this.wordService = wordService;
 		this.router = initRouter();
 	}
-
+	
 	private HandlerRouter initRouter() {
 		return new HandlerRouter().addRoutes(
 				Route.get("/news/today", this::getTodayNews),
@@ -79,13 +78,13 @@ public class NewsHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
 				Route.get("/news", this::getNewsList)
 		);
 	}
-
+	
 	@Override
 	public APIGatewayProxyResponseEvent handleRequest(APIGatewayProxyRequestEvent request, Context context) {
 		logger.info("News API 요청: {} {}", request.getHttpMethod(), request.getPath());
 		return router.route(request);
 	}
-
+	
 	/**
 	 * 뉴스 목록 조회 (필터링 지원)
 	 * GET /news?level=INTERMEDIATE&category=TECH&limit=10&cursor=xxx
@@ -93,14 +92,14 @@ public class NewsHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
 	private APIGatewayProxyResponseEvent getNewsList(APIGatewayProxyRequestEvent request) {
 		Map<String, String> params = request.getQueryStringParameters();
 		if (params == null) params = new HashMap<>();
-
+		
 		String level = params.get("level");
 		String category = params.get("category");
 		String cursor = params.get("cursor");
 		int limit = parseLimit(params.get("limit"));
-
+		
 		PaginatedResult<NewsArticle> result;
-
+		
 		if (level != null && category != null) {
 			result = queryService.getNewsByLevelAndCategory(level.toUpperCase(), category.toUpperCase(), limit, cursor);
 		} else if (level != null) {
@@ -110,10 +109,10 @@ public class NewsHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
 		} else {
 			result = queryService.getTodayNews(limit, cursor);
 		}
-
+		
 		return buildPaginatedResponse(result, getUserId(request));
 	}
-
+	
 	/**
 	 * 오늘의 뉴스 조회
 	 * GET /news/today?limit=10&cursor=xxx
@@ -121,14 +120,14 @@ public class NewsHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
 	private APIGatewayProxyResponseEvent getTodayNews(APIGatewayProxyRequestEvent request) {
 		Map<String, String> params = request.getQueryStringParameters();
 		if (params == null) params = new HashMap<>();
-
+		
 		String cursor = params.get("cursor");
 		int limit = parseLimit(params.get("limit"));
-
+		
 		PaginatedResult<NewsArticle> result = queryService.getTodayNews(limit, cursor);
 		return buildPaginatedResponse(result, getUserId(request));
 	}
-
+	
 	/**
 	 * 내 레벨 맞춤 뉴스 추천
 	 * GET /news/recommended?limit=10&cursor=xxx
@@ -136,33 +135,33 @@ public class NewsHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
 	private APIGatewayProxyResponseEvent getRecommendedNews(APIGatewayProxyRequestEvent request) {
 		Map<String, String> params = request.getQueryStringParameters();
 		if (params == null) params = new HashMap<>();
-
+		
 		// 사용자 레벨 조회 (Cognito 토큰에서)
 		String userLevel = getUserLevel(request);
 		String cursor = params.get("cursor");
 		int limit = parseLimit(params.get("limit"));
-
+		
 		PaginatedResult<NewsArticle> result = queryService.getRecommendedNews(userLevel, limit, cursor);
 		return buildPaginatedResponse(result, getUserId(request));
 	}
-
+	
 	/**
 	 * 뉴스 상세 조회
 	 * GET /news/{articleId}
 	 */
 	private APIGatewayProxyResponseEvent getNewsDetail(APIGatewayProxyRequestEvent request) {
 		String articleId = request.getPathParameters().get("articleId");
-
+		
 		Optional<NewsArticle> article = queryService.getArticle(articleId);
 		if (article.isEmpty()) {
 			return ResponseGenerator.fail(NewsErrorCode.ARTICLE_NOT_FOUND);
 		}
-
+		
 		// 로그인한 사용자의 경우 북마크/읽기 상태 추가
 		String userId = getUserId(request);
 		Map<String, Object> response = new HashMap<>();
 		response.put("article", article.get());
-
+		
 		if (userId != null) {
 			response.put("isBookmarked", learningService.isBookmarked(userId, articleId));
 			response.put("isRead", learningService.hasRead(userId, articleId));
@@ -170,24 +169,24 @@ public class NewsHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
 			response.put("isBookmarked", false);
 			response.put("isRead", false);
 		}
-
+		
 		return ResponseGenerator.ok("뉴스 조회 성공", response);
 	}
-
+	
 	/**
 	 * 페이지네이션 응답 생성
 	 */
 	private APIGatewayProxyResponseEvent buildPaginatedResponse(PaginatedResult<NewsArticle> result) {
 		return buildPaginatedResponse(result, null);
 	}
-
+	
 	/**
 	 * 페이지네이션 응답 생성 (북마크 상태 포함)
 	 */
 	private APIGatewayProxyResponseEvent buildPaginatedResponse(PaginatedResult<NewsArticle> result, String userId) {
 		List<Map<String, Object>> articlesWithStatus = new java.util.ArrayList<>();
 		java.util.Set<String> bookmarkedIds = java.util.Collections.emptySet();
-
+		
 		// 로그인한 사용자의 경우 북마크 상태 조회
 		if (userId != null && !result.items().isEmpty()) {
 			List<String> articleIds = result.items().stream()
@@ -195,7 +194,7 @@ public class NewsHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
 					.toList();
 			bookmarkedIds = learningService.getBookmarkedArticleIds(userId, articleIds);
 		}
-
+		
 		for (NewsArticle article : result.items()) {
 			Map<String, Object> articleWithStatus = new HashMap<>();
 			articleWithStatus.put("articleId", article.getArticleId());
@@ -213,16 +212,16 @@ public class NewsHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
 			articleWithStatus.put("isBookmarked", bookmarkedIds.contains(article.getArticleId()));
 			articlesWithStatus.add(articleWithStatus);
 		}
-
+		
 		Map<String, Object> response = new HashMap<>();
 		response.put("articles", articlesWithStatus);
 		response.put("nextCursor", result.nextCursor());
 		response.put("hasMore", result.hasMore());
 		response.put("count", result.items().size());
-
+		
 		return ResponseGenerator.ok("뉴스 목록 조회 성공", response);
 	}
-
+	
 	/**
 	 * limit 파싱
 	 */
@@ -235,7 +234,7 @@ public class NewsHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
 			return DEFAULT_LIMIT;
 		}
 	}
-
+	
 	/**
 	 * 사용자 레벨 조회
 	 */
@@ -243,7 +242,7 @@ public class NewsHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
 		return CognitoUtil.extractClaim(request, "custom:level")
 				.orElse("INTERMEDIATE");
 	}
-
+	
 	/**
 	 * 사용자 ID 추출
 	 */
@@ -251,7 +250,7 @@ public class NewsHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
 		return CognitoUtil.extractClaim(request, "sub")
 				.orElse(null);
 	}
-
+	
 	/**
 	 * 뉴스 학습 통계 조회
 	 * GET /news/stats
@@ -261,11 +260,11 @@ public class NewsHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
 		if (userId == null) {
 			return ResponseGenerator.fail(NewsErrorCode.UNAUTHORIZED);
 		}
-
+		
 		Map<String, Object> stats = learningService.getUserStats(userId);
 		return ResponseGenerator.ok("뉴스 학습 통계 조회 성공", stats);
 	}
-
+	
 	/**
 	 * 북마크 목록 조회
 	 * GET /news/bookmarks?limit=10
@@ -275,20 +274,20 @@ public class NewsHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
 		if (userId == null) {
 			return ResponseGenerator.fail(NewsErrorCode.UNAUTHORIZED);
 		}
-
+		
 		Map<String, String> params = request.getQueryStringParameters();
 		if (params == null) params = new HashMap<>();
-
+		
 		int limit = parseLimit(params.get("limit"));
-		List<UserNewsRecord> bookmarks = learningService.getUserBookmarks(userId, limit);
-
+		List<Map<String, Object>> bookmarks = learningService.getUserBookmarks(userId, limit);
+		
 		Map<String, Object> response = new HashMap<>();
 		response.put("bookmarks", bookmarks);
 		response.put("count", bookmarks.size());
-
+		
 		return ResponseGenerator.ok("북마크 목록 조회 성공", response);
 	}
-
+	
 	/**
 	 * 뉴스 읽기 완료 기록
 	 * POST /news/{articleId}/read
@@ -298,13 +297,13 @@ public class NewsHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
 		if (userId == null) {
 			return ResponseGenerator.fail(NewsErrorCode.UNAUTHORIZED);
 		}
-
+		
 		String articleId = request.getPathParameters().get("articleId");
 		learningService.markAsRead(userId, articleId);
-
+		
 		return ResponseGenerator.ok("읽기 완료 기록 성공", Map.of("articleId", articleId));
 	}
-
+	
 	/**
 	 * 북마크 토글
 	 * POST /news/{articleId}/bookmark
@@ -314,34 +313,34 @@ public class NewsHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
 		if (userId == null) {
 			return ResponseGenerator.fail(NewsErrorCode.UNAUTHORIZED);
 		}
-
+		
 		String articleId = request.getPathParameters().get("articleId");
 		boolean isBookmarked = learningService.toggleBookmark(userId, articleId);
-
+		
 		return ResponseGenerator.ok(
 				isBookmarked ? "북마크 추가 성공" : "북마크 해제 성공",
 				Map.of("articleId", articleId, "bookmarked", isBookmarked)
 		);
 	}
-
+	
 	/**
 	 * 뉴스 TTS 오디오 URL 조회
 	 * GET /news/{articleId}/audio?voice=Joanna
 	 */
 	private APIGatewayProxyResponseEvent getAudio(APIGatewayProxyRequestEvent request) {
 		String articleId = request.getPathParameters().get("articleId");
-
+		
 		Map<String, String> params = request.getQueryStringParameters();
 		String voice = (params != null) ? params.getOrDefault("voice", "Joanna") : "Joanna";
-
+		
 		String audioUrl = learningService.getAudioUrl(articleId, voice);
 		if (audioUrl == null) {
 			return ResponseGenerator.fail(NewsErrorCode.ARTICLE_NOT_FOUND);
 		}
-
+		
 		return ResponseGenerator.ok("TTS 오디오 URL 조회 성공", Map.of("audioUrl", audioUrl));
 	}
-
+	
 	/**
 	 * 퀴즈 조회
 	 * GET /news/{articleId}/quiz
@@ -351,17 +350,17 @@ public class NewsHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
 		if (userId == null) {
 			return ResponseGenerator.fail(NewsErrorCode.UNAUTHORIZED);
 		}
-
+		
 		String articleId = request.getPathParameters().get("articleId");
 		Optional<NewsQuizService.QuizData> quizData = quizService.getQuiz(articleId, userId);
-
+		
 		if (quizData.isEmpty()) {
 			return ResponseGenerator.fail(NewsErrorCode.QUIZ_NOT_FOUND);
 		}
-
+		
 		return ResponseGenerator.ok("퀴즈 조회 성공", quizData.get());
 	}
-
+	
 	/**
 	 * 퀴즈 제출
 	 * POST /news/{articleId}/quiz
@@ -371,14 +370,14 @@ public class NewsHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
 		if (userId == null) {
 			return ResponseGenerator.fail(NewsErrorCode.UNAUTHORIZED);
 		}
-
+		
 		String articleId = request.getPathParameters().get("articleId");
-
+		
 		// 요청 바디 파싱
 		JsonObject body = gson.fromJson(request.getBody(), JsonObject.class);
 		JsonArray answersArray = body.getAsJsonArray("answers");
 		Integer timeTaken = body.has("timeTaken") ? body.get("timeTaken").getAsInt() : null;
-
+		
 		List<NewsQuizService.QuizAnswer> answers = new java.util.ArrayList<>();
 		if (answersArray != null) {
 			answersArray.forEach(e -> {
@@ -389,16 +388,16 @@ public class NewsHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
 				));
 			});
 		}
-
+		
 		NewsQuizService.QuizSubmitResult result = quizService.submitQuiz(userId, articleId, answers, timeTaken);
-
+		
 		if (result == null) {
 			return ResponseGenerator.fail(NewsErrorCode.QUIZ_ALREADY_SUBMITTED);
 		}
-
+		
 		return ResponseGenerator.ok("퀴즈 제출 성공", result);
 	}
-
+	
 	/**
 	 * 퀴즈 기록 조회
 	 * GET /news/quiz/history?limit=10
@@ -408,22 +407,22 @@ public class NewsHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
 		if (userId == null) {
 			return ResponseGenerator.fail(NewsErrorCode.UNAUTHORIZED);
 		}
-
+		
 		Map<String, String> params = request.getQueryStringParameters();
 		if (params == null) params = new HashMap<>();
-
+		
 		int limit = parseLimit(params.get("limit"));
 		List<NewsQuizResult> history = quizService.getUserQuizHistory(userId, limit);
 		Map<String, Object> quizStats = quizService.getUserQuizStats(userId);
-
+		
 		Map<String, Object> response = new HashMap<>();
 		response.put("history", history);
 		response.put("stats", quizStats);
 		response.put("count", history.size());
-
+		
 		return ResponseGenerator.ok("퀴즈 기록 조회 성공", response);
 	}
-
+	
 	/**
 	 * 수집 단어 목록 조회
 	 * GET /news/words?limit=10
@@ -433,22 +432,22 @@ public class NewsHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
 		if (userId == null) {
 			return ResponseGenerator.fail(NewsErrorCode.UNAUTHORIZED);
 		}
-
+		
 		Map<String, String> params = request.getQueryStringParameters();
 		if (params == null) params = new HashMap<>();
-
+		
 		int limit = parseLimit(params.get("limit"));
 		List<NewsWordCollect> words = wordService.getUserWords(userId, limit);
 		Map<String, Object> stats = wordService.getUserWordStats(userId);
-
+		
 		Map<String, Object> response = new HashMap<>();
 		response.put("words", words);
 		response.put("stats", stats);
 		response.put("count", words.size());
-
+		
 		return ResponseGenerator.ok("수집 단어 목록 조회 성공", response);
 	}
-
+	
 	/**
 	 * 단어 수집
 	 * POST /news/{articleId}/words
@@ -458,22 +457,22 @@ public class NewsHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
 		if (userId == null) {
 			return ResponseGenerator.fail(NewsErrorCode.UNAUTHORIZED);
 		}
-
+		
 		String articleId = request.getPathParameters().get("articleId");
-
+		
 		JsonObject body = gson.fromJson(request.getBody(), JsonObject.class);
 		String word = body.get("word").getAsString();
 		String context = body.has("context") ? body.get("context").getAsString() : "";
-
+		
 		NewsWordCollect collected = wordService.collectWord(userId, articleId, word, context);
-
+		
 		if (collected == null) {
 			return ResponseGenerator.fail(NewsErrorCode.WORD_ALREADY_COLLECTED);
 		}
-
+		
 		return ResponseGenerator.ok("단어 수집 성공", collected);
 	}
-
+	
 	/**
 	 * 단어 삭제
 	 * DELETE /news/{articleId}/words/{word}
@@ -483,31 +482,31 @@ public class NewsHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
 		if (userId == null) {
 			return ResponseGenerator.fail(NewsErrorCode.UNAUTHORIZED);
 		}
-
+		
 		String articleId = request.getPathParameters().get("articleId");
 		String word = request.getPathParameters().get("word");
-
+		
 		wordService.deleteWord(userId, word, articleId);
-
+		
 		return ResponseGenerator.ok("단어 삭제 성공", Map.of("word", word));
 	}
-
+	
 	/**
 	 * 단어 상세 정보 조회
 	 * GET /news/{articleId}/words/{word}
 	 */
 	private APIGatewayProxyResponseEvent getWordDetail(APIGatewayProxyRequestEvent request) {
 		String word = request.getPathParameters().get("word");
-
+		
 		Optional<NewsWordService.WordDetail> detail = wordService.getWordDetail(word);
-
+		
 		if (detail.isEmpty()) {
 			return ResponseGenerator.fail(NewsErrorCode.WORD_NOT_COLLECTED);
 		}
-
+		
 		return ResponseGenerator.ok("단어 상세 조회 성공", detail.get());
 	}
-
+	
 	/**
 	 * 단어 Vocabulary 연동
 	 * POST /news/words/{word}/sync
@@ -517,18 +516,18 @@ public class NewsHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
 		if (userId == null) {
 			return ResponseGenerator.fail(NewsErrorCode.UNAUTHORIZED);
 		}
-
+		
 		String word = request.getPathParameters().get("word");
-
+		
 		JsonObject body = gson.fromJson(request.getBody(), JsonObject.class);
 		String articleId = body.get("articleId").getAsString();
-
+		
 		boolean synced = wordService.syncToVocabulary(userId, word, articleId);
-
+		
 		if (!synced) {
 			return ResponseGenerator.fail(NewsErrorCode.WORD_NOT_COLLECTED);
 		}
-
+		
 		return ResponseGenerator.ok("Vocabulary 연동 성공", Map.of("word", word, "synced", true));
 	}
 }

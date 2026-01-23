@@ -32,8 +32,8 @@ public class User {
 	private String updatedAt;
 	private String lastLoginAt;
 	private Long ttl;
-
-
+	
+	
 	/**
 	 * 신규 사용자 생성
 	 * - Lazy Registration 적용: 최초 프로필 조회 시 DynamoDB에 저장
@@ -116,12 +116,12 @@ public class User {
 		this.profileUrl = newProfileUrl;
 		this.updatedAt = Instant.now().toString();
 	}
-
+	
 	@DynamoDbIgnore
 	public String getProfileUrlForResponse() {
 		return profileUrlForResponse != null ? profileUrlForResponse : profileUrl;
 	}
-
+	
 	public void updateLastLoginAt() {
 		this.lastLoginAt = Instant.now().toString();
 	}

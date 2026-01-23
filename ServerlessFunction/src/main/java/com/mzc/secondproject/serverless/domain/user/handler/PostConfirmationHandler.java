@@ -21,16 +21,15 @@ public class PostConfirmationHandler implements RequestHandler<CognitoUserPoolPo
 	private static final Logger logger = LoggerFactory.getLogger(PostConfirmationHandler.class);
 	private static final String BUCKET_NAME = System.getenv("BUCKET_NAME");
 	private static final String DEFAULT_PROFILE_URL = getDefaultProfileUrl();
-
-	private static String getDefaultProfileUrl() {
-		String bucket = BUCKET_NAME != null ? BUCKET_NAME : "group2-englishstudy";
-		return String.format("https://%s.s3.amazonaws.com/profile/default.png", bucket);
-	}
-	
 	private final UserRepository userRepository;
 	
 	public PostConfirmationHandler() {
 		this.userRepository = new UserRepository();
+	}
+	
+	private static String getDefaultProfileUrl() {
+		String bucket = BUCKET_NAME != null ? BUCKET_NAME : "group2-englishstudy";
+		return String.format("https://%s.s3.amazonaws.com/profile/default.png", bucket);
 	}
 	
 	@Override
