@@ -17,6 +17,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * 뉴스 학습 부가 기능 서비스
@@ -63,6 +64,12 @@ public class NewsLearningService {
 			return new ArrayList<>();
 		}
 
+		// 이미 읽은 기사인지 확인 (중복 조회수 증가 방지)
+		if (userNewsRepository.hasRead(userId, articleId)) {
+			logger.debug("이미 읽은 기사: userId={}, articleId={}", userId, articleId);
+			return new ArrayList<>();
+		}
+
 		NewsArticle a = article.get();
 		userNewsRepository.saveReadRecord(
 				userId,
@@ -72,7 +79,7 @@ public class NewsLearningService {
 				a.getCategory()
 		);
 
-		// 조회수 증가
+		// 조회수 증가 (새로운 읽기만)
 		String date = extractDateFromPk(a.getPk());
 		if (date != null) {
 			articleRepository.incrementReadCount(date, articleId);
@@ -133,6 +140,20 @@ public class NewsLearningService {
 	 */
 	public boolean isBookmarked(String userId, String articleId) {
 		return userNewsRepository.isBookmarked(userId, articleId);
+	}
+
+	/**
+	 * 읽기 여부 확인
+	 */
+	public boolean hasRead(String userId, String articleId) {
+		return userNewsRepository.hasRead(userId, articleId);
+	}
+
+	/**
+	 * 여러 기사의 북마크 여부 확인 (배치)
+	 */
+	public Set<String> getBookmarkedArticleIds(String userId, List<String> articleIds) {
+		return userNewsRepository.getBookmarkedArticleIds(userId, articleIds);
 	}
 
 	/**
