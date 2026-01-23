@@ -15,7 +15,18 @@ public final class EnvConfig {
 	private EnvConfig() {
 		// 유틸리티 클래스 - 인스턴스화 방지
 	}
-	
+
+	/**
+	 * 선택적 환경 변수를 가져옵니다.
+	 * 환경 변수가 설정되지 않은 경우 null을 반환합니다.
+	 *
+	 * @param name 환경 변수 이름
+	 * @return 환경 변수 값 또는 null
+	 */
+	public static String get(String name) {
+		return System.getenv(name);
+	}
+
 	/**
 	 * 필수 환경 변수를 가져옵니다.
 	 * 환경 변수가 설정되지 않았거나 빈 문자열인 경우 IllegalStateException을 발생시킵니다.
