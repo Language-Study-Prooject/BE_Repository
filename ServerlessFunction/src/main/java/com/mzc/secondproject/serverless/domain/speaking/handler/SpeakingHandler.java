@@ -51,32 +51,31 @@ public class SpeakingHandler implements RequestHandler<APIGatewayProxyRequestEve
         }
 
         try {
-            // JWT 토큰 검증
-            String authHeader = event.getHeaders().get("Authorization");
-            if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-                return response(401, Map.of("error", "Authorization header is required"));
+            // 사용자 인증 정보 추출 (Cognito Authorizer -> requestContext)
+            if (event.getRequestContext() == null || event.getRequestContext().getAuthorizer() == null) {
+                logger.error("No Authorizer found in request context");
+                return response(401, Map.of("error", "Unauthorized: User context missing"));
             }
 
-            String token = authHeader.substring(7);
-            if (!JwtUtil.isValid(token)) {
-                return response(401, Map.of("error", "Invalid or expired token"));
+            Map<String, Object> authorizer = event.getRequestContext().getAuthorizer();
+            Map<String, Object> claims = (Map<String, Object>) authorizer.get("claims");
+
+            if (claims == null) {
+                return response(401, Map.of("error", "Unauthorized: Claims missing"));
             }
 
-            Optional<String> userIdOpt = JwtUtil.extractUserId(token);
-            if (userIdOpt.isEmpty()) {
-                return response(401, Map.of("error", "Invalid token"));
-            }
+            String userId = (String) claims.get("sub"); // Cognito User Pool의 고유 ID (UUID 형태)
 
-            String userId = userIdOpt.get();
+            // 요청 정보 추출
             String path = event.getPath();
             String body = event.getBody();
 
             logger.info("Processing request: path={}, userId={}", path, userId);
 
             // 라우팅
-            if (path.endsWith("/chat")) {
+            if (path != null && path.endsWith("/chat")) {
                 return handleChat(userId, body);
-            } else if (path.endsWith("/reset")) {
+            } else if (path != null && path.endsWith("/reset")) {
                 return handleReset(userId, body);
             } else {
                 return response(404, Map.of("error", "Not found"));
@@ -98,20 +97,24 @@ public class SpeakingHandler implements RequestHandler<APIGatewayProxyRequestEve
 
         JsonObject request = JsonParser.parseString(body).getAsJsonObject();
 
-        String sessionId = request.has("sessionId") ? request.get("sessionId").getAsString() : null;
-        String level = request.has("level") ? request.get("level").getAsString() : "INTERMEDIATE";
-        String audio = request.has("audio") ? request.get("audio").getAsString() : null;
-        String text = request.has("text") ? request.get("text").getAsString() : null;
+        String sessionId = request.has("sessionId") && !request.get("sessionId").isJsonNull()
+                ? request.get("sessionId").getAsString() : null;
+        String level = request.has("level") && !request.get("level").isJsonNull()
+                ? request.get("level").getAsString() : "INTERMEDIATE";
+        String audio = request.has("audio") && !request.get("audio").isJsonNull()
+                ? request.get("audio").getAsString() : null;
+        String text = request.has("text") && !request.get("text").isJsonNull()
+                ? request.get("text").getAsString() : null;
 
         SpeakingResponse result;
 
         if (audio != null && !audio.isEmpty()) {
             // 음성 입력 처리
-            logger.info("Processing voice input");
+            logger.info("Processing voice event");
             result = speakingService.processVoiceInput(sessionId, userId, audio, level);
         } else if (text != null && !text.trim().isEmpty()) {
             // 텍스트 입력 처리
-            logger.info("Processing text input: {}", text);
+            logger.info("Processing text event: {}", text);
             result = speakingService.processTextInput(sessionId, userId, text.trim(), level);
         } else {
             return response(400, Map.of("error", "Either 'audio' or 'text' is required"));

@@ -12,12 +12,12 @@ import software.amazon.awssdk.enhanced.dynamodb.TableSchema;
 import java.util.Optional;
 
 /**
- * Speaking WebSocket 연결 정보 Repository
+ * Speaking  API 연결 정보 Repository
  */
 public class SpeakingSessionRepository {
 
     private static final Logger logger = LoggerFactory.getLogger(SpeakingSessionRepository.class);
-    private static final String TABLE_NAME = EnvConfig.getRequired("CHAT_TABLE_NAME");
+    private static final String TABLE_NAME = EnvConfig.getRequired("SPEAKING_TABLE_NAME");
 
     private final DynamoDbTable<SpeakingSession> table;
 

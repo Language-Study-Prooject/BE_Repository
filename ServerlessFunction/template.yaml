@@ -37,6 +37,7 @@ Globals:
         VOCAB_TABLE_NAME: !Ref VocabTable
         OPIC_TABLE_NAME: !Ref OPIcTable
         NEWS_TABLE_NAME: !Ref NewsTable
+        SPEAKING_TABLE_NAME: !Ref SpeakingTable
         BUCKET_NAME: !Sub "${AWS::StackName}"
         CHAT_BUCKET_NAME: !Sub "${AWS::StackName}"
         VOCAB_BUCKET_NAME: !Sub "${AWS::StackName}"
@@ -1496,6 +1497,47 @@ Resources:
               Authorizer: CognitoAuthorizer
 
   #############################################
+  # Speaking Lambda Functions
+  #############################################
+
+  SpeakingFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-speaking-handler"
+      CodeUri: .
+      Handler: com.mzc.secondproject.serverless.domain.speaking.handler.SpeakingHandler::handleRequest
+      Description: Handle speaking chat API
+      SnapStart:
+        ApplyOn: PublishedVersions
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref SpeakingTable
+        - S3CrudPolicy:
+            BucketName: !Sub "${AWS::StackName}"
+        - Statement:
+            - Effect: Allow
+              Action:
+                - bedrock:InvokeModel
+              Resource: "*"
+      Events:
+        SpeakingChat:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /speaking/chat
+            Method: POST
+            Auth:
+              Authorizer: CognitoAuthorizer
+        SpeakingReset:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /speaking/reset
+            Method: POST
+            Auth:
+              Authorizer: CognitoAuthorizer
+
+  #############################################
   # DynamoDB Tables
   #############################################
 
@@ -1874,6 +1916,38 @@ Resources:
         AttributeName: ttl
         Enabled: true
 
+  SpeakingTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub "${AWS::StackName}-speaking"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: PK
+          AttributeType: S
+        - AttributeName: SK
+          AttributeType: S
+        - AttributeName: GSI1PK
+          AttributeType: S
+        - AttributeName: GSI1SK
+          AttributeType: S
+      KeySchema:
+        - AttributeName: PK
+          KeyType: HASH
+        - AttributeName: SK
+          KeyType: RANGE
+      GlobalSecondaryIndexes:
+        - IndexName: GSI1
+          KeySchema:
+            - AttributeName: GSI1PK
+              KeyType: HASH
+            - AttributeName: GSI1SK
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+
   #############################################
   # S3 Bucket for Content Storage
   #############################################
@@ -2017,3 +2091,7 @@ Outputs:
   OPIcTableName:
     Description: OPIc DynamoDB Table Name
     Value: !Ref OPIcTable
+
+  SpeakingTableName:
+    Description: Speaking DynamoDB Table Name
+    Value: !Ref SpeakingTable
