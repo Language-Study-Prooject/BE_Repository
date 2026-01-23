@@ -72,8 +72,9 @@ public class NewsArticleRepository {
 	 */
 	public Optional<NewsArticle> findById(String articleId) {
 		Expression filterExpression = Expression.builder()
-				.expression("articleId = :articleId")
+				.expression("articleId = :articleId AND begins_with(SK, :skPrefix)")
 				.putExpressionValue(":articleId", AttributeValue.builder().s(articleId).build())
+				.putExpressionValue(":skPrefix", AttributeValue.builder().s("ARTICLE#").build())
 				.build();
 
 		ScanEnhancedRequest request = ScanEnhancedRequest.builder()
