@@ -105,7 +105,7 @@ Resources:
             Headers:
               Access-Control-Allow-Origin: "'*'"
               Access-Control-Allow-Headers: "'Content-Type,Authorization,X-Amz-Date,X-Api-Key'"
-              Access-Control-Allow-Methods: "'GET,POST,PUT,PATCH,DELETE,OPTIONS'"
+              Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
           ResponseTemplates:
             application/json: '{"message": "Unauthorized", "statusCode": 401}'
         ACCESS_DENIED:
@@ -114,7 +114,7 @@ Resources:
             Headers:
               Access-Control-Allow-Origin: "'*'"
               Access-Control-Allow-Headers: "'Content-Type,Authorization,X-Amz-Date,X-Api-Key'"
-              Access-Control-Allow-Methods: "'GET,POST,PUT,PATCH,DELETE,OPTIONS'"
+              Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
           ResponseTemplates:
             application/json: '{"message": "Access Denied", "statusCode": 403}'
         DEFAULT_4XX:
@@ -122,20 +122,20 @@ Resources:
             Headers:
               Access-Control-Allow-Origin: "'*'"
               Access-Control-Allow-Headers: "'Content-Type,Authorization,X-Amz-Date,X-Api-Key'"
-              Access-Control-Allow-Methods: "'GET,POST,PUT,PATCH,DELETE,OPTIONS'"
+              Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
         DEFAULT_5XX:
           ResponseParameters:
             Headers:
               Access-Control-Allow-Origin: "'*'"
               Access-Control-Allow-Headers: "'Content-Type,Authorization,X-Amz-Date,X-Api-Key'"
-              Access-Control-Allow-Methods: "'GET,POST,PUT,PATCH,DELETE,OPTIONS'"
+              Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
         EXPIRED_TOKEN:
           StatusCode: 401
           ResponseParameters:
             Headers:
               Access-Control-Allow-Origin: "'*'"
               Access-Control-Allow-Headers: "'Content-Type,Authorization,X-Amz-Date,X-Api-Key'"
-              Access-Control-Allow-Methods: "'GET,POST,PUT,PATCH,DELETE,OPTIONS'"
+              Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
           ResponseTemplates:
             application/json: '{"message": "Token expired", "statusCode": 401}'
       Auth:
@@ -1055,14 +1055,6 @@ Resources:
         - DynamoDBCrudPolicy:
             TableName: !Ref VocabTable
       Events:
-        GetDashboardStats:
-          Type: Api
-          Properties:
-            RestApiId: !Ref MainApi
-            Path: /stats/dashboard
-            Method: GET
-            Auth:
-              Authorizer: CognitoAuthorizer
         GetDailyStats:
           Type: Api
           Properties:
@@ -1397,63 +1389,6 @@ Resources:
             Enabled: true
 
   #############################################
-  # Speaking REST API (AI와 대화하기)
-  #############################################
-
-  SpeakingFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      FunctionName: !Sub "${AWS::StackName}-speaking-handler"
-      CodeUri: .
-      Handler: com.mzc.secondproject.serverless.domain.speaking.handler.SpeakingHandler::handleRequest
-      Description: Handle Speaking AI conversation (REST API)
-      Timeout: 120
-      MemorySize: 1024
-      SnapStart:
-        ApplyOn: PublishedVersions
-      Environment:
-        Variables:
-          SPEAKING_TABLE_NAME: !Ref SpeakingTable
-          TRANSCRIBE_API_KEY: "/opic/transcribe-proxy-api-key"
-      Policies:
-        - DynamoDBCrudPolicy:
-            TableName: !Ref SpeakingTable
-        - S3CrudPolicy:
-            BucketName: !Ref ContentBucket
-        - Statement:
-            - Effect: Allow
-              Action:
-                - bedrock:InvokeModel
-              Resource: "*"
-        - Statement:
-            - Effect: Allow
-              Action:
-                - polly:SynthesizeSpeech
-              Resource: "*"
-        - Statement:
-            - Effect: Allow
-              Action:
-                - ssm:GetParameter
-              Resource: !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/opic/*"
-      Events:
-        SpeakingChat:
-          Type: Api
-          Properties:
-            RestApiId: !Ref MainApi
-            Path: /api/speaking/chat
-            Method: POST
-            Auth:
-              Authorizer: CognitoAuthorizer
-        SpeakingReset:
-          Type: Api
-          Properties:
-            RestApiId: !Ref MainApi
-            Path: /api/speaking/reset
-            Method: POST
-            Auth:
-              Authorizer: CognitoAuthorizer
-
-  #############################################
   # OPIc Lambda Functions
   #############################################
 
@@ -1744,38 +1679,6 @@ Resources:
         AttributeName: ttl
         Enabled: true
 
-  SpeakingTable:
-    Type: AWS::DynamoDB::Table
-    Properties:
-      TableName: !Sub "${AWS::StackName}-speaking"
-      BillingMode: PAY_PER_REQUEST
-      AttributeDefinitions:
-        - AttributeName: PK
-          AttributeType: S
-        - AttributeName: SK
-          AttributeType: S
-        - AttributeName: GSI1PK
-          AttributeType: S
-        - AttributeName: GSI1SK
-          AttributeType: S
-      KeySchema:
-        - AttributeName: PK
-          KeyType: HASH
-        - AttributeName: SK
-          KeyType: RANGE
-      GlobalSecondaryIndexes:
-        - IndexName: GSI1
-          KeySchema:
-            - AttributeName: GSI1PK
-              KeyType: HASH
-            - AttributeName: GSI1SK
-              KeyType: RANGE
-          Projection:
-            ProjectionType: ALL
-      TimeToLiveSpecification:
-        AttributeName: ttl
-        Enabled: true
-
   #############################################
   # News Collection Scheduled Lambda
   #############################################
@@ -1792,16 +1695,6 @@ Resources:
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref NewsTable
-        - Statement:
-            - Effect: Allow
-              Action:
-                - bedrock:InvokeModel
-              Resource: "*"
-        - Statement:
-            - Effect: Allow
-              Action:
-                - comprehend:DetectKeyPhrases
-              Resource: "*"
       Events:
         DailySchedule:
           Type: Schedule
@@ -1857,64 +1750,48 @@ Resources:
             RestApiId: !Ref MainApi
             Path: /news/stats
             Method: GET
-            Auth:
-              Authorizer: CognitoAuthorizer
         GetBookmarks:
           Type: Api
           Properties:
             RestApiId: !Ref MainApi
             Path: /news/bookmarks
             Method: GET
-            Auth:
-              Authorizer: CognitoAuthorizer
         GetUserWords:
           Type: Api
           Properties:
             RestApiId: !Ref MainApi
             Path: /news/words
             Method: GET
-            Auth:
-              Authorizer: CognitoAuthorizer
         SyncWordToVocab:
           Type: Api
           Properties:
             RestApiId: !Ref MainApi
             Path: /news/words/{word}/sync
             Method: POST
-            Auth:
-              Authorizer: CognitoAuthorizer
         CollectWord:
           Type: Api
           Properties:
             RestApiId: !Ref MainApi
             Path: /news/{articleId}/words
             Method: POST
-            Auth:
-              Authorizer: CognitoAuthorizer
         DeleteWord:
           Type: Api
           Properties:
             RestApiId: !Ref MainApi
             Path: /news/{articleId}/words/{word}
             Method: DELETE
-            Auth:
-              Authorizer: CognitoAuthorizer
         GetWordDetail:
           Type: Api
           Properties:
             RestApiId: !Ref MainApi
             Path: /news/{articleId}/words/{word}
             Method: GET
-            Auth:
-              Authorizer: CognitoAuthorizer
         GetQuizHistory:
           Type: Api
           Properties:
             RestApiId: !Ref MainApi
             Path: /news/quiz/history
             Method: GET
-            Auth:
-              Authorizer: CognitoAuthorizer
         GetQuiz:
           Type: Api
           Properties:
@@ -1927,32 +1804,24 @@ Resources:
             RestApiId: !Ref MainApi
             Path: /news/{articleId}/quiz
             Method: POST
-            Auth:
-              Authorizer: CognitoAuthorizer
         MarkAsRead:
           Type: Api
           Properties:
             RestApiId: !Ref MainApi
             Path: /news/{articleId}/read
             Method: POST
-            Auth:
-              Authorizer: CognitoAuthorizer
         ToggleBookmark:
           Type: Api
           Properties:
             RestApiId: !Ref MainApi
             Path: /news/{articleId}/bookmark
             Method: POST
-            Auth:
-              Authorizer: CognitoAuthorizer
         GetAudio:
           Type: Api
           Properties:
             RestApiId: !Ref MainApi
             Path: /news/{articleId}/audio
             Method: GET
-            Auth:
-              Authorizer: CognitoAuthorizer
         GetNewsDetail:
           Type: Api
           Properties:
@@ -2147,7 +2016,3 @@ Outputs:
   OPIcTableName:
     Description: OPIc DynamoDB Table Name
     Value: !Ref OPIcTable
-
-  SpeakingTableName:
-    Description: Speaking DynamoDB Table Name
-    Value: !Ref SpeakingTable

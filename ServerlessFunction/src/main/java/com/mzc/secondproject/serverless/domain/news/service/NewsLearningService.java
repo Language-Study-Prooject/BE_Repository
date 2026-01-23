@@ -2,18 +2,13 @@ package com.mzc.secondproject.serverless.domain.news.service;
 
 import com.mzc.secondproject.serverless.common.config.EnvConfig;
 import com.mzc.secondproject.serverless.common.service.PollyService;
-import com.mzc.secondproject.serverless.domain.badge.model.UserBadge;
-import com.mzc.secondproject.serverless.domain.badge.service.BadgeService;
 import com.mzc.secondproject.serverless.domain.news.model.NewsArticle;
 import com.mzc.secondproject.serverless.domain.news.model.UserNewsRecord;
 import com.mzc.secondproject.serverless.domain.news.repository.NewsArticleRepository;
 import com.mzc.secondproject.serverless.domain.news.repository.UserNewsRepository;
-import com.mzc.secondproject.serverless.domain.stats.model.UserStats;
-import com.mzc.secondproject.serverless.domain.stats.repository.UserStatsRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -29,38 +24,29 @@ public class NewsLearningService {
 	private final NewsArticleRepository articleRepository;
 	private final UserNewsRepository userNewsRepository;
 	private final PollyService pollyService;
-	private final UserStatsRepository userStatsRepository;
-	private final BadgeService badgeService;
 
 	public NewsLearningService() {
 		this.articleRepository = new NewsArticleRepository();
 		this.userNewsRepository = new UserNewsRepository();
 		this.pollyService = new PollyService(BUCKET_NAME, "news/audio/");
-		this.userStatsRepository = new UserStatsRepository();
-		this.badgeService = new BadgeService();
 	}
 
 	public NewsLearningService(NewsArticleRepository articleRepository,
 							   UserNewsRepository userNewsRepository,
-							   PollyService pollyService,
-							   UserStatsRepository userStatsRepository,
-							   BadgeService badgeService) {
+							   PollyService pollyService) {
 		this.articleRepository = articleRepository;
 		this.userNewsRepository = userNewsRepository;
 		this.pollyService = pollyService;
-		this.userStatsRepository = userStatsRepository;
-		this.badgeService = badgeService;
 	}
 
 	/**
 	 * 뉴스 읽기 완료 기록
-	 * @return 새로 획득한 배지 목록
 	 */
-	public List<UserBadge> markAsRead(String userId, String articleId) {
+	public void markAsRead(String userId, String articleId) {
 		Optional<NewsArticle> article = articleRepository.findById(articleId);
 		if (article.isEmpty()) {
 			logger.warn("기사를 찾을 수 없음: {}", articleId);
-			return new ArrayList<>();
+			return;
 		}
 
 		NewsArticle a = article.get();
@@ -79,23 +65,6 @@ public class NewsLearningService {
 		}
 
 		logger.info("읽기 완료 기록: userId={}, articleId={}", userId, articleId);
-
-		// 통계 업데이트 및 배지 체크
-		List<UserBadge> newBadges = new ArrayList<>();
-		try {
-			UserStats updatedStats = userStatsRepository.incrementNewsReadStats(userId);
-			if (updatedStats != null) {
-				newBadges = badgeService.checkAndAwardBadges(userId, updatedStats);
-				if (!newBadges.isEmpty()) {
-					logger.info("새 배지 획득: userId={}, badges={}", userId,
-							newBadges.stream().map(UserBadge::getBadgeType).toList());
-				}
-			}
-		} catch (Exception e) {
-			logger.error("통계/배지 업데이트 실패: userId={}, error={}", userId, e.getMessage());
-		}
-
-		return newBadges;
 	}
 
 	/**
@@ -136,32 +105,10 @@ public class NewsLearningService {
 	}
 
 	/**
-	 * 사용자 북마크 목록 조회 (기사 정보 포함)
+	 * 사용자 북마크 목록 조회
 	 */
-	public List<Map<String, Object>> getUserBookmarks(String userId, int limit) {
-		List<UserNewsRecord> bookmarks = userNewsRepository.getUserBookmarks(userId, limit);
-		List<Map<String, Object>> result = new ArrayList<>();
-
-		for (UserNewsRecord bookmark : bookmarks) {
-			Optional<NewsArticle> articleOpt = articleRepository.findById(bookmark.getArticleId());
-			if (articleOpt.isPresent()) {
-				NewsArticle article = articleOpt.get();
-				Map<String, Object> bookmarkWithArticle = new java.util.HashMap<>();
-				bookmarkWithArticle.put("articleId", article.getArticleId());
-				bookmarkWithArticle.put("title", article.getTitle());
-				bookmarkWithArticle.put("summary", article.getSummary());
-				bookmarkWithArticle.put("source", article.getSource());
-				bookmarkWithArticle.put("publishedAt", article.getPublishedAt());
-				bookmarkWithArticle.put("keywords", article.getKeywords());
-				bookmarkWithArticle.put("highlightWords", article.getHighlightWords());
-				bookmarkWithArticle.put("category", article.getCategory());
-				bookmarkWithArticle.put("level", article.getLevel());
-				bookmarkWithArticle.put("imageUrl", article.getImageUrl());
-				bookmarkWithArticle.put("bookmarkedAt", bookmark.getCreatedAt());
-				result.add(bookmarkWithArticle);
-			}
-		}
-		return result;
+	public List<UserNewsRecord> getUserBookmarks(String userId, int limit) {
+		return userNewsRepository.getUserBookmarks(userId, limit);
 	}
 
 	/**
