@@ -1784,6 +1784,16 @@ Resources:
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref NewsTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - bedrock:InvokeModel
+              Resource: "*"
+        - Statement:
+            - Effect: Allow
+              Action:
+                - comprehend:DetectKeyPhrases
+              Resource: "*"
       Events:
         DailySchedule:
           Type: Schedule
