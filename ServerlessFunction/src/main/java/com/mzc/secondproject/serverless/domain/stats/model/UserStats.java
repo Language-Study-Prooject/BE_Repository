@@ -56,7 +56,15 @@ public class UserStats {
 	private Integer totalGameScore;     // 누적 게임 점수
 	private Integer quickGuesses;       // 5초 내 정답 횟수
 	private Integer perfectDraws;       // 전원 정답 유도 횟수
-	
+
+	// 뉴스 통계
+	private Integer newsRead;           // 읽은 뉴스 수
+	private Integer newsQuizCompleted;  // 완료한 뉴스 퀴즈 수
+	private Integer newsQuizPerfect;    // 뉴스 퀴즈 만점 횟수
+	private Integer newsWordsCollected; // 뉴스에서 수집한 단어 수
+	private Integer newsStreak;         // 뉴스 연속 읽기 일수
+	private String lastNewsReadDate;    // 마지막 뉴스 읽은 날짜
+
 	// 메타데이터
 	private String createdAt;
 	private String updatedAt;
