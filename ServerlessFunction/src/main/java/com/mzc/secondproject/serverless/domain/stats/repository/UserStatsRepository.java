@@ -311,6 +311,140 @@ public class UserStatsRepository {
 	}
 	
 	/**
+	 * 뉴스 읽기 통계 Atomic 업데이트
+	 */
+	public UserStats incrementNewsReadStats(String userId) {
+		String today = LocalDate.now().toString();
+		String pk = StatsKey.userStatsPk(userId);
+		String sk = StatsKey.statsTotalSk();
+		String now = Instant.now().toString();
+
+		// 먼저 현재 통계 조회 (streak 계산용)
+		UserStats currentStats = findTotalStats(userId).orElse(null);
+		String lastNewsReadDate = currentStats != null ? currentStats.getLastNewsReadDate() : null;
+
+		// 연속 읽기 계산
+		int currentStreak = 1;
+		if (lastNewsReadDate != null) {
+			LocalDate lastDate = LocalDate.parse(lastNewsReadDate);
+			LocalDate todayDate = LocalDate.now();
+			if (lastDate.equals(todayDate.minusDays(1))) {
+				// 어제 읽었으면 streak 증가
+				currentStreak = (currentStats.getNewsStreak() != null ? currentStats.getNewsStreak() : 0) + 1;
+			} else if (lastDate.equals(todayDate)) {
+				// 오늘 이미 읽었으면 streak 유지
+				currentStreak = currentStats.getNewsStreak() != null ? currentStats.getNewsStreak() : 1;
+			}
+			// 그 외의 경우는 streak 1로 초기화
+		}
+
+		Map<String, AttributeValue> key = new HashMap<>();
+		key.put("PK", AttributeValue.builder().s(pk).build());
+		key.put("SK", AttributeValue.builder().s(sk).build());
+
+		Map<String, AttributeValue> values = new HashMap<>();
+		values.put(":one", AttributeValue.builder().n("1").build());
+		values.put(":zero", AttributeValue.builder().n("0").build());
+		values.put(":streak", AttributeValue.builder().n(String.valueOf(currentStreak)).build());
+		values.put(":today", AttributeValue.builder().s(today).build());
+		values.put(":now", AttributeValue.builder().s(now).build());
+
+		String updateExpression = "SET " +
+				"newsRead = if_not_exists(newsRead, :zero) + :one, " +
+				"newsStreak = :streak, " +
+				"lastNewsReadDate = :today, " +
+				"updatedAt = :now, " +
+				"createdAt = if_not_exists(createdAt, :now)";
+
+		UpdateItemRequest request = UpdateItemRequest.builder()
+				.tableName(TABLE_NAME)
+				.key(key)
+				.updateExpression(updateExpression)
+				.expressionAttributeValues(values)
+				.returnValues(software.amazon.awssdk.services.dynamodb.model.ReturnValue.ALL_NEW)
+				.build();
+
+		AwsClients.dynamoDb().updateItem(request);
+		logger.info("Incremented news read stats: userId={}, streak={}", userId, currentStreak);
+
+		return findTotalStats(userId).orElse(null);
+	}
+
+	/**
+	 * 뉴스 퀴즈 통계 Atomic 업데이트
+	 */
+	public UserStats incrementNewsQuizStats(String userId, boolean isPerfect) {
+		String pk = StatsKey.userStatsPk(userId);
+		String sk = StatsKey.statsTotalSk();
+		String now = Instant.now().toString();
+
+		Map<String, AttributeValue> key = new HashMap<>();
+		key.put("PK", AttributeValue.builder().s(pk).build());
+		key.put("SK", AttributeValue.builder().s(sk).build());
+
+		Map<String, AttributeValue> values = new HashMap<>();
+		values.put(":one", AttributeValue.builder().n("1").build());
+		values.put(":zero", AttributeValue.builder().n("0").build());
+		values.put(":perfect", AttributeValue.builder().n(isPerfect ? "1" : "0").build());
+		values.put(":now", AttributeValue.builder().s(now).build());
+
+		String updateExpression = "SET " +
+				"newsQuizCompleted = if_not_exists(newsQuizCompleted, :zero) + :one, " +
+				"newsQuizPerfect = if_not_exists(newsQuizPerfect, :zero) + :perfect, " +
+				"updatedAt = :now, " +
+				"createdAt = if_not_exists(createdAt, :now)";
+
+		UpdateItemRequest request = UpdateItemRequest.builder()
+				.tableName(TABLE_NAME)
+				.key(key)
+				.updateExpression(updateExpression)
+				.expressionAttributeValues(values)
+				.returnValues(software.amazon.awssdk.services.dynamodb.model.ReturnValue.ALL_NEW)
+				.build();
+
+		AwsClients.dynamoDb().updateItem(request);
+		logger.info("Incremented news quiz stats: userId={}, isPerfect={}", userId, isPerfect);
+
+		return findTotalStats(userId).orElse(null);
+	}
+
+	/**
+	 * 뉴스 단어 수집 통계 Atomic 업데이트
+	 */
+	public UserStats incrementNewsWordStats(String userId, int wordCount) {
+		String pk = StatsKey.userStatsPk(userId);
+		String sk = StatsKey.statsTotalSk();
+		String now = Instant.now().toString();
+
+		Map<String, AttributeValue> key = new HashMap<>();
+		key.put("PK", AttributeValue.builder().s(pk).build());
+		key.put("SK", AttributeValue.builder().s(sk).build());
+
+		Map<String, AttributeValue> values = new HashMap<>();
+		values.put(":count", AttributeValue.builder().n(String.valueOf(wordCount)).build());
+		values.put(":zero", AttributeValue.builder().n("0").build());
+		values.put(":now", AttributeValue.builder().s(now).build());
+
+		String updateExpression = "SET " +
+				"newsWordsCollected = if_not_exists(newsWordsCollected, :zero) + :count, " +
+				"updatedAt = :now, " +
+				"createdAt = if_not_exists(createdAt, :now)";
+
+		UpdateItemRequest request = UpdateItemRequest.builder()
+				.tableName(TABLE_NAME)
+				.key(key)
+				.updateExpression(updateExpression)
+				.expressionAttributeValues(values)
+				.returnValues(software.amazon.awssdk.services.dynamodb.model.ReturnValue.ALL_NEW)
+				.build();
+
+		AwsClients.dynamoDb().updateItem(request);
+		logger.info("Incremented news word stats: userId={}, wordCount={}", userId, wordCount);
+
+		return findTotalStats(userId).orElse(null);
+	}
+
+	/**
 	 * 현재 연도-주차 반환 (예: 2026-W02)
 	 */
 	private String getYearWeek() {
