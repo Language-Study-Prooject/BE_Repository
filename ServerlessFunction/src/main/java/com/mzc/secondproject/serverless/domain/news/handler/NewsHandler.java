@@ -413,8 +413,12 @@ public class NewsHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
 		String articleId = request.getPathParameters().get("articleId");
 
 		JsonObject body = gson.fromJson(request.getBody(), JsonObject.class);
+		if (body == null || !body.has("word") || body.get("word").isJsonNull()) {
+			return ResponseGenerator.fail(NewsErrorCode.INVALID_REQUEST);
+		}
 		String word = body.get("word").getAsString();
-		String context = body.has("context") ? body.get("context").getAsString() : "";
+		String context = body.has("context") && !body.get("context").isJsonNull()
+				? body.get("context").getAsString() : "";
 
 		NewsWordService.WordCollectResult result = wordService.collectWord(userId, articleId, word, context);
 
