@@ -111,8 +111,8 @@ class BadgeTypeSpec extends Specification {
     }
 
     def "모든 BadgeType 개수 확인"() {
-        expect: "29개의 뱃지 타입 존재 (기본 15 + 뉴스 14)"
-        BadgeType.values().length == 29
+        expect: "15개의 뱃지 타입 존재"
+        BadgeType.values().length == 15
     }
 
     def "모든 뱃지의 imageUrl이 S3 URL 형식"() {

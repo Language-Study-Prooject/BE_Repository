@@ -135,7 +135,7 @@ public class SpeakingHandler implements RequestHandler<APIGatewayProxyRequestEve
         }
 
         JsonObject request = JsonParser.parseString(body).getAsJsonObject();
-        String sessionId = getStringOrNull(request, "sessionId");
+        String sessionId = request.has("sessionId") ? request.get("sessionId").getAsString() : null;
 
         if (sessionId == null || sessionId.isEmpty()) {
             return response(400, Map.of("error", "sessionId is required"));
@@ -148,28 +148,6 @@ public class SpeakingHandler implements RequestHandler<APIGatewayProxyRequestEve
                 "sessionId", sessionId
         ));
     }
-
-    /**
-     * JSON에서 문자열 추출 (null 또는 JsonNull이면 null 반환)
-     */
-    private String getStringOrNull(JsonObject json, String key) {
-        if (!json.has(key) || json.get(key).isJsonNull()) {
-            return null;
-        }
-        return json.get(key).getAsString();
-    }
-
-    /**
-     * JSON에서 문자열 추출 (null 또는 JsonNull이면 기본값 반환)
-     */
-    private String getStringOrDefault(JsonObject json, String key, String defaultValue) {
-        if (!json.has(key) || json.get(key).isJsonNull()) {
-            return defaultValue;
-        }
-        String value = json.get(key).getAsString();
-        return (value == null || value.isEmpty()) ? defaultValue : value;
-    }
-
 
     private APIGatewayProxyResponseEvent response(int statusCode, Map<String, Object> body) {
         return new APIGatewayProxyResponseEvent()
