@@ -7,7 +7,8 @@ public enum WordCategory {
 	BUSINESS("business", "비즈니스"),
 	ACADEMIC("academic", "학술"),
 	TRAVEL("travel", "여행"),
-	TECHNOLOGY("technology", "기술");
+	TECHNOLOGY("technology", "기술"),
+	NEWS("news", "뉴스");
 	
 	private final String code;
 	private final String displayName;
