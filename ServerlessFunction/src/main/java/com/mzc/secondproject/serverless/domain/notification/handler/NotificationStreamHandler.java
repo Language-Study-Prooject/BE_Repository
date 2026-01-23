@@ -3,8 +3,8 @@ package com.mzc.secondproject.serverless.domain.notification.handler;
 import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.lambda.runtime.RequestStreamHandler;
 import com.mzc.secondproject.serverless.common.config.AwsClients;
-import com.mzc.secondproject.serverless.common.config.EnvConfig;
 import com.mzc.secondproject.serverless.common.util.JsonUtil;
+import com.mzc.secondproject.serverless.domain.notification.config.NotificationConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import software.amazon.awssdk.services.sqs.SqsClient;
@@ -28,9 +28,6 @@ import java.util.Map;
 public class NotificationStreamHandler implements RequestStreamHandler {
 
 	private static final Logger logger = LoggerFactory.getLogger(NotificationStreamHandler.class);
-	private static final String QUEUE_URL = EnvConfig.get("NOTIFICATION_QUEUE_URL");
-	private static final int POLL_INTERVAL_MS = 1000;
-	private static final int MAX_STREAM_DURATION_MS = 840000; // 14분 (Lambda 15분 제한 고려)
 
 	private final SqsClient sqsClient;
 
@@ -52,37 +49,40 @@ public class NotificationStreamHandler implements RequestStreamHandler {
 			return;
 		}
 
-		logger.info("SSE connection started for userId: {}", userId);
+		logger.info("SSE connection started: userId={}, requestId={}", userId, context.getAwsRequestId());
 
 		try (BufferedOutputStream bufferedOutput = new BufferedOutputStream(output)) {
-			writeSSEHeaders(bufferedOutput);
-			sendHeartbeat(bufferedOutput);
+			streamNotifications(bufferedOutput, userId);
+		} catch (Exception e) {
+			logger.error("SSE stream error: userId={}", userId, e);
+		}
+	}
 
-			long startTime = System.currentTimeMillis();
+	private void streamNotifications(BufferedOutputStream output, String userId) throws IOException {
+		writeSSEHeaders(output);
+		sendHeartbeat(output);
 
-			while (!isTimeoutReached(startTime)) {
-				List<Message> messages = pollMessages(userId);
+		long startTime = System.currentTimeMillis();
 
-				for (Message message : messages) {
-					if (isMessageForUser(message, userId)) {
-						sendSSEEvent(bufferedOutput, message.body());
-						deleteMessage(message);
-					}
+		while (!isTimeoutReached(startTime)) {
+			List<Message> messages = pollMessages();
+
+			for (Message message : messages) {
+				if (isMessageForUser(message, userId)) {
+					sendSSEEvent(output, message.body());
+					deleteMessage(message);
 				}
-
-				if (messages.isEmpty()) {
-					sendHeartbeat(bufferedOutput);
-				}
-
-				sleep(POLL_INTERVAL_MS);
 			}
 
-			sendSSEEvent(bufferedOutput, "{\"type\":\"STREAM_END\",\"message\":\"Connection timeout\"}");
-			logger.info("SSE connection ended for userId: {} (timeout)", userId);
+			if (messages.isEmpty()) {
+				sendHeartbeat(output);
+			}
 
-		} catch (Exception e) {
-			logger.error("SSE stream error for userId: {}", userId, e);
+			sleep();
 		}
+
+		sendStreamEndEvent(output);
+		logger.info("SSE connection ended: userId={} (timeout)", userId);
 	}
 
 	private Map<String, Object> parseEvent(InputStream input) throws IOException {
@@ -124,7 +124,19 @@ public class NotificationStreamHandler implements RequestStreamHandler {
 	}
 
 	private void sendHeartbeat(OutputStream output) throws IOException {
-		sendSSEEvent(output, "{\"type\":\"HEARTBEAT\",\"timestamp\":" + System.currentTimeMillis() + "}");
+		String heartbeat = JsonUtil.toJson(Map.of(
+				"type", NotificationConfig.EVENT_HEARTBEAT,
+				"timestamp", System.currentTimeMillis()
+		));
+		sendSSEEvent(output, heartbeat);
+	}
+
+	private void sendStreamEndEvent(OutputStream output) throws IOException {
+		String endEvent = JsonUtil.toJson(Map.of(
+				"type", NotificationConfig.EVENT_STREAM_END,
+				"message", "Connection timeout"
+		));
+		sendSSEEvent(output, endEvent);
 	}
 
 	private void sendErrorResponse(OutputStream output, int statusCode, String message) throws IOException {
@@ -136,12 +148,16 @@ public class NotificationStreamHandler implements RequestStreamHandler {
 		output.flush();
 	}
 
-	private List<Message> pollMessages(String userId) {
+	private List<Message> pollMessages() {
+		if (!NotificationConfig.isQueueConfigured()) {
+			return List.of();
+		}
+
 		try {
 			ReceiveMessageRequest request = ReceiveMessageRequest.builder()
-					.queueUrl(QUEUE_URL)
-					.maxNumberOfMessages(10)
-					.waitTimeSeconds(1)
+					.queueUrl(NotificationConfig.queueUrl())
+					.maxNumberOfMessages(NotificationConfig.SSE_MAX_MESSAGES_PER_POLL)
+					.waitTimeSeconds(NotificationConfig.SSE_WAIT_TIME_SECONDS)
 					.messageAttributeNames("userId", "type")
 					.build();
 
@@ -165,7 +181,7 @@ public class NotificationStreamHandler implements RequestStreamHandler {
 	private void deleteMessage(Message message) {
 		try {
 			sqsClient.deleteMessage(DeleteMessageRequest.builder()
-					.queueUrl(QUEUE_URL)
+					.queueUrl(NotificationConfig.queueUrl())
 					.receiptHandle(message.receiptHandle())
 					.build());
 		} catch (Exception e) {
@@ -174,12 +190,12 @@ public class NotificationStreamHandler implements RequestStreamHandler {
 	}
 
 	private boolean isTimeoutReached(long startTime) {
-		return (System.currentTimeMillis() - startTime) > MAX_STREAM_DURATION_MS;
+		return (System.currentTimeMillis() - startTime) > NotificationConfig.SSE_MAX_DURATION_MS;
 	}
 
-	private void sleep(int millis) {
+	private void sleep() {
 		try {
-			Thread.sleep(millis);
+			Thread.sleep(NotificationConfig.SSE_POLL_INTERVAL_MS);
 		} catch (InterruptedException e) {
 			Thread.currentThread().interrupt();
 		}

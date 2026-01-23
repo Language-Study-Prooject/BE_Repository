@@ -1,5 +1,6 @@
 package com.mzc.secondproject.serverless.domain.news.service;
 
+import com.mzc.secondproject.serverless.domain.news.config.NewsConfig;
 import com.mzc.secondproject.serverless.domain.news.constants.NewsKey;
 import com.mzc.secondproject.serverless.domain.news.model.NewsArticle;
 import com.mzc.secondproject.serverless.domain.news.model.NewsQuizResult;
@@ -177,7 +178,7 @@ public class NewsQuizService {
 		);
 
 		// 피드백 생성
-		String feedback = generateFeedback(score, answerResults);
+		String feedback = generateFeedback(score);
 
 		return QuizSubmitResult.builder()
 				.score(score)
@@ -217,18 +218,8 @@ public class NewsQuizService {
 	/**
 	 * 피드백 생성
 	 */
-	private String generateFeedback(int score, List<QuizAnswerResult> results) {
-		if (score == 100) {
-			return "Perfect! You understood the article completely.";
-		} else if (score >= 80) {
-			return "Great job! You have a solid understanding of the article.";
-		} else if (score >= 60) {
-			return "Good effort! Review the highlighted words for better comprehension.";
-		} else if (score >= 40) {
-			return "Keep practicing! Try reading the article again before retaking the quiz.";
-		} else {
-			return "Don't give up! Focus on vocabulary and main ideas.";
-		}
+	private String generateFeedback(int score) {
+		return NewsConfig.getFeedbackByScore(score);
 	}
 	
 	/**

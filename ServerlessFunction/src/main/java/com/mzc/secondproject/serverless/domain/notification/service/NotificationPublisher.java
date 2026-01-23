@@ -1,8 +1,8 @@
 package com.mzc.secondproject.serverless.domain.notification.service;
 
 import com.mzc.secondproject.serverless.common.config.AwsClients;
-import com.mzc.secondproject.serverless.common.config.EnvConfig;
 import com.mzc.secondproject.serverless.common.util.JsonUtil;
+import com.mzc.secondproject.serverless.domain.notification.config.NotificationConfig;
 import com.mzc.secondproject.serverless.domain.notification.dto.NotificationMessage;
 import com.mzc.secondproject.serverless.domain.notification.enums.NotificationType;
 import org.slf4j.Logger;
@@ -30,7 +30,6 @@ import java.util.Map;
 public class NotificationPublisher {
 
 	private static final Logger logger = LoggerFactory.getLogger(NotificationPublisher.class);
-	private static final String TOPIC_ARN = EnvConfig.get("NOTIFICATION_TOPIC_ARN");
 
 	private static volatile NotificationPublisher instance;
 	private final SnsClient snsClient;
@@ -73,7 +72,7 @@ public class NotificationPublisher {
 	 * @param payload 알림 페이로드
 	 */
 	public void publish(NotificationType type, String userId, Map<String, Object> payload) {
-		if (TOPIC_ARN == null || TOPIC_ARN.isBlank()) {
+		if (!NotificationConfig.isTopicConfigured()) {
 			logger.warn("NOTIFICATION_TOPIC_ARN is not configured. Skipping notification.");
 			return;
 		}
@@ -88,7 +87,7 @@ public class NotificationPublisher {
 			String messageJson = JsonUtil.toJson(message);
 
 			PublishRequest request = PublishRequest.builder()
-					.topicArn(TOPIC_ARN)
+					.topicArn(NotificationConfig.topicArn())
 					.message(messageJson)
 					.messageAttributes(Map.of(
 							"type", MessageAttributeValue.builder()

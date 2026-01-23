@@ -23,7 +23,7 @@ import java.util.stream.Collectors;
  * EventBridge 스케줄러에 의해 매일 21시(KST)에 트리거
  * 오늘 학습하지 않은 사용자 중 연속 학습 중인 사용자에게 알림 발송
  */
-public class StreakReminderHandler implements RequestHandler<ScheduledEvent, Map<String, Object>> {
+public class StreakReminderHandler implements RequestHandler<ScheduledEvent, StreakReminderHandler.Response> {
 
 	private static final Logger logger = LoggerFactory.getLogger(StreakReminderHandler.class);
 
@@ -46,65 +46,78 @@ public class StreakReminderHandler implements RequestHandler<ScheduledEvent, Map
 	}
 
 	@Override
-	public Map<String, Object> handleRequest(ScheduledEvent event, Context context) {
-		logger.info("Streak reminder started - requestId: {}", context.getAwsRequestId());
-
-		String today = LocalDate.now().toString();
-		int remindersSent = 0;
+	public Response handleRequest(ScheduledEvent event, Context context) {
+		logger.info("Streak reminder started: requestId={}", context.getAwsRequestId());
 
 		try {
-			// 1. 오늘 학습한 사용자 목록 조회
-			List<DailyStudy> todayStudies = dailyStudyRepository.findByDate(today);
-			Set<String> studiedUserIds = todayStudies.stream()
-					.filter(ds -> Boolean.TRUE.equals(ds.getIsCompleted()))
-					.map(DailyStudy::getUserId)
-					.collect(Collectors.toSet());
-
-			// 2. 연속 학습 중인 사용자 목록 조회 (streak >= 1)
-			List<UserStats> usersWithStreak = userStatsRepository.findUsersWithActiveStreak();
-
-			// 3. 오늘 학습하지 않은 연속 학습 사용자에게 알림
-			for (UserStats stats : usersWithStreak) {
-				String userId = stats.getUserId();
-
-				if (studiedUserIds.contains(userId)) {
-					continue;
-				}
-
-				int currentStreak = stats.getCurrentStreak();
-				if (currentStreak <= 0) {
-					continue;
-				}
-
-				// 알림 발송
-				notificationPublisher.publish(
-						NotificationType.STREAK_REMINDER,
-						userId,
-						Map.of(
-								"currentStreak", currentStreak,
-								"message", String.format("%d일 연속 학습 중! 오늘도 학습해서 기록을 이어가세요.", currentStreak)
-						)
-				);
-
-				remindersSent++;
-				logger.debug("Streak reminder sent: userId={}, streak={}", userId, currentStreak);
-			}
-
-			logger.info("Streak reminder completed - sent: {}", remindersSent);
-
-			return Map.of(
-					"statusCode", 200,
-					"message", "Streak reminders sent",
-					"remindersSent", remindersSent
-			);
-
+			int remindersSent = processReminders();
+			logger.info("Streak reminder completed: sent={}", remindersSent);
+			return Response.success(remindersSent);
 		} catch (Exception e) {
 			logger.error("Streak reminder failed", e);
+			return Response.error(e.getMessage());
+		}
+	}
 
-			return Map.of(
-					"statusCode", 500,
-					"message", "Streak reminder failed: " + e.getMessage()
-			);
+	private int processReminders() {
+		String today = LocalDate.now().toString();
+
+		Set<String> studiedUserIds = findStudiedUserIds(today);
+		List<UserStats> usersWithStreak = userStatsRepository.findUsersWithActiveStreak();
+
+		int remindersSent = 0;
+		for (UserStats stats : usersWithStreak) {
+			if (shouldSendReminder(stats, studiedUserIds)) {
+				sendReminder(stats);
+				remindersSent++;
+			}
+		}
+
+		return remindersSent;
+	}
+
+	private Set<String> findStudiedUserIds(String date) {
+		return dailyStudyRepository.findByDate(date).stream()
+				.filter(ds -> Boolean.TRUE.equals(ds.getIsCompleted()))
+				.map(DailyStudy::getUserId)
+				.collect(Collectors.toSet());
+	}
+
+	private boolean shouldSendReminder(UserStats stats, Set<String> studiedUserIds) {
+		if (studiedUserIds.contains(stats.getUserId())) {
+			return false;
+		}
+		Integer streak = stats.getCurrentStreak();
+		return streak != null && streak > 0;
+	}
+
+	private void sendReminder(UserStats stats) {
+		String userId = stats.getUserId();
+		int streak = stats.getCurrentStreak();
+
+		notificationPublisher.publish(
+				NotificationType.STREAK_REMINDER,
+				userId,
+				Map.of(
+						"currentStreak", streak,
+						"message", String.format("%d일 연속 학습 중! 오늘도 학습해서 기록을 이어가세요.", streak)
+				)
+		);
+
+		logger.debug("Streak reminder sent: userId={}, streak={}", userId, streak);
+	}
+
+	/**
+	 * Lambda 응답 DTO
+	 */
+	public record Response(int statusCode, String message, int remindersSent) {
+
+		public static Response success(int remindersSent) {
+			return new Response(200, "Streak reminders sent", remindersSent);
+		}
+
+		public static Response error(String errorMessage) {
+			return new Response(500, "Streak reminder failed: " + errorMessage, 0);
 		}
 	}
 }
