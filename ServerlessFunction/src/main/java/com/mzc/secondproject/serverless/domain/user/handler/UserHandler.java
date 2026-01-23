@@ -59,9 +59,20 @@ public class UserHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
 			APIGatewayProxyRequestEvent request,
 			String userId // cognitoSub
 	) {
-		
 		User user = userService.getProfile(userId, request);
-		ProfileResponse response = ProfileResponse.from(user);
+
+		// profileUrl을 Presigned URL로 변환
+		String presignedUrl = userService.getPresignedProfileUrl(user.getProfileUrl());
+
+		ProfileResponse response = ProfileResponse.builder()
+				.userId(user.getCognitoSub())
+				.email(user.getEmail())
+				.nickname(user.getNickname())
+				.level(user.getLevel())
+				.profileUrl(presignedUrl)  // Presigned URL 사용
+				.createdAt(user.getCreatedAt())
+				.updatedAt(user.getUpdatedAt())
+				.build();
 		
 		return ResponseGenerator.ok(user.getNickname() + " 환영합니다!", response);
 	}
