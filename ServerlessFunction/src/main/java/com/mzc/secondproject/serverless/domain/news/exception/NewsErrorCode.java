@@ -8,9 +8,6 @@ import com.mzc.secondproject.serverless.common.exception.DomainErrorCode;
  */
 public enum NewsErrorCode implements DomainErrorCode {
 
-	// 일반 에러
-	INVALID_REQUEST("COMMON_001", "유효하지 않은 요청입니다", 400),
-
 	// 인증 관련 에러
 	UNAUTHORIZED("AUTH_001", "인증이 필요합니다", 401),
 
