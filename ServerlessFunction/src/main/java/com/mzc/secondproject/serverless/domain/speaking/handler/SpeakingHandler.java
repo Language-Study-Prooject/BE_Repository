@@ -135,7 +135,7 @@ public class SpeakingHandler implements RequestHandler<APIGatewayProxyRequestEve
         }
 
         JsonObject request = JsonParser.parseString(body).getAsJsonObject();
-        String sessionId = getStringOrNull(request, "sessionId");
+        String sessionId = request.has("sessionId") ? request.get("sessionId").getAsString() : null;
 
         if (sessionId == null || sessionId.isEmpty()) {
             return response(400, Map.of("error", "sessionId is required"));
