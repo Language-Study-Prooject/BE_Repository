@@ -1,14 +1,10 @@
 package com.mzc.secondproject.serverless.domain.news.service;
 
-import com.mzc.secondproject.serverless.domain.badge.model.UserBadge;
-import com.mzc.secondproject.serverless.domain.badge.service.BadgeService;
 import com.mzc.secondproject.serverless.domain.news.constants.NewsKey;
 import com.mzc.secondproject.serverless.domain.news.model.NewsArticle;
 import com.mzc.secondproject.serverless.domain.news.model.NewsWordCollect;
 import com.mzc.secondproject.serverless.domain.news.repository.NewsArticleRepository;
 import com.mzc.secondproject.serverless.domain.news.repository.NewsWordRepository;
-import com.mzc.secondproject.serverless.domain.stats.model.UserStats;
-import com.mzc.secondproject.serverless.domain.stats.repository.UserStatsRepository;
 import com.mzc.secondproject.serverless.domain.vocabulary.model.Word;
 import com.mzc.secondproject.serverless.domain.vocabulary.repository.WordRepository;
 import com.mzc.secondproject.serverless.domain.vocabulary.service.UserWordCommandService;
@@ -16,7 +12,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -32,42 +27,32 @@ public class NewsWordService {
 	private final NewsArticleRepository articleRepository;
 	private final WordRepository wordRepository;
 	private final UserWordCommandService userWordCommandService;
-	private final UserStatsRepository userStatsRepository;
-	private final BadgeService badgeService;
 
 	public NewsWordService() {
 		this.newsWordRepository = new NewsWordRepository();
 		this.articleRepository = new NewsArticleRepository();
 		this.wordRepository = new WordRepository();
 		this.userWordCommandService = new UserWordCommandService();
-		this.userStatsRepository = new UserStatsRepository();
-		this.badgeService = new BadgeService();
 	}
 
 	public NewsWordService(NewsWordRepository newsWordRepository,
 						   NewsArticleRepository articleRepository,
 						   WordRepository wordRepository,
-						   UserWordCommandService userWordCommandService,
-						   UserStatsRepository userStatsRepository,
-						   BadgeService badgeService) {
+						   UserWordCommandService userWordCommandService) {
 		this.newsWordRepository = newsWordRepository;
 		this.articleRepository = articleRepository;
 		this.wordRepository = wordRepository;
 		this.userWordCommandService = userWordCommandService;
-		this.userStatsRepository = userStatsRepository;
-		this.badgeService = badgeService;
 	}
 
 	/**
 	 * 단어 수집
-	 * @return 수집 결과 (단어 정보 + 새로 획득한 배지)
 	 */
-	public WordCollectResult collectWord(String userId, String articleId, String word, String context) {
+	public NewsWordCollect collectWord(String userId, String articleId, String word, String context) {
 		// 이미 수집했는지 확인
 		if (newsWordRepository.hasCollected(userId, word, articleId)) {
 			logger.warn("이미 수집한 단어: userId={}, word={}", userId, word);
-			NewsWordCollect existing = newsWordRepository.findByUserWordArticle(userId, word, articleId).orElse(null);
-			return new WordCollectResult(existing, new ArrayList<>());
+			return newsWordRepository.findByUserWordArticle(userId, word, articleId).orElse(null);
 		}
 
 		// 기사 조회
@@ -101,28 +86,8 @@ public class NewsWordService {
 		newsWordRepository.save(wordCollect);
 		logger.info("단어 수집 완료: userId={}, word={}, articleId={}", userId, word, articleId);
 
-		// 통계 업데이트 및 배지 체크
-		List<UserBadge> newBadges = new ArrayList<>();
-		try {
-			UserStats updatedStats = userStatsRepository.incrementNewsWordStats(userId, 1);
-			if (updatedStats != null) {
-				newBadges = badgeService.checkAndAwardBadges(userId, updatedStats);
-				if (!newBadges.isEmpty()) {
-					logger.info("새 배지 획득: userId={}, badges={}", userId,
-							newBadges.stream().map(UserBadge::getBadgeType).toList());
-				}
-			}
-		} catch (Exception e) {
-			logger.error("통계/배지 업데이트 실패: userId={}, error={}", userId, e.getMessage());
-		}
-
-		return new WordCollectResult(wordCollect, newBadges);
+		return wordCollect;
 	}
-
-	/**
-	 * 단어 수집 결과
-	 */
-	public record WordCollectResult(NewsWordCollect wordCollect, List<UserBadge> newBadges) {}
 
 	/**
 	 * 수집한 단어 삭제

@@ -231,7 +231,7 @@ public class NewsHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
 		if (params == null) params = new HashMap<>();
 
 		int limit = parseLimit(params.get("limit"));
-		List<Map<String, Object>> bookmarks = learningService.getUserBookmarks(userId, limit);
+		List<UserNewsRecord> bookmarks = learningService.getUserBookmarks(userId, limit);
 
 		Map<String, Object> response = new HashMap<>();
 		response.put("bookmarks", bookmarks);
@@ -413,26 +413,16 @@ public class NewsHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
 		String articleId = request.getPathParameters().get("articleId");
 
 		JsonObject body = gson.fromJson(request.getBody(), JsonObject.class);
-		if (body == null || !body.has("word") || body.get("word").isJsonNull()) {
-			return ResponseGenerator.fail(NewsErrorCode.INVALID_REQUEST);
-		}
 		String word = body.get("word").getAsString();
-		String context = body.has("context") && !body.get("context").isJsonNull()
-				? body.get("context").getAsString() : "";
+		String context = body.has("context") ? body.get("context").getAsString() : "";
 
-		NewsWordService.WordCollectResult result = wordService.collectWord(userId, articleId, word, context);
+		NewsWordCollect collected = wordService.collectWord(userId, articleId, word, context);
 
-		if (result == null || result.wordCollect() == null) {
+		if (collected == null) {
 			return ResponseGenerator.fail(NewsErrorCode.WORD_ALREADY_COLLECTED);
 		}
 
-		Map<String, Object> responseData = new java.util.HashMap<>();
-		responseData.put("wordCollect", result.wordCollect());
-		if (result.newBadges() != null && !result.newBadges().isEmpty()) {
-			responseData.put("newBadges", result.newBadges());
-		}
-
-		return ResponseGenerator.ok("단어 수집 성공", responseData);
+		return ResponseGenerator.ok("단어 수집 성공", collected);
 	}
 
 	/**
