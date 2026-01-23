@@ -185,14 +185,14 @@ public class NewsAnalysisService {
 	 */
 	private AnalysisResult generateSummaryAndQuiz(String content, String cefrLevel) {
 		String systemPrompt = """
-				You are an English learning assistant. Analyze the news article and create learning materials.
+				You are an English learning assistant for Korean learners. Analyze the news article and create learning materials.
 
 				Respond in this exact JSON format:
 				{
 				  "summary": "3-line summary in English (each line separated by newline)",
 				  "keywords": [
-				    {"word": "economy", "meaning": "the system of trade and industry", "example": "The economy is growing steadily."},
-				    {"word": "policy", "meaning": "a plan of action adopted by government", "example": "The new policy affects all citizens."}
+				    {"word": "economy", "meaning": "the system of trade and industry", "meaningKo": "경제", "example": "The economy is growing steadily."},
+				    {"word": "policy", "meaning": "a plan of action adopted by government", "meaningKo": "정책", "example": "The new policy affects all citizens."}
 				  ],
 				  "highlightWords": ["word1", "word2", "word3"],
 				  "category": "WORLD",
@@ -225,7 +225,11 @@ public class NewsAnalysisService {
 				}
 
 				IMPORTANT:
-				- keywords: Extract 5-8 important vocabulary words from the article. Include word, meaning (simple definition), and example sentence from the article.
+				- keywords: Extract 5-8 important vocabulary words from the article. Include:
+				  - word: the English word
+				  - meaning: simple English definition
+				  - meaningKo: Korean translation of the word (한국어 뜻)
+				  - example: example sentence from the article
 				- highlightWords: 3-5 difficult words that learners should pay attention to (just the words, no definitions).
 				- category: Choose EXACTLY ONE from: WORLD, POLITICS, BUSINESS, TECH, SCIENCE, HEALTH, SPORTS, ENTERTAINMENT, LIFESTYLE
 				- Create exactly 3 quiz questions.
@@ -294,6 +298,7 @@ public class NewsAnalysisService {
 				keywords.add(KeywordInfo.builder()
 						.word(k.has("word") ? k.get("word").getAsString() : "")
 						.meaning(k.has("meaning") ? k.get("meaning").getAsString() : "")
+						.meaningKo(k.has("meaningKo") ? k.get("meaningKo").getAsString() : "")
 						.example(k.has("example") ? k.get("example").getAsString() : "")
 						.build());
 			});
