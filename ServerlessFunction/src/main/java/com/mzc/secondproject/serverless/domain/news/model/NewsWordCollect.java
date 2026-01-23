@@ -18,12 +18,12 @@ import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.*;
 @AllArgsConstructor
 @DynamoDbBean
 public class NewsWordCollect {
-
+	
 	private String pk;          // USER#{userId}#NEWS
 	private String sk;          // WORD#{word}#{articleId}
 	private String gsi1pk;      // USER#{userId}#NEWS_WORDS
 	private String gsi1sk;      // {collectedAt}
-
+	
 	private String userId;
 	private String word;
 	private String meaning;
@@ -35,25 +35,25 @@ public class NewsWordCollect {
 	private Boolean syncedToVocab;  // Vocabulary 연동 여부
 	private String vocabUserWordId; // 연동된 UserWord ID
 	private Long ttl;
-
+	
 	@DynamoDbPartitionKey
 	@DynamoDbAttribute("PK")
 	public String getPk() {
 		return pk;
 	}
-
+	
 	@DynamoDbSortKey
 	@DynamoDbAttribute("SK")
 	public String getSk() {
 		return sk;
 	}
-
+	
 	@DynamoDbSecondaryPartitionKey(indexNames = "GSI1")
 	@DynamoDbAttribute("GSI1PK")
 	public String getGsi1pk() {
 		return gsi1pk;
 	}
-
+	
 	@DynamoDbSecondarySortKey(indexNames = "GSI1")
 	@DynamoDbAttribute("GSI1SK")
 	public String getGsi1sk() {
