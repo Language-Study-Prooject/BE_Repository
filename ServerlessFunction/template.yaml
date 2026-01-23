@@ -1389,6 +1389,35 @@ Resources:
       Principal: apigateway.amazonaws.com
       SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${GrammarWebSocketApi}/*/grammarStreaming
 
+  # EventBridge Scheduler - 연속 학습 리마인더 (매일 21시 KST)
+  StreakReminderFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-streak-reminder"
+      CodeUri: .
+      Handler: com.mzc.secondproject.serverless.domain.notification.handler.StreakReminderHandler::handleRequest
+      Description: Daily streak reminder for users who haven't studied today
+      Timeout: 120
+      MemorySize: 512
+      SnapStart:
+        ApplyOn: PublishedVersions
+      Environment:
+        Variables:
+          NOTIFICATION_TOPIC_ARN: !Ref NotificationTopic
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref VocabTable
+        - SNSPublishMessagePolicy:
+            TopicName: !GetAtt NotificationTopic.TopicName
+      Events:
+        DailySchedule:
+          Type: Schedule
+          Properties:
+            Schedule: cron(0 12 * * ? *)  # UTC 12:00 = KST 21:00
+            Name: !Sub "${AWS::StackName}-streak-reminder-schedule"
+            Description: Daily streak reminder at 21:00 KST
+            Enabled: true
+
   # EventBridge Scheduler - 매일 자정 단어 학습 통계 집계
   ScheduledStatsFunction:
     Type: AWS::Serverless::Function
