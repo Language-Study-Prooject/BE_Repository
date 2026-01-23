@@ -44,6 +44,7 @@ Globals:
         PROFILE_BUCKET_NAME: !Sub "${AWS::StackName}"
         OPIC_BUCKET_NAME: !Sub "${AWS::StackName}"
         NEWS_BUCKET_NAME: !Sub "${AWS::StackName}"
+        SPEAKING_BUCKET_NAME: !Sub "${AWS::StackName}"
         AWS_REGION_NAME: !Ref AWS::Region
         ROOM_TOKEN_TTL_SECONDS: "300"
         TRANSCRIBE_PROXY_URL: "https://tfo1zm7vec.execute-api.ap-northeast-2.amazonaws.com/prod/transcribe"
@@ -1574,6 +1575,7 @@ Resources:
             - Effect: Allow
               Action:
                 - bedrock:InvokeModel
+                - polly:SynthesizeSpeech
               Resource: "*"
       Events:
         SpeakingChat:
