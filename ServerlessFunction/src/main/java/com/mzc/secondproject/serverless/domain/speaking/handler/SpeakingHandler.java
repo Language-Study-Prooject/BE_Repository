@@ -1,4 +1,4 @@
-package com.mzc.secondproject.serverless.domain.speaking.handler.websocket;
+package com.mzc.secondproject.serverless.domain.speaking.handler;
 
 import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.lambda.runtime.RequestHandler;
@@ -9,6 +9,7 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.mzc.secondproject.serverless.common.util.JwtUtil;
+import com.mzc.secondproject.serverless.domain.speaking.dto.response.SpeakingResponse;
 import com.mzc.secondproject.serverless.domain.speaking.service.SpeakingService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -102,7 +103,7 @@ public class SpeakingHandler implements RequestHandler<APIGatewayProxyRequestEve
         String audio = request.has("audio") ? request.get("audio").getAsString() : null;
         String text = request.has("text") ? request.get("text").getAsString() : null;
 
-        SpeakingService.SpeakingResponse result;
+        SpeakingResponse result;
 
         if (audio != null && !audio.isEmpty()) {
             // 음성 입력 처리
@@ -148,32 +149,12 @@ public class SpeakingHandler implements RequestHandler<APIGatewayProxyRequestEve
         ));
     }
 
-    /**
-     * JSON에서 문자열 추출 (null 또는 JsonNull이면 null 반환)
-     */
-    private String getStringOrNull(JsonObject json, String key) {
-        if (!json.has(key) || json.get(key).isJsonNull()) {
-            return null;
-        }
-        return json.get(key).getAsString();
-    }
-
-    /**
-     * JSON에서 문자열 추출 (null 또는 JsonNull이면 기본값 반환)
-     */
-    private String getStringOrDefault(JsonObject json, String key, String defaultValue) {
-        if (!json.has(key) || json.get(key).isJsonNull()) {
-            return defaultValue;
-        }
-        String value = json.get(key).getAsString();
-        return (value == null || value.isEmpty()) ? defaultValue : value;
-    }
-
-
     private APIGatewayProxyResponseEvent response(int statusCode, Map<String, Object> body) {
         return new APIGatewayProxyResponseEvent()
                 .withStatusCode(statusCode)
                 .withHeaders(CORS_HEADERS)
                 .withBody(gson.toJson(body));
     }
+
+
 }

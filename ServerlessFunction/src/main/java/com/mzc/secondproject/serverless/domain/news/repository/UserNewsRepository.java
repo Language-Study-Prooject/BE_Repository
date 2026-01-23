@@ -146,6 +146,19 @@ public class UserNewsRepository {
 	}
 
 	/**
+	 * 여러 기사의 북마크 여부 확인 (배치)
+	 */
+	public Set<String> getBookmarkedArticleIds(String userId, List<String> articleIds) {
+		Set<String> bookmarkedIds = new HashSet<>();
+		for (String articleId : articleIds) {
+			if (isBookmarked(userId, articleId)) {
+				bookmarkedIds.add(articleId);
+			}
+		}
+		return bookmarkedIds;
+	}
+
+	/**
 	 * 사용자 뉴스 통계 조회
 	 */
 	public NewsStats getUserStats(String userId) {

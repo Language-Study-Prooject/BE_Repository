@@ -24,31 +24,31 @@ import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbSortK
 @AllArgsConstructor
 @DynamoDbBean
 public class UserStats {
-	
+
 	private String pk;          // USER#{userId}#STATS
 	private String sk;          // DAILY#{date} / WEEKLY#{year}-W{week} / MONTHLY#{year}-{month} / TOTAL
-	
+
 	private String userId;
 	private String periodType;  // DAILY, WEEKLY, MONTHLY, TOTAL
 	private String period;      // 2026-01-13, 2026-W02, 2026-01, TOTAL
-	
+
 	// 테스트 통계
 	private Integer testsCompleted;     // 완료한 테스트 수
 	private Integer questionsAnswered;  // 답변한 문제 수
 	private Integer correctAnswers;     // 정답 수
 	private Integer incorrectAnswers;   // 오답 수
 	private Double successRate;         // 정답률
-	
+
 	// 학습 통계
 	private Integer newWordsLearned;    // 새로 학습한 단어 수
 	private Integer wordsReviewed;      // 복습한 단어 수
 	private Integer wordsMastered;      // 마스터한 단어 수
-	
+
 	// Streak (연속 학습)
 	private Integer currentStreak;      // 현재 연속 학습일
 	private Integer longestStreak;      // 최장 연속 학습일
 	private String lastStudyDate;       // 마지막 학습일
-	
+
 	// 게임 통계
 	private Integer gamesPlayed;        // 참여한 게임 수
 	private Integer gamesWon;           // 1등 횟수
@@ -68,13 +68,13 @@ public class UserStats {
 	// 메타데이터
 	private String createdAt;
 	private String updatedAt;
-	
+
 	@DynamoDbPartitionKey
 	@DynamoDbAttribute("PK")
 	public String getPk() {
 		return pk;
 	}
-	
+
 	@DynamoDbSortKey
 	@DynamoDbAttribute("SK")
 	public String getSk() {
