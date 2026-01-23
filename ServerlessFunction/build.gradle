@@ -35,6 +35,7 @@ dependencies {
     implementation 'software.amazon.awssdk:url-connection-client'
     implementation 'software.amazon.awssdk:ssm'
     implementation 'software.amazon.awssdk:scheduler'
+    implementation 'software.amazon.awssdk:sqs'
 
     // AWS X-Ray SDK (다운스트림 서비스 추적용)
     implementation 'com.amazonaws:aws-xray-recorder-sdk-core:2.15.0'
