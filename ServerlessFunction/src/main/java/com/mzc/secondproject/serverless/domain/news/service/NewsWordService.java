@@ -59,7 +59,7 @@ public class NewsWordService {
 	}
 
 	/**
-	 * 단어 수집
+	 * 단어 수집 (자동으로 Word 테이블 + UserWord에 추가)
 	 * @return 수집 결과 (단어 정보 + 새로 획득한 배지)
 	 */
 	public WordCollectResult collectWord(String userId, String articleId, String word, String context) {
@@ -73,12 +73,51 @@ public class NewsWordService {
 		// 기사 조회
 		Optional<NewsArticle> articleOpt = articleRepository.findById(articleId);
 		String articleTitle = articleOpt.map(NewsArticle::getTitle).orElse("");
+		String articleLevel = articleOpt.map(NewsArticle::getLevel).orElse("INTERMEDIATE");
+
+		// 기사 키워드에서 단어 정보 추출
+		String meaningKo = "";
+		String meaningEn = "";
+		String example = "";
+		if (articleOpt.isPresent() && articleOpt.get().getKeywords() != null) {
+			for (var keyword : articleOpt.get().getKeywords()) {
+				if (keyword.getWord() != null && keyword.getWord().equalsIgnoreCase(word)) {
+					meaningKo = keyword.getMeaningKo() != null ? keyword.getMeaningKo() : "";
+					meaningEn = keyword.getMeaning() != null ? keyword.getMeaning() : "";
+					example = keyword.getExample() != null ? keyword.getExample() : "";
+					break;
+				}
+			}
+		}
 
 		// 단어 정보 조회 (Word 테이블에서)
 		String wordId = word.toLowerCase().trim();
 		Optional<Word> wordOpt = wordRepository.findById(wordId);
-		String meaning = wordOpt.map(Word::getKorean).orElse("");
-		String pronunciation = "";
+		String meaning = meaningKo;
+
+		// Word 테이블에 없으면 자동 생성
+		if (wordOpt.isEmpty() && !meaningKo.isEmpty()) {
+			String now = Instant.now().toString();
+			Word newWord = Word.builder()
+					.pk("WORD#" + wordId)
+					.sk("METADATA")
+					.gsi1pk("LEVEL#" + articleLevel)
+					.gsi1sk("WORD#" + wordId)
+					.gsi2pk("CATEGORY#NEWS")
+					.gsi2sk("WORD#" + wordId)
+					.wordId(wordId)
+					.english(word)
+					.korean(meaningKo)
+					.example(example)
+					.level(articleLevel)
+					.category("NEWS")
+					.createdAt(now)
+					.build();
+			wordRepository.save(newWord);
+			logger.info("Word 테이블에 단어 자동 추가: wordId={}, korean={}", wordId, meaningKo);
+		} else if (wordOpt.isPresent()) {
+			meaning = wordOpt.get().getKorean();
+		}
 
 		String now = Instant.now().toString();
 
@@ -90,16 +129,25 @@ public class NewsWordService {
 				.userId(userId)
 				.word(word)
 				.meaning(meaning)
-				.pronunciation(pronunciation)
+				.pronunciation("")
 				.context(context)
 				.articleId(articleId)
 				.articleTitle(articleTitle)
 				.collectedAt(now)
-				.syncedToVocab(false)
+				.syncedToVocab(true)  // 자동 연동됨
+				.vocabUserWordId(wordId)
 				.build();
 
 		newsWordRepository.save(wordCollect);
 		logger.info("단어 수집 완료: userId={}, word={}, articleId={}", userId, word, articleId);
+
+		// UserWord에 자동 추가 (NEW 상태로)
+		try {
+			userWordCommandService.updateWordStatus(userId, wordId, "NEW");
+			logger.info("UserWord에 자동 추가: userId={}, wordId={}", userId, wordId);
+		} catch (Exception e) {
+			logger.warn("UserWord 추가 실패 (이미 존재할 수 있음): userId={}, wordId={}, error={}", userId, wordId, e.getMessage());
+		}
 
 		// 통계 업데이트 및 배지 체크
 		List<UserBadge> newBadges = new ArrayList<>();
