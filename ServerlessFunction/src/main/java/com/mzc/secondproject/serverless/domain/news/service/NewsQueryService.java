@@ -40,12 +40,22 @@ public class NewsQueryService {
 	}
 
 	/**
-	 * 오늘의 뉴스 목록 조회
+	 * 오늘의 뉴스 목록 조회 (오늘 기사 없으면 어제 기사 조회)
 	 */
 	public PaginatedResult<NewsArticle> getTodayNews(int limit, String cursor) {
 		String today = LocalDate.now().toString();
 		logger.debug("오늘의 뉴스 조회: date={}, limit={}", today, limit);
-		return articleRepository.findByDate(today, limit, cursor);
+
+		PaginatedResult<NewsArticle> result = articleRepository.findByDate(today, limit, cursor);
+
+		// 오늘 기사가 없으면 어제 기사 조회
+		if (result.items().isEmpty() && cursor == null) {
+			String yesterday = LocalDate.now().minusDays(1).toString();
+			logger.debug("오늘 기사 없음, 어제 기사 조회: date={}", yesterday);
+			result = articleRepository.findByDate(yesterday, limit, cursor);
+		}
+
+		return result;
 	}
 
 	/**
