@@ -23,6 +23,7 @@ public class ChatMessage {
 	private String messageId;
 	private String roomId;
 	private String userId;
+	private String nickname;
 	private String content;
 	private String messageType; // TEXT, IMAGE, VOICE, AI_RESPONSE
 	private String createdAt;
