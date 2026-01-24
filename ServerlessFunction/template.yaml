@@ -37,12 +37,14 @@ Globals:
         VOCAB_TABLE_NAME: !Ref VocabTable
         OPIC_TABLE_NAME: !Ref OPIcTable
         NEWS_TABLE_NAME: !Ref NewsTable
+        SPEAKING_TABLE_NAME: !Ref SpeakingTable
         BUCKET_NAME: !Sub "${AWS::StackName}"
         CHAT_BUCKET_NAME: !Sub "${AWS::StackName}"
         VOCAB_BUCKET_NAME: !Sub "${AWS::StackName}"
         PROFILE_BUCKET_NAME: !Sub "${AWS::StackName}"
         OPIC_BUCKET_NAME: !Sub "${AWS::StackName}"
         NEWS_BUCKET_NAME: !Sub "${AWS::StackName}"
+        SPEAKING_BUCKET_NAME: !Sub "${AWS::StackName}"
         AWS_REGION_NAME: !Ref AWS::Region
         ROOM_TOKEN_TTL_SECONDS: "300"
         TRANSCRIBE_PROXY_URL: "https://tfo1zm7vec.execute-api.ap-northeast-2.amazonaws.com/prod/transcribe"
@@ -291,6 +293,7 @@ Resources:
           WEBSOCKET_ENDPOINT: !Sub "https://${WebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/${Environment}"
           GAME_AUTO_CLOSE_LAMBDA_ARN: !GetAtt GameAutoCloseFunction.Arn
           SCHEDULER_ROLE_ARN: !GetAtt GameSchedulerRole.Arn
+          NOTIFICATION_TOPIC_ARN: !Ref NotificationTopic
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref ChatTable
@@ -314,6 +317,8 @@ Resources:
               Action:
                 - iam:PassRole
               Resource: !GetAtt GameSchedulerRole.Arn
+        - SNSPublishMessagePolicy:
+            TopicName: !GetAtt NotificationTopic.TopicName
 
   WebSocketMessagePermission:
     Type: AWS::Lambda::Permission
@@ -865,9 +870,14 @@ Resources:
       Description: Handle daily study word assignment
       SnapStart:
         ApplyOn: PublishedVersions
+      Environment:
+        Variables:
+          NOTIFICATION_TOPIC_ARN: !Ref NotificationTopic
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref VocabTable
+        - SNSPublishMessagePolicy:
+            TopicName: !GetAtt NotificationTopic.TopicName
       Events:
         GetDailyWords:
           Type: Api
@@ -898,11 +908,14 @@ Resources:
       Environment:
         Variables:
           TEST_RESULT_TOPIC_ARN: !Ref TestResultTopic
+          NOTIFICATION_TOPIC_ARN: !Ref NotificationTopic
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref VocabTable
         - SNSPublishMessagePolicy:
             TopicName: !GetAtt TestResultTopic.TopicName
+        - SNSPublishMessagePolicy:
+            TopicName: !GetAtt NotificationTopic.TopicName
       Events:
         StartTest:
           Type: Api
@@ -1115,11 +1128,16 @@ Resources:
       Description: Handle user badges and achievements
       SnapStart:
         ApplyOn: PublishedVersions
+      Environment:
+        Variables:
+          NOTIFICATION_TOPIC_ARN: !Ref NotificationTopic
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref VocabTable
         - S3ReadPolicy:
             BucketName: !Sub "${AWS::StackName}"
+        - SNSPublishMessagePolicy:
+            TopicName: !GetAtt NotificationTopic.TopicName
       Events:
         GetAllBadges:
           Type: Api
@@ -1373,6 +1391,35 @@ Resources:
       Principal: apigateway.amazonaws.com
       SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${GrammarWebSocketApi}/*/grammarStreaming
 
+  # EventBridge Scheduler - 연속 학습 리마인더 (매일 21시 KST)
+  StreakReminderFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-streak-reminder"
+      CodeUri: .
+      Handler: com.mzc.secondproject.serverless.domain.notification.handler.StreakReminderHandler::handleRequest
+      Description: Daily streak reminder for users who haven't studied today
+      Timeout: 120
+      MemorySize: 512
+      SnapStart:
+        ApplyOn: PublishedVersions
+      Environment:
+        Variables:
+          NOTIFICATION_TOPIC_ARN: !Ref NotificationTopic
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref VocabTable
+        - SNSPublishMessagePolicy:
+            TopicName: !GetAtt NotificationTopic.TopicName
+      Events:
+        DailySchedule:
+          Type: Schedule
+          Properties:
+            Schedule: cron(0 12 * * ? *)  # UTC 12:00 = KST 21:00
+            Name: !Sub "${AWS::StackName}-streak-reminder-schedule"
+            Description: Daily streak reminder at 21:00 KST
+            Enabled: true
+
   # EventBridge Scheduler - 매일 자정 단어 학습 통계 집계
   ScheduledStatsFunction:
     Type: AWS::Serverless::Function
@@ -1415,6 +1462,7 @@ Resources:
       Environment:
         Variables:
           TRANSCRIBE_API_KEY: "/opic/transcribe-proxy-api-key"
+          NOTIFICATION_TOPIC_ARN: !Ref NotificationTopic
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref OPIcTable
@@ -1438,6 +1486,8 @@ Resources:
               Action:
                 - ssm:GetParameter
               Resource: !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/opic/*"
+        - SNSPublishMessagePolicy:
+            TopicName: !GetAtt NotificationTopic.TopicName
       Events:
         # 세션 생성
         CreateSession:
@@ -1500,6 +1550,56 @@ Resources:
             RestApiId: !Ref MainApi
             Path: /opic/sessions/{sessionId}/upload-url
             Method: GET
+            Auth:
+              Authorizer: CognitoAuthorizer
+
+  #############################################
+  # Speaking Lambda Functions
+  #############################################
+
+  SpeakingFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-speaking-handler"
+      CodeUri: .
+      Handler: com.mzc.secondproject.serverless.domain.speaking.handler.SpeakingHandler::handleRequest
+      Description: Handle speaking chat API
+      SnapStart:
+        ApplyOn: PublishedVersions
+      Environment:
+        Variables:
+          TRANSCRIBE_API_KEY: "/opic/transcribe-proxy-api-key"
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref SpeakingTable
+        - S3CrudPolicy:
+            BucketName: !Sub "${AWS::StackName}"
+        - Statement:
+            - Effect: Allow
+              Action:
+                - ssm:GetParameter
+              Resource: !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/opic/*"
+        - Statement:
+            - Effect: Allow
+              Action:
+                - bedrock:InvokeModel
+                - polly:SynthesizeSpeech
+              Resource: "*"
+      Events:
+        SpeakingChat:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /speaking/chat
+            Method: POST
+            Auth:
+              Authorizer: CognitoAuthorizer
+        SpeakingReset:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /speaking/reset
+            Method: POST
             Auth:
               Authorizer: CognitoAuthorizer
 
@@ -1722,6 +1822,9 @@ Resources:
       Description: 뉴스 학습 API
       MemorySize: 256
       Timeout: 30
+      Environment:
+        Variables:
+          NOTIFICATION_TOPIC_ARN: !Ref NotificationTopic
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref NewsTable
@@ -1729,6 +1832,8 @@ Resources:
             TableName: !Ref VocabTable
         - S3CrudPolicy:
             BucketName: !Sub "${AWS::StackName}"
+        - SNSPublishMessagePolicy:
+            TopicName: !GetAtt NotificationTopic.TopicName
         - Statement:
             - Effect: Allow
               Action:
@@ -1882,6 +1987,38 @@ Resources:
         AttributeName: ttl
         Enabled: true
 
+  SpeakingTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub "${AWS::StackName}-speaking"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: PK
+          AttributeType: S
+        - AttributeName: SK
+          AttributeType: S
+        - AttributeName: GSI1PK
+          AttributeType: S
+        - AttributeName: GSI1SK
+          AttributeType: S
+      KeySchema:
+        - AttributeName: PK
+          KeyType: HASH
+        - AttributeName: SK
+          KeyType: RANGE
+      GlobalSecondaryIndexes:
+        - IndexName: GSI1
+          KeySchema:
+            - AttributeName: GSI1PK
+              KeyType: HASH
+            - AttributeName: GSI1SK
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+
   #############################################
   # S3 Bucket for Content Storage
   #############################################
@@ -1962,6 +2099,59 @@ Resources:
       Endpoint: !GetAtt StatisticsQueue.Arn
       RawMessageDelivery: true
 
+  #############################################
+  # SNS / SQS for Real-time Notifications (SSE)
+  #############################################
+
+  # SNS Topic - 알림 이벤트 발행 (배지, 학습완료, 테스트결과 등)
+  NotificationTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub "${AWS::StackName}-notification-topic"
+
+  # SQS Dead Letter Queue - 실패한 알림 메시지 보관
+  NotificationDeadLetterQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub "${AWS::StackName}-notification-dlq"
+      MessageRetentionPeriod: 1209600  # 14일
+
+  # SQS Queue - SSE 알림 처리용
+  NotificationQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub "${AWS::StackName}-notification-queue"
+      VisibilityTimeout: 30
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt NotificationDeadLetterQueue.Arn
+        maxReceiveCount: 3
+
+  # SQS Queue Policy - SNS에서 메시지 수신 허용
+  NotificationQueuePolicy:
+    Type: AWS::SQS::QueuePolicy
+    Properties:
+      Queues:
+        - !Ref NotificationQueue
+      PolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: sns.amazonaws.com
+            Action: sqs:SendMessage
+            Resource: !GetAtt NotificationQueue.Arn
+            Condition:
+              ArnEquals:
+                aws:SourceArn: !Ref NotificationTopic
+
+  # SNS → SQS 구독
+  NotificationQueueSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      Protocol: sqs
+      TopicArn: !Ref NotificationTopic
+      Endpoint: !GetAtt NotificationQueue.Arn
+      RawMessageDelivery: true
+
   # Statistics Processor Lambda - SQS에서 메시지 소비하여 통계 업데이트
   StatisticsProcessorFunction:
     Type: AWS::Serverless::Function
@@ -1984,6 +2174,38 @@ Resources:
           Properties:
             Queue: !GetAtt StatisticsQueue.Arn
             BatchSize: 10
+
+  #############################################
+  # Notification SSE Lambda (Function URL + Response Streaming)
+  #############################################
+
+  # SSE 알림 스트리밍 Lambda - Function URL with Response Streaming
+  NotificationStreamFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-notification-stream"
+      CodeUri: .
+      Handler: com.mzc.secondproject.serverless.domain.notification.handler.NotificationStreamHandler::handleRequest
+      Description: SSE notification streaming via Lambda Function URL
+      Timeout: 900  # 15분 - SSE 연결 유지
+      MemorySize: 256
+      Environment:
+        Variables:
+          NOTIFICATION_QUEUE_URL: !Ref NotificationQueue
+      Policies:
+        - SQSPollerPolicy:
+            QueueName: !GetAtt NotificationQueue.QueueName
+      FunctionUrlConfig:
+        AuthType: NONE
+        InvokeMode: RESPONSE_STREAM
+        Cors:
+          AllowCredentials: false
+          AllowHeaders:
+            - "*"
+          AllowMethods:
+            - GET
+          AllowOrigins:
+            - "*"
 
 #############################################
 # Outputs
@@ -2025,3 +2247,15 @@ Outputs:
   OPIcTableName:
     Description: OPIc DynamoDB Table Name
     Value: !Ref OPIcTable
+
+  SpeakingTableName:
+    Description: Speaking DynamoDB Table Name
+    Value: !Ref SpeakingTable
+
+  NotificationStreamUrl:
+    Description: Notification SSE Stream Function URL
+    Value: !GetAtt NotificationStreamFunctionUrl.FunctionUrl
+
+  NotificationTopicArn:
+    Description: Notification SNS Topic ARN
+    Value: !Ref NotificationTopic
