@@ -19,6 +19,8 @@ import com.mzc.secondproject.serverless.domain.chatting.repository.GameSessionRe
 import com.mzc.secondproject.serverless.domain.chatting.service.ChatMessageService;
 import com.mzc.secondproject.serverless.domain.chatting.service.CommandService;
 import com.mzc.secondproject.serverless.domain.chatting.service.GameService;
+import com.mzc.secondproject.serverless.domain.user.model.User;
+import com.mzc.secondproject.serverless.domain.user.service.UserService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -44,6 +46,7 @@ public class WebSocketMessageHandler implements RequestHandler<Map<String, Objec
 	private final WebSocketBroadcaster broadcaster;
 	private final CommandService commandService;
 	private final GameService gameService;
+	private final UserService userService;
 	
 	public WebSocketMessageHandler() {
 		this.chatMessageService = new ChatMessageService();
@@ -53,6 +56,7 @@ public class WebSocketMessageHandler implements RequestHandler<Map<String, Objec
 		this.broadcaster = new WebSocketBroadcaster();
 		this.commandService = new CommandService();
 		this.gameService = new GameService();
+		this.userService = new UserService();
 	}
 	
 	@Override
@@ -155,6 +159,21 @@ public class WebSocketMessageHandler implements RequestHandler<Map<String, Objec
 		// 일반 메시지 저장 및 브로드캐스트
 		String messageId = UUID.randomUUID().toString();
 		String now = Instant.now().toString();
+
+		// 닉네임 조회
+		String nickname = "Unknown";
+		try {
+			// DB에서 유저 정보(닉네임) 가져오기
+			User user = userService.getUserProfile(payload.userId);
+			if (user != null && user.getNickname() != null) {
+				nickname = user.getNickname();
+			} else {
+				// 혹시 없으면 UUID 사용
+				nickname = payload.userId;
+			}
+		} catch (Exception e) {
+			nickname = payload.userId;
+		}
 		
 		ChatMessage message = ChatMessage.builder()
 				.pk("ROOM#" + payload.roomId)
@@ -166,6 +185,7 @@ public class WebSocketMessageHandler implements RequestHandler<Map<String, Objec
 				.messageId(messageId)
 				.roomId(payload.roomId)
 				.userId(payload.userId)
+				.nickname(nickname)
 				.content(payload.content)
 				.messageType(messageType)
 				.createdAt(now)
