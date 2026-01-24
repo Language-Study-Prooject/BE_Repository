@@ -31,10 +31,15 @@ public class UserService {
 	private static final int NICKNAME_MAX_LENGTH = 20;
 	private final UserRepository userRepository;
 	private final S3Presigner s3Presigner;
+
 	public UserService(UserRepository userRepository) {
 		this.userRepository = userRepository;
 		// AwsClients 싱글톤 사용 - Cold Start 최적화
 		this.s3Presigner = AwsClients.s3Presigner();
+	}
+
+	public UserService() {
+		this(new UserRepository());
 	}
 	
 	private static String getDefaultProfileUrl() {
@@ -65,6 +70,11 @@ public class UserService {
 		user.setProfileUrlForResponse(presignedProfileUrl);  // 응답용으로만 설정
 		
 		return user;
+	}
+
+	// 단순 프로필 조회 메서드 (채팅용) - DB 조회만 수행
+	public User getUserProfile(String userId) {
+		return userRepository.findByCognitoSub(userId).orElse(null);
 	}
 	
 	public String getPresignedProfileUrl(String s3Url) {
