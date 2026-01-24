@@ -297,6 +297,8 @@ Resources:
             TableName: !Ref ChatTable
         - DynamoDBCrudPolicy:
             TableName: !Ref VocabTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref UserTable
         - Statement:
             - Effect: Allow
               Action:
