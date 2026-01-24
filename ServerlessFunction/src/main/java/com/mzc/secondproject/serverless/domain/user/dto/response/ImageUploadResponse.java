@@ -10,7 +10,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ImageUploadResponse {
-
-    private String uploadUrl;   // S3 Presigned URL (클라이언트가 PUT 요청할 URL)
-    private String imageUrl;    // 업로드 완료 후 접근 가능한 이미지 URL
+	
+	private String uploadUrl;   // S3 Presigned URL (클라이언트가 PUT 요청할 URL)
+	private String imageUrl;    // 업로드 완료 후 접근 가능한 이미지 URL
 }

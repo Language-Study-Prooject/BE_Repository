@@ -29,24 +29,28 @@ public enum BadgeType {
 	GAME_10_WINS("게임 10승", "게임에서 10번 1등을 했습니다", "game_10_wins.png", "GAMES_WON", 10),
 	QUICK_GUESSER("번개 정답", "5초 내에 정답을 맞췄습니다", "quick_guesser.png", "QUICK_GUESSES", 1),
 	PERFECT_DRAWER("완벽한 출제자", "출제 시 전원이 정답을 맞췄습니다", "perfect_drawer.png", "PERFECT_DRAWS", 1),
-
+	
 	// 특별
 	MASTER("학습 마스터", "모든 업적을 달성했습니다", "master.png", "ALL_BADGES", 1);
 	
-	private static final String BASE_URL = "https://group2-englishstudy.s3.ap-northeast-2.amazonaws.com/badges/";
-	
+	private static final String BUCKET_NAME = System.getenv("BUCKET_NAME");
+	private static final String BASE_URL = getBaseUrl();
 	private final String name;
 	private final String description;
 	private final String imageFile;
 	private final String category;
 	private final int threshold;
-	
 	BadgeType(String name, String description, String imageFile, String category, int threshold) {
 		this.name = name;
 		this.description = description;
 		this.imageFile = imageFile;
 		this.category = category;
 		this.threshold = threshold;
+	}
+	
+	private static String getBaseUrl() {
+		String bucket = BUCKET_NAME != null ? BUCKET_NAME : "group2-englishstudy";
+		return String.format("https://%s.s3.ap-northeast-2.amazonaws.com/badges/", bucket);
 	}
 	
 	public static BadgeType fromString(String value) {
@@ -68,6 +72,10 @@ public enum BadgeType {
 	
 	public String getImageUrl() {
 		return BASE_URL + imageFile;
+	}
+	
+	public String getImageFile() {
+		return imageFile;
 	}
 	
 	public String getCategory() {

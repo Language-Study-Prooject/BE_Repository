@@ -4,6 +4,7 @@ import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.lambda.runtime.RequestHandler;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyRequestEvent;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyResponseEvent;
+import com.mzc.secondproject.serverless.common.config.EnvConfig;
 import com.mzc.secondproject.serverless.common.exception.CommonErrorCode;
 import com.mzc.secondproject.serverless.common.service.PollyService;
 import com.mzc.secondproject.serverless.common.service.PollyService.VoiceSynthesisResult;
@@ -22,14 +23,24 @@ import java.util.Optional;
 public class ChatVoiceHandler implements RequestHandler<APIGatewayProxyRequestEvent, APIGatewayProxyResponseEvent> {
 	
 	private static final Logger logger = LoggerFactory.getLogger(ChatVoiceHandler.class);
-	private static final String BUCKET_NAME = System.getenv("CHAT_BUCKET_NAME");
+	private static final String BUCKET_NAME = EnvConfig.getRequired("CHAT_BUCKET_NAME");
 	
 	private final PollyService pollyService;
 	private final ChatMessageRepository messageRepository;
 	
+	/**
+	 * 기본 생성자 (Lambda에서 사용)
+	 */
 	public ChatVoiceHandler() {
-		this.pollyService = new PollyService(BUCKET_NAME, "voice/");
-		this.messageRepository = new ChatMessageRepository();
+		this(new PollyService(BUCKET_NAME, "voice/"), new ChatMessageRepository());
+	}
+	
+	/**
+	 * 의존성 주입 생성자 (테스트 용이성)
+	 */
+	public ChatVoiceHandler(PollyService pollyService, ChatMessageRepository messageRepository) {
+		this.pollyService = pollyService;
+		this.messageRepository = messageRepository;
 	}
 	
 	@Override

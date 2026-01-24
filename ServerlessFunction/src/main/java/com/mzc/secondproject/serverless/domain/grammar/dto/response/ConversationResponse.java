@@ -1,6 +1,9 @@
 package com.mzc.secondproject.serverless.domain.grammar.dto.response;
 
-import lombok.*;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
 @Data
 @Builder

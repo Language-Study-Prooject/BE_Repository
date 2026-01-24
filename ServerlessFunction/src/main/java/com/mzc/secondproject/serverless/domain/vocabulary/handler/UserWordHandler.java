@@ -31,9 +31,19 @@ public class UserWordHandler implements RequestHandler<APIGatewayProxyRequestEve
 	private final UserWordQueryService queryService;
 	private final HandlerRouter router;
 	
+	/**
+	 * 기본 생성자 (Lambda에서 사용)
+	 */
 	public UserWordHandler() {
-		this.commandService = new UserWordCommandService();
-		this.queryService = new UserWordQueryService();
+		this(new UserWordCommandService(), new UserWordQueryService());
+	}
+	
+	/**
+	 * 의존성 주입 생성자 (테스트 용이성)
+	 */
+	public UserWordHandler(UserWordCommandService commandService, UserWordQueryService queryService) {
+		this.commandService = commandService;
+		this.queryService = queryService;
 		this.router = initRouter();
 	}
 	
@@ -42,8 +52,8 @@ public class UserWordHandler implements RequestHandler<APIGatewayProxyRequestEve
 				Route.getAuth("/wrong-answers", this::getWrongAnswers),
 				Route.getAuth("/user-words", this::getUserWords),
 				Route.getAuth("/user-words/{wordId}", this::getUserWord),
-				Route.putAuth("/user-words/{wordId}/tag", this::updateUserWordTag),
-				Route.putAuth("/user-words/{wordId}/status", this::updateWordStatus),
+				Route.patchAuth("/user-words/{wordId}/tag", this::updateUserWordTag),
+				Route.patchAuth("/user-words/{wordId}/status", this::updateWordStatus),
 				Route.putAuth("/user-words/{wordId}", this::updateUserWord)
 		);
 	}
@@ -61,13 +71,14 @@ public class UserWordHandler implements RequestHandler<APIGatewayProxyRequestEve
 		String cursor = queryParams != null ? queryParams.get("cursor") : null;
 		String bookmarked = queryParams != null ? queryParams.get("bookmarked") : null;
 		String incorrectOnly = queryParams != null ? queryParams.get("incorrectOnly") : null;
+		String category = queryParams != null ? queryParams.get("category") : null;
 		
 		int limit = 20;
 		if (queryParams != null && queryParams.get("limit") != null) {
 			limit = Math.min(Integer.parseInt(queryParams.get("limit")), 50);
 		}
 		
-		UserWordQueryService.UserWordsResult result = queryService.getUserWords(userId, status, bookmarked, incorrectOnly, limit, cursor);
+		UserWordQueryService.UserWordsResult result = queryService.getUserWords(userId, status, bookmarked, incorrectOnly, category, limit, cursor);
 		
 		Map<String, Object> response = new HashMap<>();
 		response.put("userWords", result.userWords());

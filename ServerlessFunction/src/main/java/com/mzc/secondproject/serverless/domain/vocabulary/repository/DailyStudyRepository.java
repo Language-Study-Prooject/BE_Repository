@@ -1,11 +1,13 @@
 package com.mzc.secondproject.serverless.domain.vocabulary.repository;
 
 import com.mzc.secondproject.serverless.common.config.AwsClients;
+import com.mzc.secondproject.serverless.common.config.EnvConfig;
 import com.mzc.secondproject.serverless.common.dto.PaginatedResult;
 import com.mzc.secondproject.serverless.common.util.CursorUtil;
 import com.mzc.secondproject.serverless.domain.vocabulary.model.DailyStudy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import software.amazon.awssdk.enhanced.dynamodb.DynamoDbEnhancedClient;
 import software.amazon.awssdk.enhanced.dynamodb.DynamoDbTable;
 import software.amazon.awssdk.enhanced.dynamodb.Key;
 import software.amazon.awssdk.enhanced.dynamodb.TableSchema;
@@ -15,19 +17,31 @@ import software.amazon.awssdk.enhanced.dynamodb.model.QueryEnhancedRequest;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 import software.amazon.awssdk.services.dynamodb.model.UpdateItemRequest;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
 public class DailyStudyRepository {
 	
 	private static final Logger logger = LoggerFactory.getLogger(DailyStudyRepository.class);
-	private static final String TABLE_NAME = System.getenv("VOCAB_TABLE_NAME");
+	private static final String TABLE_NAME = EnvConfig.getRequired("VOCAB_TABLE_NAME");
 	
 	private final DynamoDbTable<DailyStudy> table;
 	
+	/**
+	 * 기본 생성자 (Lambda에서 사용)
+	 */
 	public DailyStudyRepository() {
-		this.table = AwsClients.dynamoDbEnhanced().table(TABLE_NAME, TableSchema.fromBean(DailyStudy.class));
+		this(AwsClients.dynamoDbEnhanced());
+	}
+	
+	/**
+	 * 의존성 주입 생성자 (테스트 용이성)
+	 */
+	public DailyStudyRepository(DynamoDbEnhancedClient enhancedClient) {
+		this.table = enhancedClient.table(TABLE_NAME, TableSchema.fromBean(DailyStudy.class));
 	}
 	
 	public DailyStudy save(DailyStudy dailyStudy) {
@@ -42,7 +56,8 @@ public class DailyStudyRepository {
 				.sortValue("DATE#" + date)
 				.build();
 		
-		DailyStudy dailyStudy = table.getItem(key);
+		// Strongly consistent read for accurate data after updates
+		DailyStudy dailyStudy = table.getItem(r -> r.key(key).consistentRead(true));
 		return Optional.ofNullable(dailyStudy);
 	}
 	
@@ -101,5 +116,25 @@ public class DailyStudyRepository {
 		
 		AwsClients.dynamoDb().updateItem(updateRequest);
 		logger.info("Added learned word: userId={}, date={}, wordId={}", userId, date, wordId);
+	}
+
+	/**
+	 * 특정 날짜의 모든 일일 학습 기록 조회 (GSI1 사용)
+	 */
+	public List<DailyStudy> findByDate(String date) {
+		QueryConditional queryConditional = QueryConditional
+				.keyEqualTo(Key.builder()
+						.partitionValue("DAILY#ALL")
+						.sortValue("DATE#" + date)
+						.build());
+
+		QueryEnhancedRequest request = QueryEnhancedRequest.builder()
+				.queryConditional(queryConditional)
+				.build();
+
+		List<DailyStudy> results = new ArrayList<>();
+		table.index("GSI1").query(request).forEach(page -> results.addAll(page.items()));
+
+		return results;
 	}
 }

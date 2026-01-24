@@ -2,55 +2,66 @@ package com.mzc.secondproject.serverless.domain.chatting.service;
 
 import com.mzc.secondproject.serverless.domain.badge.model.UserBadge;
 import com.mzc.secondproject.serverless.domain.badge.service.BadgeService;
-import com.mzc.secondproject.serverless.domain.chatting.model.ChatRoom;
+import com.mzc.secondproject.serverless.domain.chatting.config.GameConfig;
 import com.mzc.secondproject.serverless.domain.chatting.model.GameRound;
+import com.mzc.secondproject.serverless.domain.chatting.model.GameSession;
 import com.mzc.secondproject.serverless.domain.chatting.repository.GameRoundRepository;
 import com.mzc.secondproject.serverless.domain.stats.model.UserStats;
 import com.mzc.secondproject.serverless.domain.stats.repository.UserStatsRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.time.Instant;
 import java.util.*;
 
 /**
  * 게임 통계 및 뱃지 연동 서비스
  */
 public class GameStatsService {
-
+	
 	private static final Logger logger = LoggerFactory.getLogger(GameStatsService.class);
-	private static final long QUICK_GUESS_THRESHOLD_MS = 5000; // 5초
-
+	
 	private final UserStatsRepository userStatsRepository;
 	private final GameRoundRepository gameRoundRepository;
 	private final BadgeService badgeService;
-
+	
+	/**
+	 * 기본 생성자 (Lambda에서 사용)
+	 */
 	public GameStatsService() {
-		this.userStatsRepository = new UserStatsRepository();
-		this.gameRoundRepository = new GameRoundRepository();
-		this.badgeService = new BadgeService();
+		this(new UserStatsRepository(), new GameRoundRepository(), new BadgeService());
 	}
-
+	
+	/**
+	 * 의존성 주입 생성자 (테스트 용이성)
+	 */
+	public GameStatsService(UserStatsRepository userStatsRepository,
+	                        GameRoundRepository gameRoundRepository,
+	                        BadgeService badgeService) {
+		this.userStatsRepository = userStatsRepository;
+		this.gameRoundRepository = gameRoundRepository;
+		this.badgeService = badgeService;
+	}
+	
 	/**
 	 * 게임 종료 시 모든 참가자 통계 업데이트
 	 */
-	public Map<String, List<UserBadge>> updateGameStats(ChatRoom room) {
+	public Map<String, List<UserBadge>> updateGameStats(GameSession session) {
 		Map<String, List<UserBadge>> newBadges = new HashMap<>();
-		String roomId = room.getRoomId();
-
+		String roomId = session.getRoomId();
+		
 		// 모든 라운드 조회
 		List<GameRound> rounds = gameRoundRepository.findByRoomId(roomId);
-
+		
 		// 참가자별 통계 수집
-		Map<String, Integer> scores = room.getScores() != null ? room.getScores() : Map.of();
+		Map<String, Integer> scores = session.getScores() != null ? session.getScores() : Map.of();
 		Set<String> participants = new HashSet<>(scores.keySet());
-		if (room.getDrawerOrder() != null) {
-			participants.addAll(room.getDrawerOrder());
+		if (session.getPlayers() != null) {
+			participants.addAll(session.getPlayers());
 		}
-
+		
 		// 1등 찾기
 		String winner = findWinner(scores);
-
+		
 		// 각 참가자 통계 업데이트
 		for (String userId : participants) {
 			List<UserBadge> badges = updateUserGameStats(userId, scores.getOrDefault(userId, 0),
@@ -59,37 +70,37 @@ public class GameStatsService {
 				newBadges.put(userId, badges);
 			}
 		}
-
+		
 		logger.info("Game stats updated: roomId={}, participants={}, winner={}",
 				roomId, participants.size(), winner);
-
+		
 		return newBadges;
 	}
-
+	
 	/**
 	 * 개별 사용자 게임 통계 업데이트
 	 */
 	private List<UserBadge> updateUserGameStats(String userId, int score, boolean isWinner,
-			List<GameRound> rounds) {
+	                                            List<GameRound> rounds) {
 		// 라운드별 통계 수집
 		int correctGuesses = 0;
 		int quickGuesses = 0;
 		int perfectDraws = 0;
-
+		
 		for (GameRound round : rounds) {
 			// 정답 횟수
 			if (round.getCorrectGuessers() != null && round.getCorrectGuessers().contains(userId)) {
 				correctGuesses++;
-
+				
 				// 빠른 정답 체크 (5초 이내)
 				if (round.getGuessTimes() != null) {
 					Long guessTime = round.getGuessTimes().get(userId);
-					if (guessTime != null && guessTime <= QUICK_GUESS_THRESHOLD_MS) {
+					if (guessTime != null && guessTime <= GameConfig.quickGuessThresholdMs()) {
 						quickGuesses++;
 					}
 				}
 			}
-
+			
 			// 완벽한 출제자 체크
 			if (userId.equals(round.getDrawerId())) {
 				// 출제자일 때 전원 정답인지 확인
@@ -98,7 +109,7 @@ public class GameStatsService {
 				}
 			}
 		}
-
+		
 		// Atomic 업데이트
 		userStatsRepository.incrementGameStats(
 				userId,
@@ -109,32 +120,32 @@ public class GameStatsService {
 				quickGuesses,
 				perfectDraws
 		);
-
+		
 		// 뱃지 체크를 위해 업데이트된 통계 조회
 		UserStats stats = userStatsRepository.findTotalStats(userId).orElse(null);
 		List<UserBadge> newBadges = badgeService.checkAndAwardBadges(userId, stats);
-
+		
 		logger.info("User game stats updated: userId={}, correctGuesses={}, newBadges={}",
 				userId, correctGuesses, newBadges.size());
-
+		
 		return newBadges;
 	}
-
+	
 	/**
 	 * 정답 시 즉시 통계 업데이트 (빠른 정답 뱃지용)
 	 */
 	public List<UserBadge> updateOnCorrectAnswer(String userId, long elapsedTimeMs) {
-		if (elapsedTimeMs > QUICK_GUESS_THRESHOLD_MS) {
+		if (elapsedTimeMs > GameConfig.quickGuessThresholdMs()) {
 			return List.of();
 		}
-
+		
 		// 빠른 정답만 업데이트
 		userStatsRepository.incrementGameStats(userId, 0, 0, 0, 0, 1, 0);
-
+		
 		UserStats stats = userStatsRepository.findTotalStats(userId).orElse(null);
 		return badgeService.checkAndAwardBadges(userId, stats);
 	}
-
+	
 	private String findWinner(Map<String, Integer> scores) {
 		if (scores == null || scores.isEmpty()) {
 			return null;

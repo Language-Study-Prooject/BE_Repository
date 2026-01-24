@@ -1,6 +1,10 @@
 package com.mzc.secondproject.serverless.domain.grammar.dto.response;
 
-import lombok.*;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
 import java.util.List;
 
 @Data
@@ -14,4 +18,5 @@ public class GrammarCheckResponse {
 	private List<GrammarError> errors;
 	private String feedback;
 	private Boolean isCorrect;
+	private ComprehendAnalysis analysis;
 }

@@ -1,5 +1,6 @@
 package com.mzc.secondproject.serverless.domain.chatting.dto.request;
 
+import com.mzc.secondproject.serverless.domain.chatting.model.GameSettings;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
@@ -34,4 +35,11 @@ public class CreateRoomRequest {
 	private Boolean isPrivate = false;
 	
 	private String password;
+	
+	@Builder.Default
+	private String type = "CHAT";  // CHAT or GAME
+	
+	private String gameType;       // CATCHMIND (nullable)
+	
+	private GameSettings gameSettings;  // 게임 설정 (nullable)
 }

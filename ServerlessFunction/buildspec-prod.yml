@@ -1,0 +1,59 @@
+version: 0.2
+
+env:
+  variables:
+    SAM_CLI_TELEMETRY: 0
+    GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dorg.gradle.parallel=true -Dorg.gradle.caching=true"
+    ENVIRONMENT: prod
+    STACK_NAME: group2-englishstudy-prod
+
+phases:
+  install:
+    commands:
+      - echo "Verifying pre-installed tools..."
+      - java -version
+      - sam --version
+      - echo "Tools verified"
+
+  pre_build:
+    commands:
+      - echo "Running tests..."
+      - cd ServerlessFunction
+      - chmod +x gradlew
+      - ./gradlew test --build-cache --parallel
+      - echo "Tests completed"
+
+  build:
+    commands:
+      - echo "Building SAM application for $ENVIRONMENT..."
+      - cd $CODEBUILD_SRC_DIR/ServerlessFunction
+      - sam build --parallel --cached
+      - echo "Build completed"
+
+  post_build:
+    commands:
+      - echo "Deploying to $ENVIRONMENT environment..."
+      - cd $CODEBUILD_SRC_DIR/ServerlessFunction
+      - |
+        sam deploy \
+          --stack-name $STACK_NAME \
+          --s3-bucket group2-englishstudy-pipeline-artifacts \
+          --s3-prefix sam-deploy/prod \
+          --region ap-northeast-2 \
+          --capabilities CAPABILITY_IAM CAPABILITY_AUTO_EXPAND \
+          --no-confirm-changeset \
+          --no-fail-on-empty-changeset \
+          --parameter-overrides Environment=$ENVIRONMENT
+      - echo "Deployment completed on $(date)"
+
+cache:
+  paths:
+    - '/root/.gradle/caches/**/*'
+    - '/root/.gradle/wrapper/**/*'
+    - '.aws-sam/cache/**/*'
+
+reports:
+  junit-reports:
+    files:
+      - 'ServerlessFunction/build/test-results/test/*.xml'
+    file-format: JUNITXML

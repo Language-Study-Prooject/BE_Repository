@@ -4,6 +4,7 @@ import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.lambda.runtime.RequestHandler;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyRequestEvent;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyResponseEvent;
+import com.mzc.secondproject.serverless.common.config.EnvConfig;
 import com.mzc.secondproject.serverless.common.exception.CommonErrorCode;
 import com.mzc.secondproject.serverless.common.service.PollyService;
 import com.mzc.secondproject.serverless.common.util.ResponseGenerator;
@@ -22,14 +23,24 @@ import java.util.Optional;
 public class VoiceHandler implements RequestHandler<APIGatewayProxyRequestEvent, APIGatewayProxyResponseEvent> {
 	
 	private static final Logger logger = LoggerFactory.getLogger(VoiceHandler.class);
-	private static final String BUCKET_NAME = System.getenv("VOCAB_BUCKET_NAME");
+	private static final String BUCKET_NAME = EnvConfig.getRequired("VOCAB_BUCKET_NAME");
 	
 	private final WordRepository wordRepository;
 	private final PollyService pollyService;
 	
+	/**
+	 * 기본 생성자 (Lambda에서 사용)
+	 */
 	public VoiceHandler() {
-		this.wordRepository = new WordRepository();
-		this.pollyService = new PollyService(BUCKET_NAME, "vocab/voice/");
+		this(new WordRepository(), new PollyService(BUCKET_NAME, "vocab/voice/"));
+	}
+	
+	/**
+	 * 의존성 주입 생성자 (테스트 용이성)
+	 */
+	public VoiceHandler(WordRepository wordRepository, PollyService pollyService) {
+		this.wordRepository = wordRepository;
+		this.pollyService = pollyService;
 	}
 	
 	@Override

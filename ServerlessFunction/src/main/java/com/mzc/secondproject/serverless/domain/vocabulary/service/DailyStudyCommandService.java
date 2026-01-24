@@ -3,8 +3,10 @@ package com.mzc.secondproject.serverless.domain.vocabulary.service;
 import com.mzc.secondproject.serverless.common.dto.PaginatedResult;
 import com.mzc.secondproject.serverless.common.enums.StudyLevel;
 import com.mzc.secondproject.serverless.domain.badge.service.BadgeService;
+import com.mzc.secondproject.serverless.domain.notification.service.NotificationPublisher;
 import com.mzc.secondproject.serverless.domain.stats.model.UserStats;
 import com.mzc.secondproject.serverless.domain.stats.repository.UserStatsRepository;
+import com.mzc.secondproject.serverless.domain.vocabulary.config.VocabularyConfig;
 import com.mzc.secondproject.serverless.domain.vocabulary.constants.VocabKey;
 import com.mzc.secondproject.serverless.domain.vocabulary.exception.VocabularyException;
 import com.mzc.secondproject.serverless.domain.vocabulary.model.DailyStudy;
@@ -28,21 +30,36 @@ public class DailyStudyCommandService {
 	
 	private static final Logger logger = LoggerFactory.getLogger(DailyStudyCommandService.class);
 	
-	private static final int NEW_WORDS_COUNT = 50;
-	private static final int REVIEW_WORDS_COUNT = 5;
-	
 	private final DailyStudyRepository dailyStudyRepository;
 	private final UserWordRepository userWordRepository;
 	private final WordRepository wordRepository;
 	private final UserStatsRepository userStatsRepository;
 	private final BadgeService badgeService;
-	
+	private final NotificationPublisher notificationPublisher;
+
+	/**
+	 * 기본 생성자 (Lambda에서 사용)
+	 */
 	public DailyStudyCommandService() {
-		this.dailyStudyRepository = new DailyStudyRepository();
-		this.userWordRepository = new UserWordRepository();
-		this.wordRepository = new WordRepository();
-		this.userStatsRepository = new UserStatsRepository();
-		this.badgeService = new BadgeService();
+		this(new DailyStudyRepository(), new UserWordRepository(), new WordRepository(),
+				new UserStatsRepository(), new BadgeService(), NotificationPublisher.getInstance());
+	}
+
+	/**
+	 * 의존성 주입 생성자 (테스트 용이성)
+	 */
+	public DailyStudyCommandService(DailyStudyRepository dailyStudyRepository,
+	                                UserWordRepository userWordRepository,
+	                                WordRepository wordRepository,
+	                                UserStatsRepository userStatsRepository,
+	                                BadgeService badgeService,
+	                                NotificationPublisher notificationPublisher) {
+		this.dailyStudyRepository = dailyStudyRepository;
+		this.userWordRepository = userWordRepository;
+		this.wordRepository = wordRepository;
+		this.userStatsRepository = userStatsRepository;
+		this.badgeService = badgeService;
+		this.notificationPublisher = notificationPublisher;
 	}
 	
 	public DailyStudyResult getDailyWords(String userId, String level) {
@@ -102,26 +119,46 @@ public class DailyStudyCommandService {
 		checkWordsBadge(userId);
 		
 		DailyStudy updatedDailyStudy = dailyStudyRepository.findByUserIdAndDate(userId, today).orElse(dailyStudy);
-		
+
 		if (updatedDailyStudy.getLearnedCount() >= updatedDailyStudy.getTotalWords()) {
 			updatedDailyStudy.setIsCompleted(true);
 			dailyStudyRepository.save(updatedDailyStudy);
+
+			// 일일 학습 완료 알림 발행
+			int currentStreak = getCurrentStreak(userId);
+			notificationPublisher.publishDailyComplete(
+					userId,
+					today,
+					updatedDailyStudy.getLearnedCount(),
+					updatedDailyStudy.getTotalWords(),
+					currentStreak
+			);
 		}
-		
+
 		logger.info("Marked word as learned: userId={}, wordId={}, isNew={}, isReview={}",
 				userId, wordId, isNewWord, isReviewWord);
 		return calculateProgress(updatedDailyStudy);
+	}
+
+	private int getCurrentStreak(String userId) {
+		try {
+			Optional<UserStats> stats = userStatsRepository.findTotalStats(userId);
+			return stats.map(UserStats::getCurrentStreak).orElse(0);
+		} catch (Exception e) {
+			logger.warn("Failed to get current streak for user: {}", userId, e);
+			return 0;
+		}
 	}
 	
 	private DailyStudy createDailyStudy(String userId, String date, String level) {
 		String now = Instant.now().toString();
 		
-		PaginatedResult<UserWord> reviewPage = userWordRepository.findReviewDueWords(userId, date, REVIEW_WORDS_COUNT, null);
+		PaginatedResult<UserWord> reviewPage = userWordRepository.findReviewDueWords(userId, date, VocabularyConfig.reviewWordsCount(), null);
 		List<String> reviewWordIds = reviewPage.items().stream()
 				.map(UserWord::getWordId)
 				.collect(Collectors.toList());
 		
-		List<String> newWordIds = getNewWordsForUser(userId, level, NEW_WORDS_COUNT);
+		List<String> newWordIds = getNewWordsForUser(userId, level, VocabularyConfig.newWordsCount());
 		
 		DailyStudy dailyStudy = DailyStudy.builder()
 				.pk(VocabKey.dailyPk(userId))

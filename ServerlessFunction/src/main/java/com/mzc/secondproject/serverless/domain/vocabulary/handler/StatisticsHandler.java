@@ -21,8 +21,18 @@ public class StatisticsHandler implements RequestHandler<SQSEvent, Void> {
 	
 	private final StatisticsService statisticsService;
 	
+	/**
+	 * 기본 생성자 (Lambda에서 사용)
+	 */
 	public StatisticsHandler() {
-		this.statisticsService = new StatisticsService();
+		this(new StatisticsService());
+	}
+	
+	/**
+	 * 의존성 주입 생성자 (테스트 용이성)
+	 */
+	public StatisticsHandler(StatisticsService statisticsService) {
+		this.statisticsService = statisticsService;
 	}
 	
 	@Override
