@@ -44,11 +44,13 @@ class ChattingErrorCodeSpec extends Specification {
         ChattingErrorCode.GAME_NOT_ALLOWED_IN_CHAT_ROOM | "GAME_007"   | 400
         ChattingErrorCode.GAME_RESTART_NOT_ALLOWED      | "GAME_008"   | 400
         ChattingErrorCode.GAME_START_NOT_HOST           | "GAME_009"   | 403
+        ChattingErrorCode.GAME_ACTION_FAILED            | "GAME_010"   | 400
+        ChattingErrorCode.INVALID_INPUT                 | "INPUT_001"  | 400
     }
 
     def "모든 에러 코드 개수 확인"() {
-        expect: "24개의 에러 코드 존재"
-        ChattingErrorCode.values().length == 24
+        expect: "26개의 에러 코드 존재"
+        ChattingErrorCode.values().length == 26
     }
 
     def "채팅방 관련 에러 코드들 (ROOM_XXX)"() {
