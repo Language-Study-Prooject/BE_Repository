@@ -29,6 +29,15 @@ public enum MessageType {
 	POLL_VOTE("poll_vote", "투표 참여"),
 	POLL_END("poll_end", "투표 종료"),
 
+	// 끝말잇기(Word Chain) 게임 메시지 타입
+	WORDCHAIN_START("wordchain_start", "끝말잇기 시작"),
+	WORDCHAIN_TURN("wordchain_turn", "턴 변경"),
+	WORDCHAIN_CORRECT("wordchain_correct", "정답"),
+	WORDCHAIN_WRONG("wordchain_wrong", "오답"),
+	WORDCHAIN_TIMEOUT("wordchain_timeout", "시간 초과"),
+	WORDCHAIN_ELIMINATED("wordchain_eliminated", "탈락"),
+	WORDCHAIN_END("wordchain_end", "끝말잇기 종료"),
+
 	// 유틸리티 메시지 타입
 	CLEAR_CHAT("clear_chat", "채팅 삭제"),
 	LEAVE_ROOM("leave_room", "채팅방 나가기");

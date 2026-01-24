@@ -362,13 +362,13 @@ public class WebSocketMessageHandler implements RequestHandler<Map<String, Objec
 	 */
 	private Map<String, Object> handleCommandResult(CommandResult result, String roomId, String userId) {
 		List<Connection> connections = connectionRepository.findByRoomId(roomId);
-		
+
 		// GAME_START는 특별 처리 (출제자에게만 제시어 전송 + serverTime 포함)
 		if (result.messageType() == MessageType.GAME_START && result.data() instanceof GameService.GameStartResult gameResult) {
 			broadcastGameStart(connections, result, gameResult, roomId);
 			return WebSocketEventUtil.ok("Command executed");
 		}
-		
+
 		// ROUND_END는 특별 처리 (다음 출제자에게만 제시어 전송 + serverTime 포함)
 		if (result.messageType() == MessageType.ROUND_END && result.data() instanceof Map) {
 			@SuppressWarnings("unchecked")
@@ -376,14 +376,17 @@ public class WebSocketMessageHandler implements RequestHandler<Map<String, Objec
 			broadcastRoundEnd(connections, result, data, roomId);
 			return WebSocketEventUtil.ok("Command executed");
 		}
-		
-		// 일반 시스템 메시지 (게임 관련 명령어 결과)
+
+		// 일반 시스템 메시지
 		String messageId = UUID.randomUUID().toString();
 		String now = Instant.now().toString();
-		
+
+		// 메시지 타입에 따라 domain 결정
+		String domain = determineDomain(result.messageType());
+
 		// domain 필드 포함을 위해 Map으로 생성
 		Map<String, Object> systemMessage = new HashMap<>();
-		systemMessage.put("domain", WebSocketMessageHelper.DOMAIN_GAME);
+		systemMessage.put("domain", domain);
 		systemMessage.put("messageId", messageId);
 		systemMessage.put("roomId", roomId);
 		systemMessage.put("userId", "SYSTEM");
@@ -391,13 +394,33 @@ public class WebSocketMessageHandler implements RequestHandler<Map<String, Objec
 		systemMessage.put("messageType", result.messageType().getCode());
 		systemMessage.put("createdAt", now);
 		systemMessage.put("timestamp", System.currentTimeMillis());
-		
+
+		// 추가 데이터가 있으면 포함
+		if (result.data() != null) {
+			systemMessage.put("data", result.data());
+		}
+
 		String broadcastPayload = gson.toJson(systemMessage);
 		List<String> failedConnections = broadcaster.broadcast(connections, broadcastPayload);
 		cleanupFailedConnections(failedConnections);
-		
-		logger.info("Command result broadcasted: type={}, roomId={}", result.messageType(), roomId);
+
+		logger.info("Command result broadcasted: type={}, domain={}, roomId={}", result.messageType(), domain, roomId);
 		return WebSocketEventUtil.ok("Command executed");
+	}
+
+	/**
+	 * 메시지 타입에 따라 domain 결정
+	 */
+	private String determineDomain(MessageType messageType) {
+		return switch (messageType) {
+			// 게임 관련 메시지
+			case GAME_START, GAME_END, ROUND_START, ROUND_END, DRAWING, DRAWING_CLEAR,
+			     CORRECT_ANSWER, SCORE_UPDATE, HINT -> WebSocketMessageHelper.DOMAIN_GAME;
+			// 방 상태 관련 메시지
+			case ROOM_STATUS_CHANGE, HOST_CHANGE -> WebSocketMessageHelper.DOMAIN_ROOM;
+			// 채팅 관련 메시지 (기본값)
+			default -> WebSocketMessageHelper.DOMAIN_CHAT;
+		};
 	}
 	
 	/**
