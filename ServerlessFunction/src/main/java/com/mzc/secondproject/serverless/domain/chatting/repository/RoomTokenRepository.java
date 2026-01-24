@@ -18,14 +18,14 @@ public class RoomTokenRepository {
 	private static final String TABLE_NAME = EnvConfig.getRequired("CHAT_TABLE_NAME");
 	
 	private final DynamoDbTable<RoomToken> table;
-
+	
 	/**
 	 * 기본 생성자 (Lambda에서 사용)
 	 */
 	public RoomTokenRepository() {
 		this(AwsClients.dynamoDbEnhanced());
 	}
-
+	
 	/**
 	 * 의존성 주입 생성자 (테스트 용이성)
 	 */

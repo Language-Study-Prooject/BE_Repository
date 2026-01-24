@@ -30,7 +30,7 @@ public class WordRepository {
 	public WordRepository() {
 		this(AwsClients.dynamoDbEnhanced());
 	}
-
+	
 	/**
 	 * 의존성 주입 생성자 (테스트 용이성)
 	 */
@@ -112,7 +112,7 @@ public class WordRepository {
 	 */
 	public PaginatedResult<Word> findByLevelWithPagination(String level, int limit, String cursor) {
 		QueryConditional queryConditional = QueryConditional
-				.keyEqualTo(Key.builder().partitionValue("LEVEL#" + level).build());
+				.keyEqualTo(Key.builder().partitionValue("LEVEL#" + level.toUpperCase()).build());
 		
 		QueryEnhancedRequest.Builder requestBuilder = QueryEnhancedRequest.builder()
 				.queryConditional(queryConditional)

@@ -34,7 +34,7 @@ public class ChatVoiceHandler implements RequestHandler<APIGatewayProxyRequestEv
 	public ChatVoiceHandler() {
 		this(new PollyService(BUCKET_NAME, "voice/"), new ChatMessageRepository());
 	}
-
+	
 	/**
 	 * 의존성 주입 생성자 (테스트 용이성)
 	 */

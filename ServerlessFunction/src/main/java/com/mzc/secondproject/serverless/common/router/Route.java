@@ -13,7 +13,7 @@ import java.util.regex.Pattern;
 
 /**
  * HTTP 라우트 정의
- *
+ * <p>
  * Path 패턴에서 자동으로 필수 파라미터를 추출합니다.
  * 예: "/rooms/{roomId}/messages/{messageId}" → ["roomId", "messageId"]
  *

@@ -7,11 +7,7 @@ import com.mzc.secondproject.serverless.common.util.CursorUtil;
 import com.mzc.secondproject.serverless.domain.chatting.model.ChatRoom;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import software.amazon.awssdk.enhanced.dynamodb.DynamoDbEnhancedClient;
-import software.amazon.awssdk.enhanced.dynamodb.DynamoDbIndex;
-import software.amazon.awssdk.enhanced.dynamodb.DynamoDbTable;
-import software.amazon.awssdk.enhanced.dynamodb.Key;
-import software.amazon.awssdk.enhanced.dynamodb.TableSchema;
+import software.amazon.awssdk.enhanced.dynamodb.*;
 import software.amazon.awssdk.enhanced.dynamodb.model.Page;
 import software.amazon.awssdk.enhanced.dynamodb.model.QueryConditional;
 import software.amazon.awssdk.enhanced.dynamodb.model.QueryEnhancedRequest;
@@ -29,14 +25,14 @@ public class ChatRoomRepository {
 	private static final String TABLE_NAME = EnvConfig.getRequired("CHAT_TABLE_NAME");
 	
 	private final DynamoDbTable<ChatRoom> table;
-
+	
 	/**
 	 * 기본 생성자 (Lambda에서 사용)
 	 */
 	public ChatRoomRepository() {
 		this(AwsClients.dynamoDbEnhanced());
 	}
-
+	
 	/**
 	 * 의존성 주입 생성자 (테스트 용이성)
 	 */
@@ -109,7 +105,7 @@ public class ChatRoomRepository {
 	public PaginatedResult<ChatRoom> findByFilters(String type, String gameType, String status, String level, int limit, String cursor) {
 		// GSI1SK prefix 생성: {type}#{gameType}#{status}#{level}#
 		StringBuilder prefixBuilder = new StringBuilder();
-
+		
 		if (type != null && !type.isEmpty()) {
 			prefixBuilder.append(type).append("#");
 			if (gameType != null && !gameType.isEmpty()) {
@@ -122,9 +118,9 @@ public class ChatRoomRepository {
 				}
 			}
 		}
-
+		
 		String prefix = prefixBuilder.toString();
-
+		
 		QueryConditional queryConditional;
 		if (prefix.isEmpty()) {
 			// 필터 없음 - 전체 조회
@@ -138,31 +134,32 @@ public class ChatRoomRepository {
 							.build()
 			);
 		}
-
+		
 		QueryEnhancedRequest.Builder requestBuilder = QueryEnhancedRequest.builder()
 				.queryConditional(queryConditional)
 				.scanIndexForward(false)  // 최신순
 				.limit(limit);
-
+		
 		if (cursor != null && !cursor.isEmpty()) {
 			Map<String, AttributeValue> exclusiveStartKey = CursorUtil.decode(cursor);
 			if (exclusiveStartKey != null) {
 				requestBuilder.exclusiveStartKey(exclusiveStartKey);
 			}
 		}
-
+		
 		DynamoDbIndex<ChatRoom> gsi1 = table.index("GSI1");
 		Page<ChatRoom> page = gsi1.query(requestBuilder.build()).iterator().next();
 		List<ChatRoom> rooms = page.items();
-
+		
 		String nextCursor = CursorUtil.encode(page.lastEvaluatedKey());
-
+		
 		logger.info("Query with prefix '{}': found {} rooms", prefix, rooms.size());
 		return new PaginatedResult<>(rooms, nextCursor);
 	}
-
+	
 	/**
 	 * 레벨별 채팅방 조회 - 최신순, 페이지네이션 지원
+	 *
 	 * @deprecated findByFilters 사용 권장
 	 */
 	@Deprecated
@@ -187,7 +184,7 @@ public class ChatRoomRepository {
 	public void updateStatus(ChatRoom room, String newStatus) {
 		String oldGsi1sk = room.getGsi1sk();
 		String[] parts = oldGsi1sk.split("#", 5);  // type, gameType, oldStatus, level, createdAt
-
+		
 		if (parts.length < 5) {
 			logger.warn("Invalid GSI1SK format: {}", oldGsi1sk);
 			// 폴백: 새 포맷으로 생성
@@ -200,12 +197,12 @@ public class ChatRoomRepository {
 			// 기존 포맷에서 status만 교체
 			room.setGsi1sk(String.format("%s#%s#%s#%s#%s", parts[0], parts[1], newStatus, parts[3], parts[4]));
 		}
-
+		
 		room.setStatus(newStatus);
 		table.putItem(room);
 		logger.info("Updated room {} status to {} (GSI1SK: {})", room.getRoomId(), newStatus, room.getGsi1sk());
 	}
-
+	
 	/**
 	 * 채팅방 lastMessageAt 업데이트 (N+1 방지 - UpdateExpression 사용)
 	 */

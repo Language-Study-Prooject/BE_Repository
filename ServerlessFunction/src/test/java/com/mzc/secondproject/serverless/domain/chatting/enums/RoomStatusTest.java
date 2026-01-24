@@ -1,6 +1,7 @@
 package com.mzc.secondproject.serverless.domain.chatting.enums;
 
 import org.junit.jupiter.api.Test;
+
 import static org.junit.jupiter.api.Assertions.*;
 
 class RoomStatusTest {
@@ -15,7 +16,7 @@ class RoomStatusTest {
 		assertEquals(RoomStatus.WAITING, RoomStatus.fromString(null));
 		assertEquals(RoomStatus.WAITING, RoomStatus.fromString("invalid"));
 	}
-
+	
 	@Test
 	void testIsValid() {
 		assertTrue(RoomStatus.isValid("WAITING"));
@@ -27,14 +28,14 @@ class RoomStatusTest {
 		assertFalse(RoomStatus.isValid(null));
 		assertFalse(RoomStatus.isValid("invalid"));
 	}
-
+	
 	@Test
 	void testGetCode() {
 		assertEquals("waiting", RoomStatus.WAITING.getCode());
 		assertEquals("playing", RoomStatus.PLAYING.getCode());
 		assertEquals("finished", RoomStatus.FINISHED.getCode());
 	}
-
+	
 	@Test
 	void testGetDisplayName() {
 		assertEquals("대기 중", RoomStatus.WAITING.getDisplayName());

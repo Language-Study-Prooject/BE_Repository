@@ -2,10 +2,11 @@ package com.mzc.secondproject.serverless.domain.vocabulary.service;
 
 import com.mzc.secondproject.serverless.common.dto.PaginatedResult;
 import com.mzc.secondproject.serverless.common.enums.StudyLevel;
-import com.mzc.secondproject.serverless.domain.vocabulary.config.VocabularyConfig;
 import com.mzc.secondproject.serverless.domain.badge.service.BadgeService;
+import com.mzc.secondproject.serverless.domain.notification.service.NotificationPublisher;
 import com.mzc.secondproject.serverless.domain.stats.model.UserStats;
 import com.mzc.secondproject.serverless.domain.stats.repository.UserStatsRepository;
+import com.mzc.secondproject.serverless.domain.vocabulary.config.VocabularyConfig;
 import com.mzc.secondproject.serverless.domain.vocabulary.constants.VocabKey;
 import com.mzc.secondproject.serverless.domain.vocabulary.exception.VocabularyException;
 import com.mzc.secondproject.serverless.domain.vocabulary.model.DailyStudy;
@@ -34,13 +35,14 @@ public class DailyStudyCommandService {
 	private final WordRepository wordRepository;
 	private final UserStatsRepository userStatsRepository;
 	private final BadgeService badgeService;
+	private final NotificationPublisher notificationPublisher;
 
 	/**
 	 * 기본 생성자 (Lambda에서 사용)
 	 */
 	public DailyStudyCommandService() {
 		this(new DailyStudyRepository(), new UserWordRepository(), new WordRepository(),
-				new UserStatsRepository(), new BadgeService());
+				new UserStatsRepository(), new BadgeService(), NotificationPublisher.getInstance());
 	}
 
 	/**
@@ -50,12 +52,14 @@ public class DailyStudyCommandService {
 	                                UserWordRepository userWordRepository,
 	                                WordRepository wordRepository,
 	                                UserStatsRepository userStatsRepository,
-	                                BadgeService badgeService) {
+	                                BadgeService badgeService,
+	                                NotificationPublisher notificationPublisher) {
 		this.dailyStudyRepository = dailyStudyRepository;
 		this.userWordRepository = userWordRepository;
 		this.wordRepository = wordRepository;
 		this.userStatsRepository = userStatsRepository;
 		this.badgeService = badgeService;
+		this.notificationPublisher = notificationPublisher;
 	}
 	
 	public DailyStudyResult getDailyWords(String userId, String level) {
@@ -115,15 +119,35 @@ public class DailyStudyCommandService {
 		checkWordsBadge(userId);
 		
 		DailyStudy updatedDailyStudy = dailyStudyRepository.findByUserIdAndDate(userId, today).orElse(dailyStudy);
-		
+
 		if (updatedDailyStudy.getLearnedCount() >= updatedDailyStudy.getTotalWords()) {
 			updatedDailyStudy.setIsCompleted(true);
 			dailyStudyRepository.save(updatedDailyStudy);
+
+			// 일일 학습 완료 알림 발행
+			int currentStreak = getCurrentStreak(userId);
+			notificationPublisher.publishDailyComplete(
+					userId,
+					today,
+					updatedDailyStudy.getLearnedCount(),
+					updatedDailyStudy.getTotalWords(),
+					currentStreak
+			);
 		}
-		
+
 		logger.info("Marked word as learned: userId={}, wordId={}, isNew={}, isReview={}",
 				userId, wordId, isNewWord, isReviewWord);
 		return calculateProgress(updatedDailyStudy);
+	}
+
+	private int getCurrentStreak(String userId) {
+		try {
+			Optional<UserStats> stats = userStatsRepository.findTotalStats(userId);
+			return stats.map(UserStats::getCurrentStreak).orElse(0);
+		} catch (Exception e) {
+			logger.warn("Failed to get current streak for user: {}", userId, e);
+			return 0;
+		}
 	}
 	
 	private DailyStudy createDailyStudy(String userId, String date, String level) {

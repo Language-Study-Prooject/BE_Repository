@@ -25,14 +25,14 @@ public class UserWordCommandService {
 	private static final Logger logger = LoggerFactory.getLogger(UserWordCommandService.class);
 	
 	private final UserWordRepository userWordRepository;
-
+	
 	/**
 	 * 기본 생성자 (Lambda에서 사용)
 	 */
 	public UserWordCommandService() {
 		this(new UserWordRepository());
 	}
-
+	
 	/**
 	 * 의존성 주입 생성자 (테스트 용이성)
 	 */

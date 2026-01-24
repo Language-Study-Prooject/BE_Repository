@@ -16,14 +16,14 @@ public class StatisticsService {
 	private static final Logger logger = LoggerFactory.getLogger(StatisticsService.class);
 	
 	private final UserWordRepository userWordRepository;
-
+	
 	/**
 	 * 기본 생성자 (Lambda에서 사용)
 	 */
 	public StatisticsService() {
 		this(new UserWordRepository());
 	}
-
+	
 	/**
 	 * 의존성 주입 생성자 (테스트 용이성)
 	 */

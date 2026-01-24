@@ -30,7 +30,7 @@ public class DailyStudyHandler implements RequestHandler<APIGatewayProxyRequestE
 	public DailyStudyHandler() {
 		this(new DailyStudyCommandService(), new DailyStudyQueryService());
 	}
-
+	
 	/**
 	 * 의존성 주입 생성자 (테스트 용이성)
 	 */

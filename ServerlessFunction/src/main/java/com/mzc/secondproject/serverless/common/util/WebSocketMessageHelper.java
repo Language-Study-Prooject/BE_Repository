@@ -10,14 +10,14 @@ import java.util.UUID;
  * 모든 메시지에 domain 필드를 포함하여 채팅/게임 구분 지원
  */
 public final class WebSocketMessageHelper {
-
+	
 	public static final String DOMAIN_CHAT = "chat";
 	public static final String DOMAIN_GAME = "game";
 	public static final String DOMAIN_ROOM = "room";
-
+	
 	private WebSocketMessageHelper() {
 	}
-
+	
 	/**
 	 * 기본 메시지 생성
 	 *
@@ -34,21 +34,21 @@ public final class WebSocketMessageHelper {
 		message.put("timestamp", System.currentTimeMillis());
 		return message;
 	}
-
+	
 	/**
 	 * 채팅 메시지 생성
 	 */
 	public static Map<String, Object> createChatMessage(String messageType, Object data) {
 		return createMessage(DOMAIN_CHAT, messageType, data);
 	}
-
+	
 	/**
 	 * 게임 메시지 생성
 	 */
 	public static Map<String, Object> createGameMessage(String messageType, Object data) {
 		return createMessage(DOMAIN_GAME, messageType, data);
 	}
-
+	
 	/**
 	 * 채팅 메시지 빌더 (상세 필드 포함)
 	 */
@@ -60,7 +60,7 @@ public final class WebSocketMessageHelper {
 	) {
 		String messageId = UUID.randomUUID().toString();
 		String now = Instant.now().toString();
-
+		
 		Map<String, Object> message = new HashMap<>();
 		message.put("domain", DOMAIN_CHAT);
 		message.put("messageType", messageType);
@@ -72,7 +72,7 @@ public final class WebSocketMessageHelper {
 		message.put("timestamp", System.currentTimeMillis());
 		return message;
 	}
-
+	
 	/**
 	 * 게임 메시지 빌더 (상세 필드 포함)
 	 */
@@ -84,7 +84,7 @@ public final class WebSocketMessageHelper {
 		String messageId = UUID.randomUUID().toString();
 		String now = Instant.now().toString();
 		long serverTime = System.currentTimeMillis();
-
+		
 		Map<String, Object> message = new HashMap<>();
 		message.put("domain", DOMAIN_GAME);
 		message.put("messageType", messageType);
@@ -94,20 +94,20 @@ public final class WebSocketMessageHelper {
 		message.put("createdAt", now);
 		message.put("timestamp", serverTime);
 		message.put("serverTime", serverTime);
-
+		
 		if (gameData != null) {
 			message.put("data", gameData);
 		}
 		return message;
 	}
-
+	
 	/**
 	 * 시스템 메시지 생성 (채팅 도메인)
 	 */
 	public static Map<String, Object> buildSystemMessage(String roomId, String content, String messageType) {
 		return buildChatMessage(roomId, "SYSTEM", content, messageType);
 	}
-
+	
 	/**
 	 * 방 상태 변경 메시지 생성
 	 *
@@ -123,7 +123,7 @@ public final class WebSocketMessageHelper {
 	) {
 		String messageId = UUID.randomUUID().toString();
 		String now = Instant.now().toString();
-
+		
 		Map<String, Object> message = new HashMap<>();
 		message.put("domain", DOMAIN_ROOM);
 		message.put("messageType", "room_status_change");
@@ -135,13 +135,13 @@ public final class WebSocketMessageHelper {
 		message.put("timestamp", System.currentTimeMillis());
 		return message;
 	}
-
+	
 	/**
 	 * 방장 변경 메시지 생성
 	 *
-	 * @param roomId           방 ID
-	 * @param newHostId        새 방장 ID
-	 * @param newHostNickname  새 방장 닉네임
+	 * @param roomId          방 ID
+	 * @param newHostId       새 방장 ID
+	 * @param newHostNickname 새 방장 닉네임
 	 * @return 방장 변경 메시지
 	 */
 	public static Map<String, Object> buildHostChangeMessage(
@@ -151,7 +151,7 @@ public final class WebSocketMessageHelper {
 	) {
 		String messageId = UUID.randomUUID().toString();
 		String now = Instant.now().toString();
-
+		
 		Map<String, Object> message = new HashMap<>();
 		message.put("domain", DOMAIN_ROOM);
 		message.put("messageType", "host_change");

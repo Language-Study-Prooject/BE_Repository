@@ -2,10 +2,10 @@ package com.mzc.secondproject.serverless.common.exception;
 
 /**
  * 공통/시스템 예외 클래스
- *
+ * <p>
  * 도메인에 종속되지 않는 공통 예외를 처리합니다.
  * 정적 팩토리 메서드를 통해 가독성 높은 예외 생성을 지원합니다.
- *
+ * <p>
  * 사용 예시:
  * throw CommonException.unauthorized();
  * throw CommonException.notFound("사용자");

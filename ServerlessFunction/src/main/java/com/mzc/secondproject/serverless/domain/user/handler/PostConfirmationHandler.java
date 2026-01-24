@@ -13,18 +13,23 @@ import java.util.UUID;
 
 /**
  * Cognito Post Confirmation 트리거 핸들러
- *
+ * <p>
  * 사용자 이메일 인증을 완료한 직후 DB에 데이터 생성
  */
 public class PostConfirmationHandler implements RequestHandler<CognitoUserPoolPostConfirmationEvent, CognitoUserPoolPostConfirmationEvent> {
 	
 	private static final Logger logger = LoggerFactory.getLogger(PostConfirmationHandler.class);
-	private static final String DEFAULT_PROFILE_URL = "https://group2-englishstudy.s3.amazonaws.com/profile/default.png";
-	
+	private static final String BUCKET_NAME = System.getenv("BUCKET_NAME");
+	private static final String DEFAULT_PROFILE_URL = getDefaultProfileUrl();
 	private final UserRepository userRepository;
 	
 	public PostConfirmationHandler() {
 		this.userRepository = new UserRepository();
+	}
+	
+	private static String getDefaultProfileUrl() {
+		String bucket = BUCKET_NAME != null ? BUCKET_NAME : "group2-englishstudy";
+		return String.format("https://%s.s3.amazonaws.com/profile/default.png", bucket);
 	}
 	
 	@Override

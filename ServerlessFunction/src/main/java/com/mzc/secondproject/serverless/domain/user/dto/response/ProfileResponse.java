@@ -29,7 +29,7 @@ public class ProfileResponse {
 				.email(user.getEmail())
 				.nickname(user.getNickname())
 				.level(user.getLevel())
-				.profileUrl(user.getProfileUrl())
+				.profileUrl(user.getProfileUrlForResponse())
 				.createdAt(user.getCreatedAt())
 				.updatedAt(user.getUpdatedAt())
 				.build();

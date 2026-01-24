@@ -37,7 +37,7 @@ public class UserWordHandler implements RequestHandler<APIGatewayProxyRequestEve
 	public UserWordHandler() {
 		this(new UserWordCommandService(), new UserWordQueryService());
 	}
-
+	
 	/**
 	 * 의존성 주입 생성자 (테스트 용이성)
 	 */
@@ -71,13 +71,14 @@ public class UserWordHandler implements RequestHandler<APIGatewayProxyRequestEve
 		String cursor = queryParams != null ? queryParams.get("cursor") : null;
 		String bookmarked = queryParams != null ? queryParams.get("bookmarked") : null;
 		String incorrectOnly = queryParams != null ? queryParams.get("incorrectOnly") : null;
+		String category = queryParams != null ? queryParams.get("category") : null;
 		
 		int limit = 20;
 		if (queryParams != null && queryParams.get("limit") != null) {
 			limit = Math.min(Integer.parseInt(queryParams.get("limit")), 50);
 		}
 		
-		UserWordQueryService.UserWordsResult result = queryService.getUserWords(userId, status, bookmarked, incorrectOnly, limit, cursor);
+		UserWordQueryService.UserWordsResult result = queryService.getUserWords(userId, status, bookmarked, incorrectOnly, category, limit, cursor);
 		
 		Map<String, Object> response = new HashMap<>();
 		response.put("userWords", result.userWords());

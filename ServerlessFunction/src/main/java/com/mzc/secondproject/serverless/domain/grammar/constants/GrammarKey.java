@@ -7,6 +7,7 @@ public final class GrammarKey {
 	public static final String MSG_PREFIX = "MSG#";
 	public static final String ALL_SESSIONS = "GSESSION#ALL";
 	public static final String UPDATED_PREFIX = "UPDATED#";
+	
 	private GrammarKey() {
 	}
 	

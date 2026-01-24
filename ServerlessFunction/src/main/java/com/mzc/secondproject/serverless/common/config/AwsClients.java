@@ -11,6 +11,7 @@ import software.amazon.awssdk.services.polly.PollyClient;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.sns.SnsClient;
+import software.amazon.awssdk.services.sqs.SqsClient;
 import software.amazon.awssdk.services.ssm.SsmClient;
 
 /**
@@ -19,11 +20,11 @@ import software.amazon.awssdk.services.ssm.SsmClient;
  * X-Ray TracingInterceptor 적용으로 다운스트림 서비스 추적
  */
 public final class AwsClients {
-
+	
 	private static final ClientOverrideConfiguration XRAY_CONFIG = ClientOverrideConfiguration.builder()
 			.addExecutionInterceptor(new TracingInterceptor())
 			.build();
-
+	
 	// DynamoDB
 	private static final DynamoDbClient DYNAMO_DB_CLIENT = DynamoDbClient.builder()
 			.overrideConfiguration(XRAY_CONFIG)
@@ -55,12 +56,17 @@ public final class AwsClients {
 	private static final ComprehendClient COMPREHEND_CLIENT = ComprehendClient.builder()
 			.overrideConfiguration(XRAY_CONFIG)
 			.build();
-
+	
 	// SSM (Parameter Store)
 	private static final SsmClient SSM_CLIENT = SsmClient.builder()
 			.overrideConfiguration(XRAY_CONFIG)
 			.build();
-	
+
+	// SQS
+	private static final SqsClient SQS_CLIENT = SqsClient.builder()
+			.overrideConfiguration(XRAY_CONFIG)
+			.build();
+
 	private AwsClients() {
 		// 인스턴스화 방지
 	}
@@ -100,6 +106,12 @@ public final class AwsClients {
 	public static ComprehendClient comprehend() {
 		return COMPREHEND_CLIENT;
 	}
+	
+	public static SsmClient ssm() {
+		return SSM_CLIENT;
+	}
 
-	public static SsmClient ssm() { return SSM_CLIENT; }
+	public static SqsClient sqs() {
+		return SQS_CLIENT;
+	}
 }

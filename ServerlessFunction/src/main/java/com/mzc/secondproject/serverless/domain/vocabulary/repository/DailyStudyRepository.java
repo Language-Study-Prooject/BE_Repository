@@ -17,7 +17,9 @@ import software.amazon.awssdk.enhanced.dynamodb.model.QueryEnhancedRequest;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 import software.amazon.awssdk.services.dynamodb.model.UpdateItemRequest;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -27,14 +29,14 @@ public class DailyStudyRepository {
 	private static final String TABLE_NAME = EnvConfig.getRequired("VOCAB_TABLE_NAME");
 	
 	private final DynamoDbTable<DailyStudy> table;
-
+	
 	/**
 	 * 기본 생성자 (Lambda에서 사용)
 	 */
 	public DailyStudyRepository() {
 		this(AwsClients.dynamoDbEnhanced());
 	}
-
+	
 	/**
 	 * 의존성 주입 생성자 (테스트 용이성)
 	 */
@@ -114,5 +116,25 @@ public class DailyStudyRepository {
 		
 		AwsClients.dynamoDb().updateItem(updateRequest);
 		logger.info("Added learned word: userId={}, date={}, wordId={}", userId, date, wordId);
+	}
+
+	/**
+	 * 특정 날짜의 모든 일일 학습 기록 조회 (GSI1 사용)
+	 */
+	public List<DailyStudy> findByDate(String date) {
+		QueryConditional queryConditional = QueryConditional
+				.keyEqualTo(Key.builder()
+						.partitionValue("DAILY#ALL")
+						.sortValue("DATE#" + date)
+						.build());
+
+		QueryEnhancedRequest request = QueryEnhancedRequest.builder()
+				.queryConditional(queryConditional)
+				.build();
+
+		List<DailyStudy> results = new ArrayList<>();
+		table.index("GSI1").query(request).forEach(page -> results.addAll(page.items()));
+
+		return results;
 	}
 }

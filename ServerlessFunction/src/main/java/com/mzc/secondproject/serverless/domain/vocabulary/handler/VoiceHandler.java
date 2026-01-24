@@ -34,7 +34,7 @@ public class VoiceHandler implements RequestHandler<APIGatewayProxyRequestEvent,
 	public VoiceHandler() {
 		this(new WordRepository(), new PollyService(BUCKET_NAME, "vocab/voice/"));
 	}
-
+	
 	/**
 	 * 의존성 주입 생성자 (테스트 용이성)
 	 */
