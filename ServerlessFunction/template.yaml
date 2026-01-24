@@ -37,12 +37,14 @@ Globals:
         VOCAB_TABLE_NAME: !Ref VocabTable
         OPIC_TABLE_NAME: !Ref OPIcTable
         NEWS_TABLE_NAME: !Ref NewsTable
+        SPEAKING_TABLE_NAME: !Ref SpeakingTable
         BUCKET_NAME: !Sub "${AWS::StackName}"
         CHAT_BUCKET_NAME: !Sub "${AWS::StackName}"
         VOCAB_BUCKET_NAME: !Sub "${AWS::StackName}"
         PROFILE_BUCKET_NAME: !Sub "${AWS::StackName}"
         OPIC_BUCKET_NAME: !Sub "${AWS::StackName}"
         NEWS_BUCKET_NAME: !Sub "${AWS::StackName}"
+        SPEAKING_BUCKET_NAME: !Sub "${AWS::StackName}"
         AWS_REGION_NAME: !Ref AWS::Region
         ROOM_TOKEN_TTL_SECONDS: "300"
         TRANSCRIBE_PROXY_URL: "https://tfo1zm7vec.execute-api.ap-northeast-2.amazonaws.com/prod/transcribe"
@@ -1619,6 +1621,56 @@ Resources:
               Authorizer: CognitoAuthorizer
 
   #############################################
+  # Speaking Lambda Functions
+  #############################################
+
+  SpeakingFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-speaking-handler"
+      CodeUri: .
+      Handler: com.mzc.secondproject.serverless.domain.speaking.handler.SpeakingHandler::handleRequest
+      Description: Handle speaking chat API
+      SnapStart:
+        ApplyOn: PublishedVersions
+      Environment:
+        Variables:
+          TRANSCRIBE_API_KEY: "/opic/transcribe-proxy-api-key"
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref SpeakingTable
+        - S3CrudPolicy:
+            BucketName: !Sub "${AWS::StackName}"
+        - Statement:
+            - Effect: Allow
+              Action:
+                - ssm:GetParameter
+              Resource: !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/opic/*"
+        - Statement:
+            - Effect: Allow
+              Action:
+                - bedrock:InvokeModel
+                - polly:SynthesizeSpeech
+              Resource: "*"
+      Events:
+        SpeakingChat:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /speaking/chat
+            Method: POST
+            Auth:
+              Authorizer: CognitoAuthorizer
+        SpeakingReset:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /speaking/reset
+            Method: POST
+            Auth:
+              Authorizer: CognitoAuthorizer
+
+  #############################################
   # DynamoDB Tables
   #############################################
 
@@ -2007,6 +2059,38 @@ Resources:
         AttributeName: ttl
         Enabled: true
 
+  SpeakingTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub "${AWS::StackName}-speaking"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: PK
+          AttributeType: S
+        - AttributeName: SK
+          AttributeType: S
+        - AttributeName: GSI1PK
+          AttributeType: S
+        - AttributeName: GSI1SK
+          AttributeType: S
+      KeySchema:
+        - AttributeName: PK
+          KeyType: HASH
+        - AttributeName: SK
+          KeyType: RANGE
+      GlobalSecondaryIndexes:
+        - IndexName: GSI1
+          KeySchema:
+            - AttributeName: GSI1PK
+              KeyType: HASH
+            - AttributeName: GSI1SK
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+
   #############################################
   # S3 Bucket for Content Storage
   #############################################
@@ -2235,6 +2319,10 @@ Outputs:
   OPIcTableName:
     Description: OPIc DynamoDB Table Name
     Value: !Ref OPIcTable
+
+  SpeakingTableName:
+    Description: Speaking DynamoDB Table Name
+    Value: !Ref SpeakingTable
 
   NotificationStreamUrl:
     Description: Notification SSE Stream Function URL
