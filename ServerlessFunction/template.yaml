@@ -2,6 +2,16 @@ AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
 Description: Group2 English Study - Unified API (Chatting + Vocabulary)
 
+Parameters:
+  Environment:
+    Type: String
+    Default: dev
+    AllowedValues:
+      - dev
+      - test
+      - prod
+    Description: Deployment environment
+
 Globals:
   Function:
     Timeout: 30
@@ -16,11 +26,13 @@ Globals:
         CHAT_TABLE_NAME: !Ref ChatTable
         VOCAB_TABLE_NAME: !Ref VocabTable
         OPIC_TABLE_NAME: !Ref OPIcTable
-        BUCKET_NAME: group2-englishstudy
-        CHAT_BUCKET_NAME: group2-englishstudy
-        VOCAB_BUCKET_NAME: group2-englishstudy
-        PROFILE_BUCKET_NAME: group2-englishstudy
-        OPIC_BUCKET_NAME: group2-englishstudy
+        NEWS_TABLE_NAME: !Ref NewsTable
+        BUCKET_NAME: !Sub "${AWS::StackName}"
+        CHAT_BUCKET_NAME: !Sub "${AWS::StackName}"
+        VOCAB_BUCKET_NAME: !Sub "${AWS::StackName}"
+        PROFILE_BUCKET_NAME: !Sub "${AWS::StackName}"
+        OPIC_BUCKET_NAME: !Sub "${AWS::StackName}"
+        NEWS_BUCKET_NAME: !Sub "${AWS::StackName}"
         AWS_REGION_NAME: !Ref AWS::Region
         ROOM_TOKEN_TTL_SECONDS: "300"
         TRANSCRIBE_PROXY_URL: "https://tfo1zm7vec.execute-api.ap-northeast-2.amazonaws.com/prod/transcribe"
@@ -100,7 +112,7 @@ Resources:
       Timeout: 10
       Environment:
         Variables:
-          DEFAULT_PROFILE_URL: https://group2-englishstudy.s3.amazonaws.com/profile/default.png
+          DEFAULT_PROFILE_URL: !Sub "https://${AWS::StackName}.s3.amazonaws.com/profile/default.png"
 
   # 회원가입 시점에 사용자 모든 정보가 DB에 저장 Lambda 함수
   PostConfirmationFunction:
@@ -110,6 +122,8 @@ Resources:
       CodeUri: .
       Handler: com.mzc.secondproject.serverless.domain.user.handler.PostConfirmationHandler::handleRequest
       Description: Handle user registration - save to DynamoDB
+      MemorySize: 1024
+      Timeout: 5
       SnapStart:
         ApplyOn: PublishedVersions
       Policies:
@@ -135,13 +149,53 @@ Resources:
   MainApi:
     Type: AWS::Serverless::Api
     Properties:
-      Name: group2-englishstudy-api
-      StageName: dev
+      Name: !Sub "${AWS::StackName}-api"
+      StageName: !Ref Environment
       Cors:
         AllowMethods: "'GET,POST,PUT,DELETE,OPTIONS'"
         AllowHeaders: "'Content-Type,Authorization,X-Amz-Date,X-Api-Key'"
         AllowOrigin: "'*'"
-
+        AllowCredentials: false
+      GatewayResponses:
+        UNAUTHORIZED:
+          StatusCode: 401
+          ResponseParameters:
+            Headers:
+              Access-Control-Allow-Origin: "'*'"
+              Access-Control-Allow-Headers: "'Content-Type,Authorization,X-Amz-Date,X-Api-Key'"
+              Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
+          ResponseTemplates:
+            application/json: '{"message": "Unauthorized", "statusCode": 401}'
+        ACCESS_DENIED:
+          StatusCode: 403
+          ResponseParameters:
+            Headers:
+              Access-Control-Allow-Origin: "'*'"
+              Access-Control-Allow-Headers: "'Content-Type,Authorization,X-Amz-Date,X-Api-Key'"
+              Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
+          ResponseTemplates:
+            application/json: '{"message": "Access Denied", "statusCode": 403}'
+        DEFAULT_4XX:
+          ResponseParameters:
+            Headers:
+              Access-Control-Allow-Origin: "'*'"
+              Access-Control-Allow-Headers: "'Content-Type,Authorization,X-Amz-Date,X-Api-Key'"
+              Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
+        DEFAULT_5XX:
+          ResponseParameters:
+            Headers:
+              Access-Control-Allow-Origin: "'*'"
+              Access-Control-Allow-Headers: "'Content-Type,Authorization,X-Amz-Date,X-Api-Key'"
+              Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
+        EXPIRED_TOKEN:
+          StatusCode: 401
+          ResponseParameters:
+            Headers:
+              Access-Control-Allow-Origin: "'*'"
+              Access-Control-Allow-Headers: "'Content-Type,Authorization,X-Amz-Date,X-Api-Key'"
+              Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
+          ResponseTemplates:
+            application/json: '{"message": "Token expired", "statusCode": 401}'
       Auth:
         DefaultAuthorizer: CognitoAuthorizer
         Authorizers:
@@ -157,7 +211,7 @@ Resources:
   WebSocketApi:
     Type: AWS::ApiGatewayV2::Api
     Properties:
-      Name: group2-englishstudy-websocket
+      Name: !Sub "${AWS::StackName}-websocket"
       ProtocolType: WEBSOCKET
       RouteSelectionExpression: "$request.body.action"
 
@@ -223,7 +277,7 @@ Resources:
   WebSocketConnectFunction:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: group2-englishstudy-ws-connect
+      FunctionName: !Sub "${AWS::StackName}-ws-connect"
       CodeUri: .
       Handler: com.mzc.secondproject.serverless.domain.chatting.handler.websocket.WebSocketConnectHandler::handleRequest
       Description: Handle WebSocket $connect
@@ -232,9 +286,15 @@ Resources:
       Environment:
         Variables:
           WEBSOCKET_CONNECTION_TTL_SECONDS: "600"
+          WEBSOCKET_ENDPOINT: !Sub "https://${WebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/dev"
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref ChatTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - execute-api:ManageConnections
+              Resource: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${WebSocketApi}/*
 
   WebSocketConnectPermission:
     Type: AWS::Lambda::Permission
@@ -247,31 +307,10 @@ Resources:
   WebSocketDisconnectFunction:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: group2-englishstudy-ws-disconnect
+      FunctionName: !Sub "${AWS::StackName}-ws-disconnect"
       CodeUri: .
       Handler: com.mzc.secondproject.serverless.domain.chatting.handler.websocket.WebSocketDisconnectHandler::handleRequest
       Description: Handle WebSocket $disconnect
-      SnapStart:
-        ApplyOn: PublishedVersions
-      Policies:
-        - DynamoDBCrudPolicy:
-            TableName: !Ref ChatTable
-
-  WebSocketDisconnectPermission:
-    Type: AWS::Lambda::Permission
-    Properties:
-      Action: lambda:InvokeFunction
-      FunctionName: !Ref WebSocketDisconnectFunction
-      Principal: apigateway.amazonaws.com
-      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${WebSocketApi}/*/$disconnect
-
-  WebSocketMessageFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      FunctionName: group2-englishstudy-ws-message
-      CodeUri: .
-      Handler: com.mzc.secondproject.serverless.domain.chatting.handler.websocket.WebSocketMessageHandler::handleRequest
-      Description: Handle WebSocket sendMessage
       SnapStart:
         ApplyOn: PublishedVersions
       Environment:
@@ -285,6 +324,52 @@ Resources:
               Action:
                 - execute-api:ManageConnections
               Resource: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${WebSocketApi}/*
+
+  WebSocketDisconnectPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref WebSocketDisconnectFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${WebSocketApi}/*/$disconnect
+
+  WebSocketMessageFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-ws-message"
+      CodeUri: .
+      Handler: com.mzc.secondproject.serverless.domain.chatting.handler.websocket.WebSocketMessageHandler::handleRequest
+      Description: Handle WebSocket sendMessage
+      SnapStart:
+        ApplyOn: PublishedVersions
+      Environment:
+        Variables:
+          WEBSOCKET_ENDPOINT: !Sub "https://${WebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/dev"
+          GAME_AUTO_CLOSE_LAMBDA_ARN: !GetAtt GameAutoCloseFunction.Arn
+          SCHEDULER_ROLE_ARN: !GetAtt GameSchedulerRole.Arn
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ChatTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref VocabTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - execute-api:ManageConnections
+              Resource: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${WebSocketApi}/*
+        # EventBridge Scheduler 권한
+        - Statement:
+            - Effect: Allow
+              Action:
+                - scheduler:CreateSchedule
+                - scheduler:DeleteSchedule
+                - scheduler:GetSchedule
+              Resource: !Sub "arn:aws:scheduler:${AWS::Region}:${AWS::AccountId}:schedule/game-auto-close/*"
+        - Statement:
+            - Effect: Allow
+              Action:
+                - iam:PassRole
+              Resource: !GetAtt GameSchedulerRole.Arn
 
   WebSocketMessagePermission:
     Type: AWS::Lambda::Permission
@@ -311,7 +396,7 @@ Resources:
         - DynamoDBCrudPolicy:
             TableName: !Ref UserTable
         - S3CrudPolicy:
-            BucketName: group2-englishstudy
+            BucketName: !Sub "${AWS::StackName}"
       Events:
         GetMyProfile:
           Type: Api
@@ -339,15 +424,25 @@ Resources:
   ChatRoomFunction:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: group2-englishstudy-chat-room-handler
+      FunctionName: !Sub "${AWS::StackName}-chat-room-handler"
       CodeUri: .
       Handler: com.mzc.secondproject.serverless.domain.chatting.handler.ChatRoomHandler::handleRequest
       Description: Handle chat room CRUD operations
       SnapStart:
         ApplyOn: PublishedVersions
+      Environment:
+        Variables:
+          WEBSOCKET_ENDPOINT: !Sub "https://${WebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/dev"
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref ChatTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref UserTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - execute-api:ManageConnections
+              Resource: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${WebSocketApi}/*
       Events:
         CreateRoom:
           Type: Api
@@ -401,7 +496,7 @@ Resources:
   GameFunction:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: group2-englishstudy-game-handler
+      FunctionName: !Sub "${AWS::StackName}-game-handler"
       CodeUri: .
       Handler: com.mzc.secondproject.serverless.domain.chatting.handler.GameHandler::handleRequest
       Description: Handle catch-mind game operations
@@ -410,14 +505,31 @@ Resources:
       Environment:
         Variables:
           WEBSOCKET_ENDPOINT: !Sub "https://${WebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/dev"
+          GAME_AUTO_CLOSE_LAMBDA_ARN: !GetAtt GameAutoCloseFunction.Arn
+          SCHEDULER_ROLE_ARN: !GetAtt GameSchedulerRole.Arn
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref ChatTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref VocabTable
         - Statement:
             - Effect: Allow
               Action:
                 - execute-api:ManageConnections
               Resource: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${WebSocketApi}/*"
+        # EventBridge Scheduler 권한
+        - Statement:
+            - Effect: Allow
+              Action:
+                - scheduler:CreateSchedule
+                - scheduler:DeleteSchedule
+                - scheduler:GetSchedule
+              Resource: !Sub "arn:aws:scheduler:${AWS::Region}:${AWS::AccountId}:schedule/game-auto-close/*"
+        - Statement:
+            - Effect: Allow
+              Action:
+                - iam:PassRole
+              Resource: !GetAtt GameSchedulerRole.Arn
       Events:
         StartGame:
           Type: Api
@@ -452,10 +564,62 @@ Resources:
             Auth:
               Authorizer: CognitoAuthorizer
 
+  # 게임 자동 종료 Lambda (EventBridge Scheduler에 의해 호출)
+  GameAutoCloseFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-game-auto-close"
+      CodeUri: .
+      Handler: com.mzc.secondproject.serverless.domain.chatting.handler.GameAutoCloseHandler::handleRequest
+      Description: Auto-close game after 7 minutes
+      Timeout: 30
+      MemorySize: 512
+      SnapStart:
+        ApplyOn: PublishedVersions
+      Environment:
+        Variables:
+          WEBSOCKET_ENDPOINT: !Sub "https://${WebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/dev"
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ChatTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - execute-api:ManageConnections
+              Resource: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${WebSocketApi}/*"
+
+  # EventBridge Scheduler가 Lambda를 호출할 수 있는 IAM Role
+  GameSchedulerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${AWS::StackName}-game-scheduler-role"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: scheduler.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: InvokeGameAutoCloseLambda
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - lambda:InvokeFunction
+                Resource: !GetAtt GameAutoCloseFunction.Arn
+
+  # EventBridge Schedule Group
+  GameScheduleGroup:
+    Type: AWS::Scheduler::ScheduleGroup
+    Properties:
+      Name: game-auto-close
+
   ChatMessageFunction:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: group2-englishstudy-chat-message-handler
+      FunctionName: !Sub "${AWS::StackName}-chat-message-handler"
       CodeUri: .
       Handler: com.mzc.secondproject.serverless.domain.chatting.handler.ChatMessageHandler::handleRequest
       Description: Handle chat messages
@@ -465,7 +629,7 @@ Resources:
         - DynamoDBCrudPolicy:
             TableName: !Ref ChatTable
         - S3CrudPolicy:
-            BucketName: group2-englishstudy
+            BucketName: !Sub "${AWS::StackName}"
         - Statement:
             - Effect: Allow
               Action:
@@ -507,7 +671,7 @@ Resources:
   ChatVoiceFunction:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: group2-englishstudy-chat-voice-handler
+      FunctionName: !Sub "${AWS::StackName}-chat-voice-handler"
       CodeUri: .
       Handler: com.mzc.secondproject.serverless.domain.chatting.handler.ChatVoiceHandler::handleRequest
       Description: Convert text to speech using Polly
@@ -517,7 +681,7 @@ Resources:
         - DynamoDBCrudPolicy:
             TableName: !Ref ChatTable
         - S3CrudPolicy:
-            BucketName: group2-englishstudy
+            BucketName: !Sub "${AWS::StackName}"
         - Statement:
             - Effect: Allow
               Action:
@@ -541,7 +705,7 @@ Resources:
   WordFunction:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: group2-englishstudy-vocab-word-handler
+      FunctionName: !Sub "${AWS::StackName}-vocab-word-handler"
       CodeUri: .
       Handler: com.mzc.secondproject.serverless.domain.vocabulary.handler.WordHandler::handleRequest
       Description: Handle word CRUD operations
@@ -619,7 +783,7 @@ Resources:
   UserWordFunction:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: group2-englishstudy-vocab-userword-handler
+      FunctionName: !Sub "${AWS::StackName}-vocab-userword-handler"
       CodeUri: .
       Handler: com.mzc.secondproject.serverless.domain.vocabulary.handler.UserWordHandler::handleRequest
       Description: Handle user word learning status
@@ -681,7 +845,7 @@ Resources:
   WordGroupFunction:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: group2-englishstudy-vocab-wordgroup-handler
+      FunctionName: !Sub "${AWS::StackName}-vocab-wordgroup-handler"
       CodeUri: .
       Handler: com.mzc.secondproject.serverless.domain.vocabulary.handler.WordGroupHandler::handleRequest
       Description: Handle user custom word groups
@@ -751,7 +915,7 @@ Resources:
   DailyStudyFunction:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: group2-englishstudy-vocab-daily-handler
+      FunctionName: !Sub "${AWS::StackName}-vocab-daily-handler"
       CodeUri: .
       Handler: com.mzc.secondproject.serverless.domain.vocabulary.handler.DailyStudyHandler::handleRequest
       Description: Handle daily study word assignment
@@ -781,7 +945,7 @@ Resources:
   TestFunction:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: group2-englishstudy-vocab-test-handler
+      FunctionName: !Sub "${AWS::StackName}-vocab-test-handler"
       CodeUri: .
       Handler: com.mzc.secondproject.serverless.domain.vocabulary.handler.TestHandler::handleRequest
       Description: Handle vocabulary tests
@@ -840,7 +1004,7 @@ Resources:
   StatsFunction:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: group2-englishstudy-vocab-stats-handler
+      FunctionName: !Sub "${AWS::StackName}-vocab-stats-handler"
       CodeUri: .
       Handler: com.mzc.secondproject.serverless.domain.vocabulary.handler.StatsHandler::handleRequest
       Description: Handle user learning statistics
@@ -878,7 +1042,7 @@ Resources:
   VocabVoiceFunction:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: group2-englishstudy-vocab-voice-handler
+      FunctionName: !Sub "${AWS::StackName}-vocab-voice-handler"
       CodeUri: .
       Handler: com.mzc.secondproject.serverless.domain.vocabulary.handler.VoiceHandler::handleRequest
       Description: Convert word to speech using Polly
@@ -888,7 +1052,7 @@ Resources:
         - DynamoDBCrudPolicy:
             TableName: !Ref VocabTable
         - S3CrudPolicy:
-            BucketName: group2-englishstudy
+            BucketName: !Sub "${AWS::StackName}"
         - Statement:
             - Effect: Allow
               Action:
@@ -913,7 +1077,7 @@ Resources:
   StatsStreamFunction:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: group2-englishstudy-stats-stream-handler
+      FunctionName: !Sub "${AWS::StackName}-stats-stream-handler"
       CodeUri: .
       Handler: com.mzc.secondproject.serverless.domain.stats.handler.StatsStreamHandler::handleRequest
       Description: Process DynamoDB Streams for stats aggregation
@@ -938,7 +1102,7 @@ Resources:
   UserStatsFunction:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: group2-englishstudy-user-stats-handler
+      FunctionName: !Sub "${AWS::StackName}-user-stats-handler"
       CodeUri: .
       Handler: com.mzc.secondproject.serverless.domain.stats.handler.UserStatsHandler::handleRequest
       Description: Handle user learning statistics API
@@ -993,7 +1157,7 @@ Resources:
   BadgeFunction:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: group2-englishstudy-badge-handler
+      FunctionName: !Sub "${AWS::StackName}-badge-handler"
       CodeUri: .
       Handler: com.mzc.secondproject.serverless.domain.badge.handler.BadgeHandler::handleRequest
       Description: Handle user badges and achievements
@@ -1003,7 +1167,7 @@ Resources:
         - DynamoDBCrudPolicy:
             TableName: !Ref VocabTable
         - S3ReadPolicy:
-            BucketName: group2-englishstudy
+            BucketName: !Sub "${AWS::StackName}"
       Events:
         GetAllBadges:
           Type: Api
@@ -1029,7 +1193,7 @@ Resources:
   GrammarFunction:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: group2-englishstudy-grammar-handler
+      FunctionName: !Sub "${AWS::StackName}-grammar-handler"
       CodeUri: .
       Handler: com.mzc.secondproject.serverless.domain.grammar.handler.GrammarHandler::handleRequest
       Description: Handle grammar check using Bedrock AI
@@ -1108,7 +1272,7 @@ Resources:
   GrammarWebSocketApi:
     Type: AWS::ApiGatewayV2::Api
     Properties:
-      Name: group2-englishstudy-grammar-websocket
+      Name: !Sub "${AWS::StackName}-grammar-websocket"
       ProtocolType: WEBSOCKET
       RouteSelectionExpression: "$request.body.action"
 
@@ -1171,13 +1335,21 @@ Resources:
   GrammarStreamingConnectFunction:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: group2-grammar-ws-connect
+      FunctionName: !Sub "${AWS::StackName}-grammar-ws-connect"
       CodeUri: .
       Handler: com.mzc.secondproject.serverless.domain.grammar.handler.websocket.GrammarStreamingConnectHandler::handleRequest
       Description: Handle Grammar WebSocket $connect with JWT auth
+      Environment:
+        Variables:
+          WEBSOCKET_ENDPOINT: !Sub "https://${GrammarWebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/dev"
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref ChatTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - execute-api:ManageConnections
+              Resource: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${GrammarWebSocketApi}/*
 
   GrammarStreamingConnectPermission:
     Type: AWS::Lambda::Permission
@@ -1190,13 +1362,21 @@ Resources:
   GrammarStreamingDisconnectFunction:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: group2-grammar-ws-disconnect
+      FunctionName: !Sub "${AWS::StackName}-grammar-ws-disconnect"
       CodeUri: .
       Handler: com.mzc.secondproject.serverless.domain.grammar.handler.websocket.GrammarStreamingDisconnectHandler::handleRequest
       Description: Handle Grammar WebSocket $disconnect
+      Environment:
+        Variables:
+          WEBSOCKET_ENDPOINT: !Sub "https://${GrammarWebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/dev"
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref ChatTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - execute-api:ManageConnections
+              Resource: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${GrammarWebSocketApi}/*
 
   GrammarStreamingDisconnectPermission:
     Type: AWS::Lambda::Permission
@@ -1209,7 +1389,7 @@ Resources:
   GrammarStreamingFunction:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: group2-grammar-ws-streaming
+      FunctionName: !Sub "${AWS::StackName}-grammar-ws-streaming"
       CodeUri: .
       Handler: com.mzc.secondproject.serverless.domain.grammar.handler.websocket.GrammarStreamingHandler::handleRequest
       Description: Handle Grammar streaming with Bedrock
@@ -1245,7 +1425,7 @@ Resources:
   ScheduledStatsFunction:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: group2-englishstudy-scheduled-stats
+      FunctionName: !Sub "${AWS::StackName}-scheduled-stats"
       CodeUri: .
       Handler: com.mzc.secondproject.serverless.domain.stats.handler.ScheduledStatsHandler::handleRequest
       Description: Daily scheduled job for word learning stats aggregation
@@ -1272,7 +1452,7 @@ Resources:
   OPIcSessionFunction:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: group2-englishstudy-opic-session-handler
+      FunctionName: !Sub "${AWS::StackName}-opic-session-handler"
       CodeUri: .
       Handler: com.mzc.secondproject.serverless.domain.opic.handler.OPIcSessionHandler::handleRequest
       Description: Handle OPIc speaking practice sessions
@@ -1282,12 +1462,12 @@ Resources:
         ApplyOn: PublishedVersions
       Environment:
         Variables:
-          TRANSCRIBE_API_KEY_PARAM: "/opic/transcribe-proxy-api-key"
+          TRANSCRIBE_API_KEY: "/opic/transcribe-proxy-api-key"
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref OPIcTable
         - S3CrudPolicy:
-            BucketName: group2-englishstudy
+            BucketName: !Sub "${AWS::StackName}"
         - Statement:
             - Effect: Allow
               Action:
@@ -1380,7 +1560,7 @@ Resources:
     DeletionPolicy: Retain
     # UpdateReplacePolicy: Retain
     Properties:
-      TableName: group2-englishstudy-user
+      TableName: !Sub "${AWS::StackName}-user"
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
         - AttributeName: PK
@@ -1425,7 +1605,7 @@ Resources:
   ChatTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: group2-englishstudy-chat
+      TableName: !Sub "${AWS::StackName}-chat"
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
         - AttributeName: PK
@@ -1469,7 +1649,7 @@ Resources:
   VocabTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: group2-englishstudy-vocab
+      TableName: !Sub "${AWS::StackName}-vocab"
       BillingMode: PAY_PER_REQUEST
       StreamSpecification:
         StreamViewType: NEW_IMAGE
@@ -1527,7 +1707,7 @@ Resources:
   OPIcTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: group2-englishstudy-opic
+      TableName: !Sub "${AWS::StackName}-opic"
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
         - AttributeName: PK
@@ -1557,6 +1737,200 @@ Resources:
         Enabled: true
 
   #############################################
+  # News Collection Scheduled Lambda
+  #############################################
+
+  NewsCollectionFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-news-collection"
+      CodeUri: .
+      Handler: com.mzc.secondproject.serverless.domain.news.handler.NewsCollectionHandler::handleRequest
+      Description: 매일 18시에 영어 뉴스를 수집하는 Lambda
+      MemorySize: 512
+      Timeout: 300
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref NewsTable
+      Events:
+        DailySchedule:
+          Type: Schedule
+          Properties:
+            Schedule: cron(0 9 * * ? *)
+            Name: news-collection-daily-schedule
+            Description: 매일 18시 KST (09:00 UTC)에 뉴스 수집
+            Enabled: true
+
+  NewsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-news"
+      CodeUri: .
+      Handler: com.mzc.secondproject.serverless.domain.news.handler.NewsHandler::handleRequest
+      Description: 뉴스 학습 API
+      MemorySize: 256
+      Timeout: 30
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref NewsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref VocabularyTable
+        - S3CrudPolicy:
+            BucketName: !Ref ContentBucket
+        - Statement:
+            - Effect: Allow
+              Action:
+                - polly:SynthesizeSpeech
+              Resource: "*"
+      Events:
+        GetNewsList:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /news
+            Method: GET
+        GetTodayNews:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /news/today
+            Method: GET
+        GetRecommendedNews:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /news/recommended
+            Method: GET
+        GetNewsStats:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /news/stats
+            Method: GET
+        GetBookmarks:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /news/bookmarks
+            Method: GET
+        GetUserWords:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /news/words
+            Method: GET
+        SyncWordToVocab:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /news/words/{word}/sync
+            Method: POST
+        CollectWord:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /news/{articleId}/words
+            Method: POST
+        DeleteWord:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /news/{articleId}/words/{word}
+            Method: DELETE
+        GetWordDetail:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /news/{articleId}/words/{word}
+            Method: GET
+        GetQuizHistory:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /news/quiz/history
+            Method: GET
+        GetQuiz:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /news/{articleId}/quiz
+            Method: GET
+        SubmitQuiz:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /news/{articleId}/quiz
+            Method: POST
+        MarkAsRead:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /news/{articleId}/read
+            Method: POST
+        ToggleBookmark:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /news/{articleId}/bookmark
+            Method: POST
+        GetAudio:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /news/{articleId}/audio
+            Method: GET
+        GetNewsDetail:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /news/{articleId}
+            Method: GET
+
+  NewsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub "${AWS::StackName}-news"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: PK
+          AttributeType: S
+        - AttributeName: SK
+          AttributeType: S
+        - AttributeName: GSI1PK
+          AttributeType: S
+        - AttributeName: GSI1SK
+          AttributeType: S
+        - AttributeName: GSI2PK
+          AttributeType: S
+        - AttributeName: GSI2SK
+          AttributeType: S
+      KeySchema:
+        - AttributeName: PK
+          KeyType: HASH
+        - AttributeName: SK
+          KeyType: RANGE
+      GlobalSecondaryIndexes:
+        - IndexName: GSI1
+          KeySchema:
+            - AttributeName: GSI1PK
+              KeyType: HASH
+            - AttributeName: GSI1SK
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+        - IndexName: GSI2
+          KeySchema:
+            - AttributeName: GSI2PK
+              KeyType: HASH
+            - AttributeName: GSI2SK
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+
+  #############################################
   # SNS / SQS for Async Statistics Processing
   #############################################
 
@@ -1564,20 +1938,20 @@ Resources:
   TestResultTopic:
     Type: AWS::SNS::Topic
     Properties:
-      TopicName: group2-englishstudy-test-result-topic
+      TopicName: !Sub "${AWS::StackName}-test-result-topic"
 
   # SQS Dead Letter Queue - 실패한 메시지 보관
   StatisticsDeadLetterQueue:
     Type: AWS::SQS::Queue
     Properties:
-      QueueName: group2-englishstudy-statistics-dlq
+      QueueName: !Sub "${AWS::StackName}-statistics-dlq"
       MessageRetentionPeriod: 1209600  # 14일
 
   # SQS Queue - 통계 처리용
   StatisticsQueue:
     Type: AWS::SQS::Queue
     Properties:
-      QueueName: group2-englishstudy-statistics-queue
+      QueueName: !Sub "${AWS::StackName}-statistics-queue"
       VisibilityTimeout: 60
       RedrivePolicy:
         deadLetterTargetArn: !GetAtt StatisticsDeadLetterQueue.Arn
@@ -1613,7 +1987,7 @@ Resources:
   StatisticsProcessorFunction:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: group2-englishstudy-statistics-processor
+      FunctionName: !Sub "${AWS::StackName}-statistics-processor"
       CodeUri: .
       Handler: com.mzc.secondproject.serverless.domain.vocabulary.handler.StatisticsHandler::handleRequest
       Description: Process test results and update user word statistics
@@ -1659,7 +2033,7 @@ Outputs:
 
   BucketName:
     Description: S3 Bucket Name
-    Value: group2-englishstudy
+    Value: !Sub "${AWS::StackName}"
 
   CognitoUserPoolId:
     Description: Cognito User Pool ID

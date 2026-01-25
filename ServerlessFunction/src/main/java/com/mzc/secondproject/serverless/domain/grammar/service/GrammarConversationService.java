@@ -1,6 +1,7 @@
 package com.mzc.secondproject.serverless.domain.grammar.service;
 
 import com.google.gson.Gson;
+import com.mzc.secondproject.serverless.domain.grammar.config.GrammarConfig;
 import com.mzc.secondproject.serverless.domain.grammar.constants.GrammarKey;
 import com.mzc.secondproject.serverless.domain.grammar.dto.request.ConversationRequest;
 import com.mzc.secondproject.serverless.domain.grammar.dto.response.ConversationResponse;
@@ -24,9 +25,6 @@ import java.util.function.Consumer;
 public class GrammarConversationService {
 	
 	private static final Logger logger = LoggerFactory.getLogger(GrammarConversationService.class);
-	private static final int SESSION_TTL_DAYS = 30;
-	private static final int MAX_HISTORY_MESSAGES = 10;
-	private static final int LAST_MESSAGE_MAX_LENGTH = 100;
 	
 	private final BedrockGrammarCheckFactory grammarFactory;
 	private final GrammarSessionRepository repository;
@@ -67,10 +65,10 @@ public class GrammarConversationService {
 		);
 		
 		// 사용자 메시지 저장
-		saveUserMessage(session, request.getMessage(), response.getGrammarCheck());
+		saveMessage("USER", session, request.getMessage(), response.getGrammarCheck());
 		
 		// AI 응답 메시지 저장
-		saveAssistantMessage(session, response.getAiResponse());
+		saveMessage("ASSISTANT", session, response.getAiResponse(), null);
 		
 		// 세션 업데이트
 		updateSession(session, request.getMessage());
@@ -83,7 +81,7 @@ public class GrammarConversationService {
 			throw GrammarException.invalidSentence(request.getMessage());
 		}
 		if (request.getUserId() == null || request.getUserId().trim().isEmpty()) {
-			throw new IllegalArgumentException("userId is required");
+			throw GrammarException.invalidRequest("userId", "userId는 필수입니다");
 		}
 	}
 	
@@ -97,7 +95,7 @@ public class GrammarConversationService {
 	
 	private GrammarSession createNewSession(String sessionId, String userId, GrammarLevel level) {
 		String now = Instant.now().toString();
-		long ttl = Instant.now().plus(SESSION_TTL_DAYS, ChronoUnit.DAYS).getEpochSecond();
+		long ttl = Instant.now().plus(GrammarConfig.sessionTtlDays(), ChronoUnit.DAYS).getEpochSecond();
 		
 		GrammarSession session = GrammarSession.builder()
 				.pk(GrammarKey.sessionPk(userId))
@@ -121,7 +119,7 @@ public class GrammarConversationService {
 	
 	private String buildConversationHistory(String sessionId) {
 		try {
-			List<GrammarMessage> messages = repository.findRecentMessagesBySessionId(sessionId, MAX_HISTORY_MESSAGES);
+			List<GrammarMessage> messages = repository.findRecentMessagesBySessionId(sessionId, GrammarConfig.maxHistoryMessages());
 			
 			if (messages.isEmpty()) {
 				return "";
@@ -144,10 +142,10 @@ public class GrammarConversationService {
 		}
 	}
 	
-	private void saveUserMessage(GrammarSession session, String content, GrammarCheckResponse grammarCheck) {
+	private void saveMessage(String role, GrammarSession session, String content, GrammarCheckResponse grammarCheck) {
 		String now = Instant.now().toString();
 		String messageId = UUID.randomUUID().toString();
-		long ttl = Instant.now().plus(SESSION_TTL_DAYS, ChronoUnit.DAYS).getEpochSecond();
+		long ttl = Instant.now().plus(GrammarConfig.sessionTtlDays(), ChronoUnit.DAYS).getEpochSecond();
 		
 		GrammarMessage message = GrammarMessage.builder()
 				.pk(GrammarKey.sessionPk(session.getUserId()))
@@ -157,7 +155,7 @@ public class GrammarConversationService {
 				.messageId(messageId)
 				.sessionId(session.getSessionId())
 				.userId(session.getUserId())
-				.role("USER")
+				.role(role)
 				.content(content)
 				.correctedContent(grammarCheck != null ? grammarCheck.getCorrectedSentence() : null)
 				.errorsJson(grammarCheck != null ? gson.toJson(grammarCheck.getErrors()) : null)
@@ -171,33 +169,11 @@ public class GrammarConversationService {
 		repository.saveMessage(message);
 	}
 	
-	private void saveAssistantMessage(GrammarSession session, String content) {
-		String now = Instant.now().toString();
-		String messageId = UUID.randomUUID().toString();
-		long ttl = Instant.now().plus(SESSION_TTL_DAYS, ChronoUnit.DAYS).getEpochSecond();
-		
-		GrammarMessage message = GrammarMessage.builder()
-				.pk(GrammarKey.sessionPk(session.getUserId()))
-				.sk(GrammarKey.messageSk(now, messageId))
-				.gsi1pk(GrammarKey.messageGsi1Pk(session.getSessionId()))
-				.gsi1sk(GrammarKey.messageGsi1Sk(now))
-				.messageId(messageId)
-				.sessionId(session.getSessionId())
-				.userId(session.getUserId())
-				.role("ASSISTANT")
-				.content(content)
-				.createdAt(now)
-				.ttl(ttl)
-				.build();
-		
-		repository.saveMessage(message);
-	}
-	
 	private void updateSession(GrammarSession session, String lastMessage) {
 		String now = Instant.now().toString();
 		session.setGsi1sk(GrammarKey.updatedSk(now));
 		session.setMessageCount(session.getMessageCount() + 2); // user + assistant
-		session.setLastMessage(truncateMessage(lastMessage, LAST_MESSAGE_MAX_LENGTH));
+		session.setLastMessage(truncateMessage(lastMessage, GrammarConfig.lastMessageMaxLength()));
 		session.setUpdatedAt(now);
 		
 		repository.saveSession(session);
@@ -264,9 +240,9 @@ public class GrammarConversationService {
 					@Override
 					public void onComplete(ConversationResponse response) {
 						// 사용자 메시지 저장
-						saveUserMessage(session, message, response.getGrammarCheck());
+						saveMessage("USER", session, message, response.getGrammarCheck());
 						// AI 응답 메시지 저장
-						saveAssistantMessage(session, response.getAiResponse());
+						saveMessage("ASSISTANT", session, response.getAiResponse(), null);
 						// 세션 업데이트
 						updateSession(session, message);
 						// 완료 콜백 호출

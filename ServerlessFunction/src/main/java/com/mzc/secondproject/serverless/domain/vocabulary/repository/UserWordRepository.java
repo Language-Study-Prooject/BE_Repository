@@ -1,6 +1,7 @@
 package com.mzc.secondproject.serverless.domain.vocabulary.repository;
 
 import com.mzc.secondproject.serverless.common.config.AwsClients;
+import com.mzc.secondproject.serverless.common.config.EnvConfig;
 import com.mzc.secondproject.serverless.common.dto.PaginatedResult;
 import com.mzc.secondproject.serverless.common.util.CursorUtil;
 import com.mzc.secondproject.serverless.domain.vocabulary.model.UserWord;
@@ -18,12 +19,22 @@ import java.util.Optional;
 public class UserWordRepository {
 	
 	private static final Logger logger = LoggerFactory.getLogger(UserWordRepository.class);
-	private static final String TABLE_NAME = System.getenv("VOCAB_TABLE_NAME");
+	private static final String TABLE_NAME = EnvConfig.getRequired("VOCAB_TABLE_NAME");
 	
 	private final DynamoDbTable<UserWord> table;
 	
+	/**
+	 * 기본 생성자 (Lambda에서 사용)
+	 */
 	public UserWordRepository() {
-		this.table = AwsClients.dynamoDbEnhanced().table(TABLE_NAME, TableSchema.fromBean(UserWord.class));
+		this(AwsClients.dynamoDbEnhanced());
+	}
+	
+	/**
+	 * 의존성 주입 생성자 (테스트 용이성)
+	 */
+	public UserWordRepository(DynamoDbEnhancedClient enhancedClient) {
+		this.table = enhancedClient.table(TABLE_NAME, TableSchema.fromBean(UserWord.class));
 	}
 	
 	public UserWord save(UserWord userWord) {

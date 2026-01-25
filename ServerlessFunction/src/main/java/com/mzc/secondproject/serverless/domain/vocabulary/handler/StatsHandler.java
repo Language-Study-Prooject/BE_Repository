@@ -21,8 +21,18 @@ public class StatsHandler implements RequestHandler<APIGatewayProxyRequestEvent,
 	private final StatsService statsService;
 	private final HandlerRouter router;
 	
+	/**
+	 * 기본 생성자 (Lambda에서 사용)
+	 */
 	public StatsHandler() {
-		this.statsService = new StatsService();
+		this(new StatsService());
+	}
+	
+	/**
+	 * 의존성 주입 생성자 (테스트 용이성)
+	 */
+	public StatsHandler(StatsService statsService) {
+		this.statsService = statsService;
 		this.router = initRouter();
 	}
 	

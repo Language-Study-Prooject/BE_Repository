@@ -1,6 +1,7 @@
 package com.mzc.secondproject.serverless.domain.chatting.repository;
 
 import com.mzc.secondproject.serverless.common.config.AwsClients;
+import com.mzc.secondproject.serverless.common.config.EnvConfig;
 import com.mzc.secondproject.serverless.domain.chatting.model.GameRound;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -22,14 +23,24 @@ import java.util.stream.Collectors;
 public class GameRoundRepository {
 	
 	private static final Logger logger = LoggerFactory.getLogger(GameRoundRepository.class);
-	private static final String TABLE_NAME = System.getenv("CHAT_TABLE_NAME");
+	private static final String TABLE_NAME = EnvConfig.getRequired("CHAT_TABLE_NAME");
 	private static final int BATCH_SIZE = 25;  // DynamoDB BatchWriteItem 최대 25개
 	
 	private final DynamoDbEnhancedClient enhancedClient;
 	private final DynamoDbTable<GameRound> table;
 	
+	/**
+	 * 기본 생성자 (Lambda에서 사용)
+	 */
 	public GameRoundRepository() {
-		this.enhancedClient = AwsClients.dynamoDbEnhanced();
+		this(AwsClients.dynamoDbEnhanced());
+	}
+	
+	/**
+	 * 의존성 주입 생성자 (테스트 용이성)
+	 */
+	public GameRoundRepository(DynamoDbEnhancedClient enhancedClient) {
+		this.enhancedClient = enhancedClient;
 		this.table = enhancedClient.table(TABLE_NAME, TableSchema.fromBean(GameRound.class));
 	}
 	

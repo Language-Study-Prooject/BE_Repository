@@ -1,6 +1,7 @@
 package com.mzc.secondproject.serverless.domain.vocabulary.repository;
 
 import com.mzc.secondproject.serverless.common.config.AwsClients;
+import com.mzc.secondproject.serverless.common.config.EnvConfig;
 import com.mzc.secondproject.serverless.common.dto.PaginatedResult;
 import com.mzc.secondproject.serverless.common.util.CursorUtil;
 import com.mzc.secondproject.serverless.domain.vocabulary.model.Word;
@@ -18,13 +19,23 @@ import java.util.Optional;
 public class WordRepository {
 	
 	private static final Logger logger = LoggerFactory.getLogger(WordRepository.class);
-	private static final String TABLE_NAME = System.getenv("VOCAB_TABLE_NAME");
+	private static final String TABLE_NAME = EnvConfig.getRequired("VOCAB_TABLE_NAME");
 	
 	private final DynamoDbEnhancedClient enhancedClient;
 	private final DynamoDbTable<Word> table;
 	
+	/**
+	 * 기본 생성자 (Lambda에서 사용)
+	 */
 	public WordRepository() {
-		this.enhancedClient = AwsClients.dynamoDbEnhanced();
+		this(AwsClients.dynamoDbEnhanced());
+	}
+	
+	/**
+	 * 의존성 주입 생성자 (테스트 용이성)
+	 */
+	public WordRepository(DynamoDbEnhancedClient enhancedClient) {
+		this.enhancedClient = enhancedClient;
 		this.table = enhancedClient.table(TABLE_NAME, TableSchema.fromBean(Word.class));
 	}
 	
@@ -101,7 +112,7 @@ public class WordRepository {
 	 */
 	public PaginatedResult<Word> findByLevelWithPagination(String level, int limit, String cursor) {
 		QueryConditional queryConditional = QueryConditional
-				.keyEqualTo(Key.builder().partitionValue("LEVEL#" + level).build());
+				.keyEqualTo(Key.builder().partitionValue("LEVEL#" + level.toUpperCase()).build());
 		
 		QueryEnhancedRequest.Builder requestBuilder = QueryEnhancedRequest.builder()
 				.queryConditional(queryConditional)

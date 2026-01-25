@@ -20,8 +20,18 @@ public class RoomTokenService {
 	
 	private final RoomTokenRepository tokenRepository;
 	
+	/**
+	 * 기본 생성자 (Lambda에서 사용)
+	 */
 	public RoomTokenService() {
-		this.tokenRepository = new RoomTokenRepository();
+		this(new RoomTokenRepository());
+	}
+	
+	/**
+	 * 의존성 주입 생성자 (테스트 용이성)
+	 */
+	public RoomTokenService(RoomTokenRepository tokenRepository) {
+		this.tokenRepository = tokenRepository;
 	}
 	
 	/**

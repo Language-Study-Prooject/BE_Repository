@@ -5,6 +5,7 @@ import com.mzc.secondproject.serverless.common.enums.StudyLevel;
 import com.mzc.secondproject.serverless.domain.badge.service.BadgeService;
 import com.mzc.secondproject.serverless.domain.stats.model.UserStats;
 import com.mzc.secondproject.serverless.domain.stats.repository.UserStatsRepository;
+import com.mzc.secondproject.serverless.domain.vocabulary.config.VocabularyConfig;
 import com.mzc.secondproject.serverless.domain.vocabulary.constants.VocabKey;
 import com.mzc.secondproject.serverless.domain.vocabulary.exception.VocabularyException;
 import com.mzc.secondproject.serverless.domain.vocabulary.model.DailyStudy;
@@ -28,21 +29,33 @@ public class DailyStudyCommandService {
 	
 	private static final Logger logger = LoggerFactory.getLogger(DailyStudyCommandService.class);
 	
-	private static final int NEW_WORDS_COUNT = 50;
-	private static final int REVIEW_WORDS_COUNT = 5;
-	
 	private final DailyStudyRepository dailyStudyRepository;
 	private final UserWordRepository userWordRepository;
 	private final WordRepository wordRepository;
 	private final UserStatsRepository userStatsRepository;
 	private final BadgeService badgeService;
 	
+	/**
+	 * 기본 생성자 (Lambda에서 사용)
+	 */
 	public DailyStudyCommandService() {
-		this.dailyStudyRepository = new DailyStudyRepository();
-		this.userWordRepository = new UserWordRepository();
-		this.wordRepository = new WordRepository();
-		this.userStatsRepository = new UserStatsRepository();
-		this.badgeService = new BadgeService();
+		this(new DailyStudyRepository(), new UserWordRepository(), new WordRepository(),
+				new UserStatsRepository(), new BadgeService());
+	}
+	
+	/**
+	 * 의존성 주입 생성자 (테스트 용이성)
+	 */
+	public DailyStudyCommandService(DailyStudyRepository dailyStudyRepository,
+	                                UserWordRepository userWordRepository,
+	                                WordRepository wordRepository,
+	                                UserStatsRepository userStatsRepository,
+	                                BadgeService badgeService) {
+		this.dailyStudyRepository = dailyStudyRepository;
+		this.userWordRepository = userWordRepository;
+		this.wordRepository = wordRepository;
+		this.userStatsRepository = userStatsRepository;
+		this.badgeService = badgeService;
 	}
 	
 	public DailyStudyResult getDailyWords(String userId, String level) {
@@ -116,12 +129,12 @@ public class DailyStudyCommandService {
 	private DailyStudy createDailyStudy(String userId, String date, String level) {
 		String now = Instant.now().toString();
 		
-		PaginatedResult<UserWord> reviewPage = userWordRepository.findReviewDueWords(userId, date, REVIEW_WORDS_COUNT, null);
+		PaginatedResult<UserWord> reviewPage = userWordRepository.findReviewDueWords(userId, date, VocabularyConfig.reviewWordsCount(), null);
 		List<String> reviewWordIds = reviewPage.items().stream()
 				.map(UserWord::getWordId)
 				.collect(Collectors.toList());
 		
-		List<String> newWordIds = getNewWordsForUser(userId, level, NEW_WORDS_COUNT);
+		List<String> newWordIds = getNewWordsForUser(userId, level, VocabularyConfig.newWordsCount());
 		
 		DailyStudy dailyStudy = DailyStudy.builder()
 				.pk(VocabKey.dailyPk(userId))

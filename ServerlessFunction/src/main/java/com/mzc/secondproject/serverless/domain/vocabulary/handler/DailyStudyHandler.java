@@ -24,9 +24,19 @@ public class DailyStudyHandler implements RequestHandler<APIGatewayProxyRequestE
 	private final DailyStudyQueryService queryService;
 	private final HandlerRouter router;
 	
+	/**
+	 * 기본 생성자 (Lambda에서 사용)
+	 */
 	public DailyStudyHandler() {
-		this.commandService = new DailyStudyCommandService();
-		this.queryService = new DailyStudyQueryService();
+		this(new DailyStudyCommandService(), new DailyStudyQueryService());
+	}
+	
+	/**
+	 * 의존성 주입 생성자 (테스트 용이성)
+	 */
+	public DailyStudyHandler(DailyStudyCommandService commandService, DailyStudyQueryService queryService) {
+		this.commandService = commandService;
+		this.queryService = queryService;
 		this.router = initRouter();
 	}
 	
