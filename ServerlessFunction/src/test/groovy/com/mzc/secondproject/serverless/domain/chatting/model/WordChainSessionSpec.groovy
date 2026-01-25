@@ -10,18 +10,19 @@ class WordChainSessionSpec extends Specification {
         WordChainSession.calculateTimeLimit(round) == expected
 
         where:
+        // 기본 15초에서 2라운드마다 1초씩 감소, 최소 7초 (15/2)
         round | expected
         1     | 15
         2     | 15
-        3     | 13
-        4     | 13
-        5     | 11
-        6     | 11
-        7     | 9
-        8     | 9
-        9     | 8
-        10    | 8
-        20    | 8
+        3     | 14
+        4     | 14
+        5     | 13
+        6     | 13
+        7     | 12
+        8     | 12
+        9     | 11
+        10    | 11
+        20    | 7   // 최소값
     }
 
     def "calculateScore: 기본 점수 계산"() {
