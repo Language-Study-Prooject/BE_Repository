@@ -147,6 +147,7 @@ Resources:
         Authorizers:
           CognitoAuthorizer:
             UserPoolArn: !Sub "arn:aws:cognito-idp:${AWS::Region}:${AWS::AccountId}:userpool/${ExistingCognitoUserPoolId}"
+            AuthorizationScopes: []
             Identity:
               Header: Authorization
 
