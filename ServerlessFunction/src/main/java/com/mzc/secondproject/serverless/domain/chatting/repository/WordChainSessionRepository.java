@@ -5,6 +5,7 @@ import com.mzc.secondproject.serverless.common.config.EnvConfig;
 import com.mzc.secondproject.serverless.domain.chatting.model.WordChainSession;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import software.amazon.awssdk.enhanced.dynamodb.DynamoDbIndex;
 import software.amazon.awssdk.enhanced.dynamodb.DynamoDbTable;
 import software.amazon.awssdk.enhanced.dynamodb.Key;
 import software.amazon.awssdk.enhanced.dynamodb.TableSchema;
@@ -19,16 +20,20 @@ public class WordChainSessionRepository {
 
 	private static final Logger logger = LoggerFactory.getLogger(WordChainSessionRepository.class);
 	private static final String TABLE_NAME = EnvConfig.getRequired("CHAT_TABLE_NAME");
+	private static final String GSI1_INDEX_NAME = "GSI1";
 
 	private final DynamoDbTable<WordChainSession> table;
+	private final DynamoDbIndex<WordChainSession> gsi1Index;
 
 	public WordChainSessionRepository() {
 		this.table = AwsClients.dynamoDbEnhanced()
 				.table(TABLE_NAME, TableSchema.fromBean(WordChainSession.class));
+		this.gsi1Index = table.index(GSI1_INDEX_NAME);
 	}
 
 	public WordChainSessionRepository(DynamoDbTable<WordChainSession> table) {
 		this.table = table;
+		this.gsi1Index = table.index(GSI1_INDEX_NAME);
 	}
 
 	/**
@@ -52,16 +57,16 @@ public class WordChainSessionRepository {
 	}
 
 	/**
-	 * 방의 활성 세션 조회
+	 * 방의 활성 세션 조회 (GSI1 인덱스 사용)
 	 */
 	public Optional<WordChainSession> findActiveByRoomId(String roomId) {
-		return table.query(QueryConditional.sortBeginsWith(
+		return gsi1Index.query(QueryConditional.sortBeginsWith(
 						Key.builder()
 								.partitionValue("ROOM#" + roomId)
 								.sortValue("WORDCHAIN#")
 								.build()))
-				.items()
 				.stream()
+				.flatMap(page -> page.items().stream())
 				.filter(WordChainSession::isActive)
 				.findFirst();
 	}
