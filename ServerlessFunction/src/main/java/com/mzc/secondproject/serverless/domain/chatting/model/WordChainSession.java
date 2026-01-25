@@ -40,6 +40,7 @@ public class WordChainSession {
 	private Character nextLetter;   // 다음 사람이 시작해야 할 글자
 	private Long turnStartTime;
 	private Integer timeLimit;      // 현재 라운드 시간 제한 (초)
+	private Integer baseTurnTimeLimit; // 사용자 설정 기본 턴 시간 (초)
 
 	// 플레이어 관리
 	private List<String> players;           // 전체 플레이어 (순서대로)
@@ -182,10 +183,27 @@ public class WordChainSession {
 
 	/**
 	 * 시간 제한 계산 (라운드에 따라 점점 빨라짐)
-	 * Round 1-2: 15초, Round 3-4: 13초, Round 5-6: 11초, Round 7-8: 9초, Round 9+: 8초
+	 * 기본값 15초에서 시작하여 2라운드마다 2초씩 감소, 최소 8초
 	 */
 	public static int calculateTimeLimit(int round) {
-		return Math.max(8, 15 - ((round - 1) / 2) * 2);
+		return calculateTimeLimit(round, 15);
+	}
+
+	/**
+	 * 시간 제한 계산 (기본 시간 제한 기준)
+	 * 설정된 기본 시간에서 시작하여 2라운드마다 1초씩 감소, 최소 (baseTimeLimit / 2)초
+	 */
+	public static int calculateTimeLimit(int round, int baseTimeLimit) {
+		int minTimeLimit = Math.max(5, baseTimeLimit / 2);
+		return Math.max(minTimeLimit, baseTimeLimit - ((round - 1) / 2));
+	}
+
+	/**
+	 * 세션의 기본 시간 제한을 기준으로 다음 라운드 시간 계산
+	 */
+	public int getNextRoundTimeLimit(int nextRound) {
+		int base = baseTurnTimeLimit != null ? baseTurnTimeLimit : 15;
+		return calculateTimeLimit(nextRound, base);
 	}
 
 	/**

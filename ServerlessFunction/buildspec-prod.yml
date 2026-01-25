@@ -43,7 +43,10 @@ phases:
           --capabilities CAPABILITY_IAM CAPABILITY_AUTO_EXPAND \
           --no-confirm-changeset \
           --no-fail-on-empty-changeset \
-          --parameter-overrides Environment=$ENVIRONMENT
+          --parameter-overrides \
+            Environment=$ENVIRONMENT \
+            ExistingCognitoUserPoolId=ap-northeast-2_ezDwzFCzR \
+            ExistingCognitoClientId=4ns077jcr1pkue2vvisr6qdpu5
       - echo "Deployment completed on $(date)"
 
 cache:
