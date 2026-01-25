@@ -580,71 +580,6 @@ Resources:
             Auth:
               Authorizer: CognitoAuthV2
 
-  # 끝말잇기(Word Chain) 게임 핸들러
-  WordChainFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      FunctionName: !Sub "${AWS::StackName}-wordchain-handler"
-      CodeUri: .
-      Handler: com.mzc.secondproject.serverless.domain.chatting.handler.WordChainHandler::handleRequest
-      Description: Handle word chain game operations
-      SnapStart:
-        ApplyOn: PublishedVersions
-      Environment:
-        Variables:
-          WEBSOCKET_ENDPOINT: !Sub "https://${WebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/${Environment}"
-      Policies:
-        - DynamoDBCrudPolicy:
-            TableName: !Ref ChatTable
-        - DynamoDBReadPolicy:
-            TableName: !Ref UserTable
-        - Statement:
-            - Effect: Allow
-              Action:
-                - execute-api:ManageConnections
-              Resource: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${WebSocketApi}/*"
-      Events:
-        StartWordChain:
-          Type: Api
-          Properties:
-            RestApiId: !Ref MainApi
-            Path: /chat/rooms/{roomId}/wordchain/start
-            Method: POST
-            Auth:
-              Authorizer: CognitoAuthorizer
-        SubmitWord:
-          Type: Api
-          Properties:
-            RestApiId: !Ref MainApi
-            Path: /chat/rooms/{roomId}/wordchain/submit
-            Method: POST
-            Auth:
-              Authorizer: CognitoAuthorizer
-        HandleTimeout:
-          Type: Api
-          Properties:
-            RestApiId: !Ref MainApi
-            Path: /chat/rooms/{roomId}/wordchain/timeout
-            Method: POST
-            Auth:
-              Authorizer: CognitoAuthorizer
-        StopWordChain:
-          Type: Api
-          Properties:
-            RestApiId: !Ref MainApi
-            Path: /chat/rooms/{roomId}/wordchain/stop
-            Method: POST
-            Auth:
-              Authorizer: CognitoAuthorizer
-        GetWordChainStatus:
-          Type: Api
-          Properties:
-            RestApiId: !Ref MainApi
-            Path: /chat/rooms/{roomId}/wordchain/status
-            Method: GET
-            Auth:
-              Authorizer: CognitoAuthorizer
-
   # 게임 자동 종료 Lambda (EventBridge Scheduler에 의해 호출)
   GameAutoCloseFunction:
     Type: AWS::Serverless::Function
@@ -1734,56 +1669,6 @@ Resources:
             Method: POST
             Auth:
               Authorizer: CognitoAuthV2
-
-  #############################################
-  # Speaking Lambda Functions
-  #############################################
-
-  SpeakingFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      FunctionName: !Sub "${AWS::StackName}-speaking-handler"
-      CodeUri: .
-      Handler: com.mzc.secondproject.serverless.domain.speaking.handler.SpeakingHandler::handleRequest
-      Description: Handle speaking chat API
-      SnapStart:
-        ApplyOn: PublishedVersions
-      Environment:
-        Variables:
-          TRANSCRIBE_API_KEY: "/opic/transcribe-proxy-api-key"
-      Policies:
-        - DynamoDBCrudPolicy:
-            TableName: !Ref SpeakingTable
-        - S3CrudPolicy:
-            BucketName: !Sub "${AWS::StackName}"
-        - Statement:
-            - Effect: Allow
-              Action:
-                - ssm:GetParameter
-              Resource: !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/opic/*"
-        - Statement:
-            - Effect: Allow
-              Action:
-                - bedrock:InvokeModel
-                - polly:SynthesizeSpeech
-              Resource: "*"
-      Events:
-        SpeakingChat:
-          Type: Api
-          Properties:
-            RestApiId: !Ref MainApi
-            Path: /speaking/chat
-            Method: POST
-            Auth:
-              Authorizer: CognitoAuthorizer
-        SpeakingReset:
-          Type: Api
-          Properties:
-            RestApiId: !Ref MainApi
-            Path: /speaking/reset
-            Method: POST
-            Auth:
-              Authorizer: CognitoAuthorizer
 
   #############################################
   # DynamoDB Tables
