@@ -27,10 +27,12 @@ public class User {
 	private String nickname;
 	private String level;
 	private String profileUrl;
+	private String profileUrlForResponse;
 	private String createdAt;
 	private String updatedAt;
 	private String lastLoginAt;
 	private Long ttl;
+	
 	
 	/**
 	 * 신규 사용자 생성
@@ -113,6 +115,11 @@ public class User {
 	public void updateProfileUrl(String newProfileUrl) {
 		this.profileUrl = newProfileUrl;
 		this.updatedAt = Instant.now().toString();
+	}
+	
+	@DynamoDbIgnore
+	public String getProfileUrlForResponse() {
+		return profileUrlForResponse != null ? profileUrlForResponse : profileUrl;
 	}
 	
 	public void updateLastLoginAt() {

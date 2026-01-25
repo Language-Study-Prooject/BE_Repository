@@ -11,7 +11,17 @@ import java.util.UUID;
 public class PreSignUpHandler implements RequestHandler<Map<String, Object>, Map<String, Object>> {
 	
 	private static final Logger logger = LoggerFactory.getLogger(PreSignUpHandler.class);
-	private static final String DEFAULT_PROFILE_URL = System.getenv("DEFAULT_PROFILE_URL");
+	private static final String BUCKET_NAME = System.getenv("BUCKET_NAME");
+	private static final String DEFAULT_PROFILE_URL = getDefaultProfileUrl();
+	
+	private static String getDefaultProfileUrl() {
+		String envUrl = System.getenv("DEFAULT_PROFILE_URL");
+		if (envUrl != null && !envUrl.isEmpty()) {
+			return envUrl;
+		}
+		String bucket = BUCKET_NAME != null ? BUCKET_NAME : "group2-englishstudy";
+		return String.format("https://%s.s3.amazonaws.com/profile/default.png", bucket);
+	}
 	
 	@Override
 	public Map<String, Object> handleRequest(Map<String, Object> input, Context context) {
@@ -38,11 +48,8 @@ public class PreSignUpHandler implements RequestHandler<Map<String, Object>, Map
 			
 			String profileUrl = userAttributes.get("custom:profileUrl");
 			if (profileUrl == null || profileUrl.trim().isEmpty()) {
-				String defaultUrl = DEFAULT_PROFILE_URL != null
-						? DEFAULT_PROFILE_URL
-						: "https://group2-englishstudy.s3.amazonaws.com/profile/default.png";
-				userAttributes.put("custom:profileUrl", defaultUrl);
-				logger.info("프로필 이미지 기본값: {}", defaultUrl);
+				userAttributes.put("custom:profileUrl", DEFAULT_PROFILE_URL);
+				logger.info("프로필 이미지 기본값: {}", DEFAULT_PROFILE_URL);
 			}
 			
 			return input;

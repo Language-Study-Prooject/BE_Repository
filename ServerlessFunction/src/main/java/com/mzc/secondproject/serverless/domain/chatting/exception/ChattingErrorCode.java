@@ -44,6 +44,10 @@ public enum ChattingErrorCode implements DomainErrorCode {
 	GAME_NOT_ALLOWED_IN_CHAT_ROOM("GAME_007", "게임은 게임 방에서만 시작할 수 있습니다", 400),
 	GAME_RESTART_NOT_ALLOWED("GAME_008", "게임 진행 중에는 재시작할 수 없습니다", 400),
 	GAME_START_NOT_HOST("GAME_009", "방장만 게임을 시작할 수 있습니다", 403),
+	GAME_ACTION_FAILED("GAME_010", "게임 액션 처리에 실패했습니다", 400),
+
+	// 일반 입력 에러
+	INVALID_INPUT("INPUT_001", "유효하지 않은 입력입니다", 400),
 	;
 	
 	private static final String DOMAIN = "CHATTING";

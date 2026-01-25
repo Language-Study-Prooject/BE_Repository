@@ -1,6 +1,7 @@
 package com.mzc.secondproject.serverless.domain.news.service;
 
 import com.mzc.secondproject.serverless.common.dto.PaginatedResult;
+import com.mzc.secondproject.serverless.domain.news.constants.NewsKey;
 import com.mzc.secondproject.serverless.domain.news.model.NewsArticle;
 import com.mzc.secondproject.serverless.domain.news.repository.NewsArticleRepository;
 import org.slf4j.Logger;
@@ -33,24 +34,28 @@ public class NewsQueryService {
 		logger.debug("뉴스 상세 조회: {}", articleId);
 		Optional<NewsArticle> article = articleRepository.findById(articleId);
 
-		// 조회수 증가
-		article.ifPresent(a -> {
-			String date = extractDateFromPk(a.getPk());
-			if (date != null) {
-				articleRepository.incrementReadCount(date, articleId);
-			}
-		});
+		article.ifPresent(this::incrementReadCount);
 
 		return article;
 	}
 
 	/**
-	 * 오늘의 뉴스 목록 조회
+	 * 오늘의 뉴스 목록 조회 (오늘 기사 없으면 어제 기사 조회)
 	 */
 	public PaginatedResult<NewsArticle> getTodayNews(int limit, String cursor) {
 		String today = LocalDate.now().toString();
 		logger.debug("오늘의 뉴스 조회: date={}, limit={}", today, limit);
-		return articleRepository.findByDate(today, limit, cursor);
+
+		PaginatedResult<NewsArticle> result = articleRepository.findByDate(today, limit, cursor);
+
+		// 오늘 기사가 없으면 어제 기사 조회
+		if (result.items().isEmpty() && cursor == null) {
+			String yesterday = LocalDate.now().minusDays(1).toString();
+			logger.debug("오늘 기사 없음, 어제 기사 조회: date={}", yesterday);
+			result = articleRepository.findByDate(yesterday, limit, cursor);
+		}
+
+		return result;
 	}
 
 	/**
@@ -82,17 +87,13 @@ public class NewsQueryService {
 	 */
 	public PaginatedResult<NewsArticle> getRecommendedNews(String userLevel, int limit, String cursor) {
 		logger.debug("맞춤 뉴스 추천: userLevel={}, limit={}", userLevel, limit);
-		// 사용자 레벨에 맞는 뉴스 조회
 		return articleRepository.findByLevel(userLevel, limit, cursor);
 	}
 
-	/**
-	 * PK에서 날짜 추출 (NEWS#2024-01-15 → 2024-01-15)
-	 */
-	private String extractDateFromPk(String pk) {
-		if (pk == null || !pk.startsWith("NEWS#")) {
-			return null;
+	private void incrementReadCount(NewsArticle article) {
+		String date = NewsKey.extractDateFromPk(article.getPk());
+		if (date != null) {
+			articleRepository.incrementReadCount(date, article.getArticleId());
 		}
-		return pk.substring(5);
 	}
 }

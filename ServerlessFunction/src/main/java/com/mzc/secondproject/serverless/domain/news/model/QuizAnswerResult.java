@@ -15,7 +15,7 @@ import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbBean;
 @AllArgsConstructor
 @DynamoDbBean
 public class QuizAnswerResult {
-
+	
 	private String questionId;
 	private String type;            // COMPREHENSION, WORD_MATCH, FILL_BLANK
 	private String userAnswer;

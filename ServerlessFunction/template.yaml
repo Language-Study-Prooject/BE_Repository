@@ -12,6 +12,16 @@ Parameters:
       - prod
     Description: Deployment environment
 
+  ExistingCognitoUserPoolId:
+    Type: String
+    Default: ""
+    Description: Existing Cognito User Pool ID (leave empty to create new)
+
+  ExistingCognitoClientId:
+    Type: String
+    Default: ""
+    Description: Existing Cognito User Pool Client ID
+
 Globals:
   Function:
     Timeout: 30
@@ -27,12 +37,14 @@ Globals:
         VOCAB_TABLE_NAME: !Ref VocabTable
         OPIC_TABLE_NAME: !Ref OPIcTable
         NEWS_TABLE_NAME: !Ref NewsTable
+        SPEAKING_TABLE_NAME: !Ref SpeakingTable
         BUCKET_NAME: !Sub "${AWS::StackName}"
         CHAT_BUCKET_NAME: !Sub "${AWS::StackName}"
         VOCAB_BUCKET_NAME: !Sub "${AWS::StackName}"
         PROFILE_BUCKET_NAME: !Sub "${AWS::StackName}"
         OPIC_BUCKET_NAME: !Sub "${AWS::StackName}"
         NEWS_BUCKET_NAME: !Sub "${AWS::StackName}"
+        SPEAKING_BUCKET_NAME: !Sub "${AWS::StackName}"
         AWS_REGION_NAME: !Ref AWS::Region
         ROOM_TOKEN_TTL_SECONDS: "300"
         TRANSCRIBE_PROXY_URL: "https://tfo1zm7vec.execute-api.ap-northeast-2.amazonaws.com/prod/transcribe"
@@ -41,64 +53,9 @@ Globals:
 
 Resources:
   #############################################
-  # Cognito User Pool
+  # Cognito - Using Existing User Pool
+  # (Cognito resources are managed in group2-englishstudy-chatting stack)
   #############################################
-
-  CognitoUserPool:
-    Type: AWS::Cognito::UserPool
-    DeletionPolicy: Retain
-    # UpdateReplacePolicy: Retain
-    Properties:
-      UserPoolName: !Sub "${AWS::StackName}-userpool"
-      UsernameAttributes:
-        - email
-      AutoVerifiedAttributes:
-        - email
-      Policies:
-        PasswordPolicy:
-          MinimumLength: 8
-          RequireLowercase: true
-          RequireNumbers: true
-          RequireSymbols: true
-          RequireUppercase: false
-      # Cognito에 저장할 사용자 정보 정의 ≈ 회원 테이블 컬럼
-      Schema:
-        - Name: email
-          AttributeDataType: String
-          Required: true
-          Mutable: true
-        - Name: nickname
-          AttributeDataType: String
-          Required: false
-          Mutable: true
-        - Name: level
-          AttributeDataType: String
-          Required: false
-          Mutable: true
-        - Name: profileUrl
-          AttributeDataType: String
-          Required: false
-          Mutable: true
-      LambdaConfig:
-        PreSignUp: !GetAtt PreSignUpFunction.Arn
-        PostConfirmation: !GetAtt PostConfirmationFunction.Arn
-
-  # Cognito에게 Lambda 호출 권한 부여
-  PreSignUpPermission:
-    Type: AWS::Lambda::Permission
-    Properties:
-      Action: lambda:InvokeFunction
-      FunctionName: !Ref PreSignUpFunction
-      Principal: cognito-idp.amazonaws.com
-      SourceArn: !Sub arn:aws:cognito-idp:${AWS::Region}:${AWS::AccountId}:userpool/*
-
-  PostConfirmationPermission:
-    Type: AWS::Lambda::Permission
-    Properties:
-      Action: lambda:InvokeFunction
-      FunctionName: !GetAtt PostConfirmationFunction.Arn
-      Principal: cognito-idp.amazonaws.com
-      SourceArn: !GetAtt CognitoUserPool.Arn
 
   # 사용자 custom 속성들 기본값 설정 Lambda 함수
   PreSignUpFunction:
@@ -130,18 +87,6 @@ Resources:
         - DynamoDBCrudPolicy:
             TableName: !Ref UserTable
 
-  CognitoUserPoolClient:
-    Type: AWS::Cognito::UserPoolClient
-    Properties:
-      ClientName: !Sub "${AWS::StackName}-client"
-      UserPoolId: !Ref CognitoUserPool
-      GenerateSecret: false
-      ExplicitAuthFlows:
-        - ALLOW_USER_SRP_AUTH
-        - ALLOW_REFRESH_TOKEN_AUTH
-        - ALLOW_USER_PASSWORD_AUTH
-      PreventUserExistenceErrors: ENABLED
-
   #############################################
   # API Gateway (Unified)
   #############################################
@@ -152,8 +97,8 @@ Resources:
       Name: !Sub "${AWS::StackName}-api"
       StageName: !Ref Environment
       Cors:
-        AllowMethods: "'GET,POST,PUT,DELETE,OPTIONS'"
-        AllowHeaders: "'Content-Type,Authorization,X-Amz-Date,X-Api-Key'"
+        AllowMethods: "'GET,POST,PUT,PATCH,DELETE,OPTIONS'"
+        AllowHeaders: "'Content-Type,Authorization,X-Amz-Date,X-Api-Key,X-Requested-With,Accept'"
         AllowOrigin: "'*'"
         AllowCredentials: false
       GatewayResponses:
@@ -197,10 +142,11 @@ Resources:
           ResponseTemplates:
             application/json: '{"message": "Token expired", "statusCode": 401}'
       Auth:
-        DefaultAuthorizer: CognitoAuthorizer
+        DefaultAuthorizer: CognitoAuthV2
+        AddDefaultAuthorizerToCorsPreflight: false
         Authorizers:
-          CognitoAuthorizer:
-            UserPoolArn: !GetAtt CognitoUserPool.Arn
+          CognitoAuthV2:
+            UserPoolArn: !Sub "arn:aws:cognito-idp:${AWS::Region}:${AWS::AccountId}:userpool/${ExistingCognitoUserPoolId}"
             Identity:
               Header: Authorization
 
@@ -219,7 +165,7 @@ Resources:
     Type: AWS::ApiGatewayV2::Stage
     Properties:
       ApiId: !Ref WebSocketApi
-      StageName: dev
+      StageName: !Ref Environment
       AutoDeploy: true
 
   # WebSocket Connect Route
@@ -286,7 +232,7 @@ Resources:
       Environment:
         Variables:
           WEBSOCKET_CONNECTION_TTL_SECONDS: "600"
-          WEBSOCKET_ENDPOINT: !Sub "https://${WebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/dev"
+          WEBSOCKET_ENDPOINT: !Sub "https://${WebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/${Environment}"
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref ChatTable
@@ -315,7 +261,7 @@ Resources:
         ApplyOn: PublishedVersions
       Environment:
         Variables:
-          WEBSOCKET_ENDPOINT: !Sub "https://${WebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/dev"
+          WEBSOCKET_ENDPOINT: !Sub "https://${WebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/${Environment}"
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref ChatTable
@@ -344,14 +290,17 @@ Resources:
         ApplyOn: PublishedVersions
       Environment:
         Variables:
-          WEBSOCKET_ENDPOINT: !Sub "https://${WebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/dev"
+          WEBSOCKET_ENDPOINT: !Sub "https://${WebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/${Environment}"
           GAME_AUTO_CLOSE_LAMBDA_ARN: !GetAtt GameAutoCloseFunction.Arn
           SCHEDULER_ROLE_ARN: !GetAtt GameSchedulerRole.Arn
+          NOTIFICATION_TOPIC_ARN: !Ref NotificationTopic
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref ChatTable
         - DynamoDBCrudPolicy:
             TableName: !Ref VocabTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref UserTable
         - Statement:
             - Effect: Allow
               Action:
@@ -364,12 +313,14 @@ Resources:
                 - scheduler:CreateSchedule
                 - scheduler:DeleteSchedule
                 - scheduler:GetSchedule
-              Resource: !Sub "arn:aws:scheduler:${AWS::Region}:${AWS::AccountId}:schedule/game-auto-close/*"
+              Resource: !Sub "arn:aws:scheduler:${AWS::Region}:${AWS::AccountId}:schedule/${AWS::StackName}-game-auto-close/*"
         - Statement:
             - Effect: Allow
               Action:
                 - iam:PassRole
               Resource: !GetAtt GameSchedulerRole.Arn
+        - SNSPublishMessagePolicy:
+            TopicName: !GetAtt NotificationTopic.TopicName
 
   WebSocketMessagePermission:
     Type: AWS::Lambda::Permission
@@ -432,7 +383,7 @@ Resources:
         ApplyOn: PublishedVersions
       Environment:
         Variables:
-          WEBSOCKET_ENDPOINT: !Sub "https://${WebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/dev"
+          WEBSOCKET_ENDPOINT: !Sub "https://${WebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/${Environment}"
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref ChatTable
@@ -451,7 +402,7 @@ Resources:
             Path: /chat/rooms
             Method: POST
             Auth:
-              Authorizer: CognitoAuthorizer
+              Authorizer: CognitoAuthV2
         GetRooms:
           Type: Api
           Properties:
@@ -459,7 +410,7 @@ Resources:
             Path: /chat/rooms
             Method: GET
             Auth:
-              Authorizer: CognitoAuthorizer
+              Authorizer: CognitoAuthV2
         GetRoom:
           Type: Api
           Properties:
@@ -467,7 +418,7 @@ Resources:
             Path: /chat/rooms/{roomId}
             Method: GET
             Auth:
-              Authorizer: CognitoAuthorizer
+              Authorizer: CognitoAuthV2
         DeleteRoom:
           Type: Api
           Properties:
@@ -475,7 +426,7 @@ Resources:
             Path: /chat/rooms/{roomId}
             Method: DELETE
             Auth:
-              Authorizer: CognitoAuthorizer
+              Authorizer: CognitoAuthV2
         JoinRoom:
           Type: Api
           Properties:
@@ -483,7 +434,7 @@ Resources:
             Path: /chat/rooms/{roomId}/join
             Method: POST
             Auth:
-              Authorizer: CognitoAuthorizer
+              Authorizer: CognitoAuthV2
         LeaveRoom:
           Type: Api
           Properties:
@@ -491,7 +442,7 @@ Resources:
             Path: /chat/rooms/{roomId}/leave
             Method: POST
             Auth:
-              Authorizer: CognitoAuthorizer
+              Authorizer: CognitoAuthV2
 
   GameFunction:
     Type: AWS::Serverless::Function
@@ -504,7 +455,7 @@ Resources:
         ApplyOn: PublishedVersions
       Environment:
         Variables:
-          WEBSOCKET_ENDPOINT: !Sub "https://${WebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/dev"
+          WEBSOCKET_ENDPOINT: !Sub "https://${WebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/${Environment}"
           GAME_AUTO_CLOSE_LAMBDA_ARN: !GetAtt GameAutoCloseFunction.Arn
           SCHEDULER_ROLE_ARN: !GetAtt GameSchedulerRole.Arn
       Policies:
@@ -524,7 +475,7 @@ Resources:
                 - scheduler:CreateSchedule
                 - scheduler:DeleteSchedule
                 - scheduler:GetSchedule
-              Resource: !Sub "arn:aws:scheduler:${AWS::Region}:${AWS::AccountId}:schedule/game-auto-close/*"
+              Resource: !Sub "arn:aws:scheduler:${AWS::Region}:${AWS::AccountId}:schedule/${AWS::StackName}-game-auto-close/*"
         - Statement:
             - Effect: Allow
               Action:
@@ -538,7 +489,7 @@ Resources:
             Path: /chat/rooms/{roomId}/game/start
             Method: POST
             Auth:
-              Authorizer: CognitoAuthorizer
+              Authorizer: CognitoAuthV2
         StopGame:
           Type: Api
           Properties:
@@ -546,7 +497,7 @@ Resources:
             Path: /chat/rooms/{roomId}/game/stop
             Method: POST
             Auth:
-              Authorizer: CognitoAuthorizer
+              Authorizer: CognitoAuthV2
         GetGameStatus:
           Type: Api
           Properties:
@@ -554,7 +505,7 @@ Resources:
             Path: /chat/rooms/{roomId}/game/status
             Method: GET
             Auth:
-              Authorizer: CognitoAuthorizer
+              Authorizer: CognitoAuthV2
         GetScores:
           Type: Api
           Properties:
@@ -562,7 +513,72 @@ Resources:
             Path: /chat/rooms/{roomId}/game/scores
             Method: GET
             Auth:
-              Authorizer: CognitoAuthorizer
+              Authorizer: CognitoAuthV2
+
+  # 끝말잇기(Word Chain) 게임 핸들러
+  WordChainFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-wordchain-handler"
+      CodeUri: .
+      Handler: com.mzc.secondproject.serverless.domain.chatting.handler.WordChainHandler::handleRequest
+      Description: Handle word chain game operations
+      SnapStart:
+        ApplyOn: PublishedVersions
+      Environment:
+        Variables:
+          WEBSOCKET_ENDPOINT: !Sub "https://${WebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/${Environment}"
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ChatTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref UserTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - execute-api:ManageConnections
+              Resource: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${WebSocketApi}/*"
+      Events:
+        StartWordChain:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /chat/rooms/{roomId}/wordchain/start
+            Method: POST
+            Auth:
+              Authorizer: CognitoAuthV2
+        SubmitWord:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /chat/rooms/{roomId}/wordchain/submit
+            Method: POST
+            Auth:
+              Authorizer: CognitoAuthV2
+        HandleTimeout:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /chat/rooms/{roomId}/wordchain/timeout
+            Method: POST
+            Auth:
+              Authorizer: CognitoAuthV2
+        StopWordChain:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /chat/rooms/{roomId}/wordchain/stop
+            Method: POST
+            Auth:
+              Authorizer: CognitoAuthV2
+        GetWordChainStatus:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /chat/rooms/{roomId}/wordchain/status
+            Method: GET
+            Auth:
+              Authorizer: CognitoAuthV2
 
   # 게임 자동 종료 Lambda (EventBridge Scheduler에 의해 호출)
   GameAutoCloseFunction:
@@ -578,7 +594,7 @@ Resources:
         ApplyOn: PublishedVersions
       Environment:
         Variables:
-          WEBSOCKET_ENDPOINT: !Sub "https://${WebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/dev"
+          WEBSOCKET_ENDPOINT: !Sub "https://${WebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/${Environment}"
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref ChatTable
@@ -614,7 +630,7 @@ Resources:
   GameScheduleGroup:
     Type: AWS::Scheduler::ScheduleGroup
     Properties:
-      Name: game-auto-close
+      Name: !Sub "${AWS::StackName}-game-auto-close"
 
   ChatMessageFunction:
     Type: AWS::Serverless::Function
@@ -650,7 +666,7 @@ Resources:
             Path: /chat/rooms/{roomId}/messages
             Method: POST
             Auth:
-              Authorizer: CognitoAuthorizer
+              Authorizer: CognitoAuthV2
         GetMessages:
           Type: Api
           Properties:
@@ -658,7 +674,7 @@ Resources:
             Path: /chat/rooms/{roomId}/messages
             Method: GET
             Auth:
-              Authorizer: CognitoAuthorizer
+              Authorizer: CognitoAuthV2
         GetMessage:
           Type: Api
           Properties:
@@ -666,7 +682,7 @@ Resources:
             Path: /chat/rooms/{roomId}/messages/{messageId}
             Method: GET
             Auth:
-              Authorizer: CognitoAuthorizer
+              Authorizer: CognitoAuthV2
 
   ChatVoiceFunction:
     Type: AWS::Serverless::Function
@@ -696,7 +712,7 @@ Resources:
             Path: /chat/voice/synthesize
             Method: POST
             Auth:
-              Authorizer: CognitoAuthorizer
+              Authorizer: CognitoAuthV2
 
   #############################################
   # Vocabulary Lambda Functions
@@ -800,7 +816,7 @@ Resources:
             Path: /vocab/wrong-answers
             Method: GET
             Auth:
-              Authorizer: CognitoAuthorizer
+              Authorizer: CognitoAuthV2
         GetUserWords:
           Type: Api
           Properties:
@@ -808,7 +824,7 @@ Resources:
             Path: /vocab/user-words
             Method: GET
             Auth:
-              Authorizer: CognitoAuthorizer
+              Authorizer: CognitoAuthV2
         GetUserWord:
           Type: Api
           Properties:
@@ -816,7 +832,7 @@ Resources:
             Path: /vocab/user-words/{wordId}
             Method: GET
             Auth:
-              Authorizer: CognitoAuthorizer
+              Authorizer: CognitoAuthV2
         UpdateUserWord:
           Type: Api
           Properties:
@@ -824,7 +840,7 @@ Resources:
             Path: /vocab/user-words/{wordId}
             Method: PUT
             Auth:
-              Authorizer: CognitoAuthorizer
+              Authorizer: CognitoAuthV2
         UpdateUserWordTag:
           Type: Api
           Properties:
@@ -832,7 +848,7 @@ Resources:
             Path: /vocab/user-words/{wordId}/tag
             Method: PATCH
             Auth:
-              Authorizer: CognitoAuthorizer
+              Authorizer: CognitoAuthV2
         UpdateUserWordStatus:
           Type: Api
           Properties:
@@ -840,7 +856,7 @@ Resources:
             Path: /vocab/user-words/{wordId}/status
             Method: PATCH
             Auth:
-              Authorizer: CognitoAuthorizer
+              Authorizer: CognitoAuthV2
 
   WordGroupFunction:
     Type: AWS::Serverless::Function
@@ -862,7 +878,7 @@ Resources:
             Path: /vocab/groups
             Method: POST
             Auth:
-              Authorizer: CognitoAuthorizer
+              Authorizer: CognitoAuthV2
         GetGroups:
           Type: Api
           Properties:
@@ -870,7 +886,7 @@ Resources:
             Path: /vocab/groups
             Method: GET
             Auth:
-              Authorizer: CognitoAuthorizer
+              Authorizer: CognitoAuthV2
         GetGroupDetail:
           Type: Api
           Properties:
@@ -878,7 +894,7 @@ Resources:
             Path: /vocab/groups/{groupId}
             Method: GET
             Auth:
-              Authorizer: CognitoAuthorizer
+              Authorizer: CognitoAuthV2
         UpdateGroup:
           Type: Api
           Properties:
@@ -886,7 +902,7 @@ Resources:
             Path: /vocab/groups/{groupId}
             Method: PUT
             Auth:
-              Authorizer: CognitoAuthorizer
+              Authorizer: CognitoAuthV2
         DeleteGroup:
           Type: Api
           Properties:
@@ -894,7 +910,7 @@ Resources:
             Path: /vocab/groups/{groupId}
             Method: DELETE
             Auth:
-              Authorizer: CognitoAuthorizer
+              Authorizer: CognitoAuthV2
         AddWordToGroup:
           Type: Api
           Properties:
@@ -902,7 +918,7 @@ Resources:
             Path: /vocab/groups/{groupId}/words/{wordId}
             Method: POST
             Auth:
-              Authorizer: CognitoAuthorizer
+              Authorizer: CognitoAuthV2
         RemoveWordFromGroup:
           Type: Api
           Properties:
@@ -910,7 +926,7 @@ Resources:
             Path: /vocab/groups/{groupId}/words/{wordId}
             Method: DELETE
             Auth:
-              Authorizer: CognitoAuthorizer
+              Authorizer: CognitoAuthV2
 
   DailyStudyFunction:
     Type: AWS::Serverless::Function
@@ -921,9 +937,14 @@ Resources:
       Description: Handle daily study word assignment
       SnapStart:
         ApplyOn: PublishedVersions
+      Environment:
+        Variables:
+          NOTIFICATION_TOPIC_ARN: !Ref NotificationTopic
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref VocabTable
+        - SNSPublishMessagePolicy:
+            TopicName: !GetAtt NotificationTopic.TopicName
       Events:
         GetDailyWords:
           Type: Api
@@ -932,7 +953,7 @@ Resources:
             Path: /vocab/daily
             Method: GET
             Auth:
-              Authorizer: CognitoAuthorizer
+              Authorizer: CognitoAuthV2
         MarkWordLearned:
           Type: Api
           Properties:
@@ -940,7 +961,7 @@ Resources:
             Path: /vocab/daily/words/{wordId}/learned
             Method: POST
             Auth:
-              Authorizer: CognitoAuthorizer
+              Authorizer: CognitoAuthV2
 
   TestFunction:
     Type: AWS::Serverless::Function
@@ -954,11 +975,14 @@ Resources:
       Environment:
         Variables:
           TEST_RESULT_TOPIC_ARN: !Ref TestResultTopic
+          NOTIFICATION_TOPIC_ARN: !Ref NotificationTopic
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref VocabTable
         - SNSPublishMessagePolicy:
             TopicName: !GetAtt TestResultTopic.TopicName
+        - SNSPublishMessagePolicy:
+            TopicName: !GetAtt NotificationTopic.TopicName
       Events:
         StartTest:
           Type: Api
@@ -967,7 +991,7 @@ Resources:
             Path: /vocab/test/start
             Method: POST
             Auth:
-              Authorizer: CognitoAuthorizer
+              Authorizer: CognitoAuthV2
         SubmitAnswer:
           Type: Api
           Properties:
@@ -975,7 +999,7 @@ Resources:
             Path: /vocab/test/submit
             Method: POST
             Auth:
-              Authorizer: CognitoAuthorizer
+              Authorizer: CognitoAuthV2
         GetTestResults:
           Type: Api
           Properties:
@@ -983,7 +1007,7 @@ Resources:
             Path: /vocab/test/results
             Method: GET
             Auth:
-              Authorizer: CognitoAuthorizer
+              Authorizer: CognitoAuthV2
         GetTestResultDetail:
           Type: Api
           Properties:
@@ -991,7 +1015,7 @@ Resources:
             Path: /vocab/test/results/{testId}
             Method: GET
             Auth:
-              Authorizer: CognitoAuthorizer
+              Authorizer: CognitoAuthV2
         GetTestedWords:
           Type: Api
           Properties:
@@ -999,7 +1023,7 @@ Resources:
             Path: /vocab/test/tested-words
             Method: GET
             Auth:
-              Authorizer: CognitoAuthorizer
+              Authorizer: CognitoAuthV2
 
   StatsFunction:
     Type: AWS::Serverless::Function
@@ -1021,7 +1045,7 @@ Resources:
             Path: /vocab/stats
             Method: GET
             Auth:
-              Authorizer: CognitoAuthorizer
+              Authorizer: CognitoAuthV2
         GetDailyStats:
           Type: Api
           Properties:
@@ -1029,7 +1053,7 @@ Resources:
             Path: /vocab/stats/daily
             Method: GET
             Auth:
-              Authorizer: CognitoAuthorizer
+              Authorizer: CognitoAuthV2
         GetWeaknessAnalysis:
           Type: Api
           Properties:
@@ -1037,7 +1061,7 @@ Resources:
             Path: /vocab/stats/weakness
             Method: GET
             Auth:
-              Authorizer: CognitoAuthorizer
+              Authorizer: CognitoAuthV2
 
   VocabVoiceFunction:
     Type: AWS::Serverless::Function
@@ -1119,7 +1143,7 @@ Resources:
             Path: /stats/daily
             Method: GET
             Auth:
-              Authorizer: CognitoAuthorizer
+              Authorizer: CognitoAuthV2
         GetWeeklyStats:
           Type: Api
           Properties:
@@ -1127,7 +1151,7 @@ Resources:
             Path: /stats/weekly
             Method: GET
             Auth:
-              Authorizer: CognitoAuthorizer
+              Authorizer: CognitoAuthV2
         GetMonthlyStats:
           Type: Api
           Properties:
@@ -1135,7 +1159,7 @@ Resources:
             Path: /stats/monthly
             Method: GET
             Auth:
-              Authorizer: CognitoAuthorizer
+              Authorizer: CognitoAuthV2
         GetTotalStats:
           Type: Api
           Properties:
@@ -1143,7 +1167,15 @@ Resources:
             Path: /stats/total
             Method: GET
             Auth:
-              Authorizer: CognitoAuthorizer
+              Authorizer: CognitoAuthV2
+        GetDashboard:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /stats/dashboard
+            Method: GET
+            Auth:
+              Authorizer: CognitoAuthV2
         GetStatsHistory:
           Type: Api
           Properties:
@@ -1151,7 +1183,7 @@ Resources:
             Path: /stats/history
             Method: GET
             Auth:
-              Authorizer: CognitoAuthorizer
+              Authorizer: CognitoAuthV2
 
   # Badge Lambda Function
   BadgeFunction:
@@ -1163,11 +1195,16 @@ Resources:
       Description: Handle user badges and achievements
       SnapStart:
         ApplyOn: PublishedVersions
+      Environment:
+        Variables:
+          NOTIFICATION_TOPIC_ARN: !Ref NotificationTopic
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref VocabTable
         - S3ReadPolicy:
             BucketName: !Sub "${AWS::StackName}"
+        - SNSPublishMessagePolicy:
+            TopicName: !GetAtt NotificationTopic.TopicName
       Events:
         GetAllBadges:
           Type: Api
@@ -1176,7 +1213,7 @@ Resources:
             Path: /badges
             Method: GET
             Auth:
-              Authorizer: CognitoAuthorizer
+              Authorizer: CognitoAuthV2
         GetEarnedBadges:
           Type: Api
           Properties:
@@ -1184,7 +1221,7 @@ Resources:
             Path: /badges/earned
             Method: GET
             Auth:
-              Authorizer: CognitoAuthorizer
+              Authorizer: CognitoAuthV2
 
   #############################################
   # Grammar Lambda Functions
@@ -1231,7 +1268,7 @@ Resources:
             Path: /grammar/check
             Method: POST
             Auth:
-              Authorizer: CognitoAuthorizer
+              Authorizer: CognitoAuthV2
         GrammarConversation:
           Type: Api
           Properties:
@@ -1239,7 +1276,7 @@ Resources:
             Path: /grammar/conversation
             Method: POST
             Auth:
-              Authorizer: CognitoAuthorizer
+              Authorizer: CognitoAuthV2
         GetSessions:
           Type: Api
           Properties:
@@ -1247,7 +1284,7 @@ Resources:
             Path: /grammar/sessions
             Method: GET
             Auth:
-              Authorizer: CognitoAuthorizer
+              Authorizer: CognitoAuthV2
         GetSessionDetail:
           Type: Api
           Properties:
@@ -1255,7 +1292,7 @@ Resources:
             Path: /grammar/sessions/{sessionId}
             Method: GET
             Auth:
-              Authorizer: CognitoAuthorizer
+              Authorizer: CognitoAuthV2
         DeleteSession:
           Type: Api
           Properties:
@@ -1263,7 +1300,7 @@ Resources:
             Path: /grammar/sessions/{sessionId}
             Method: DELETE
             Auth:
-              Authorizer: CognitoAuthorizer
+              Authorizer: CognitoAuthV2
 
   #############################################
   # Grammar WebSocket API (Streaming)
@@ -1280,7 +1317,7 @@ Resources:
     Type: AWS::ApiGatewayV2::Stage
     Properties:
       ApiId: !Ref GrammarWebSocketApi
-      StageName: dev
+      StageName: !Ref Environment
       AutoDeploy: true
 
   # Grammar WebSocket Connect Route
@@ -1341,7 +1378,7 @@ Resources:
       Description: Handle Grammar WebSocket $connect with JWT auth
       Environment:
         Variables:
-          WEBSOCKET_ENDPOINT: !Sub "https://${GrammarWebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/dev"
+          WEBSOCKET_ENDPOINT: !Sub "https://${GrammarWebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/${Environment}"
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref ChatTable
@@ -1368,7 +1405,7 @@ Resources:
       Description: Handle Grammar WebSocket $disconnect
       Environment:
         Variables:
-          WEBSOCKET_ENDPOINT: !Sub "https://${GrammarWebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/dev"
+          WEBSOCKET_ENDPOINT: !Sub "https://${GrammarWebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/${Environment}"
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref ChatTable
@@ -1397,7 +1434,7 @@ Resources:
       MemorySize: 1024
       Environment:
         Variables:
-          GRAMMAR_WEBSOCKET_ENDPOINT: !Sub "https://${GrammarWebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/dev"
+          GRAMMAR_WEBSOCKET_ENDPOINT: !Sub "https://${GrammarWebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/${Environment}"
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref ChatTable
@@ -1421,6 +1458,35 @@ Resources:
       Principal: apigateway.amazonaws.com
       SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${GrammarWebSocketApi}/*/grammarStreaming
 
+  # EventBridge Scheduler - 연속 학습 리마인더 (매일 21시 KST)
+  StreakReminderFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-streak-reminder"
+      CodeUri: .
+      Handler: com.mzc.secondproject.serverless.domain.notification.handler.StreakReminderHandler::handleRequest
+      Description: Daily streak reminder for users who haven't studied today
+      Timeout: 120
+      MemorySize: 512
+      SnapStart:
+        ApplyOn: PublishedVersions
+      Environment:
+        Variables:
+          NOTIFICATION_TOPIC_ARN: !Ref NotificationTopic
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref VocabTable
+        - SNSPublishMessagePolicy:
+            TopicName: !GetAtt NotificationTopic.TopicName
+      Events:
+        DailySchedule:
+          Type: Schedule
+          Properties:
+            Schedule: cron(0 12 * * ? *)  # UTC 12:00 = KST 21:00
+            Name: !Sub "${AWS::StackName}-streak-reminder-schedule"
+            Description: Daily streak reminder at 21:00 KST
+            Enabled: true
+
   # EventBridge Scheduler - 매일 자정 단어 학습 통계 집계
   ScheduledStatsFunction:
     Type: AWS::Serverless::Function
@@ -1441,7 +1507,7 @@ Resources:
           Type: Schedule
           Properties:
             Schedule: cron(0 15 * * ? *)  # UTC 15:00 = KST 00:00 (자정)
-            Name: daily-stats-aggregation
+            Name: !Sub "${AWS::StackName}-daily-stats-aggregation"
             Description: Daily word learning stats aggregation
             Enabled: true
 
@@ -1463,6 +1529,7 @@ Resources:
       Environment:
         Variables:
           TRANSCRIBE_API_KEY: "/opic/transcribe-proxy-api-key"
+          NOTIFICATION_TOPIC_ARN: !Ref NotificationTopic
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref OPIcTable
@@ -1486,6 +1553,8 @@ Resources:
               Action:
                 - ssm:GetParameter
               Resource: !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/opic/*"
+        - SNSPublishMessagePolicy:
+            TopicName: !GetAtt NotificationTopic.TopicName
       Events:
         # 세션 생성
         CreateSession:
@@ -1495,7 +1564,7 @@ Resources:
             Path: /opic/sessions
             Method: POST
             Auth:
-              Authorizer: CognitoAuthorizer
+              Authorizer: CognitoAuthV2
         # 세션 조회
         GetSession:
           Type: Api
@@ -1504,7 +1573,7 @@ Resources:
             Path: /opic/sessions/{sessionId}
             Method: GET
             Auth:
-              Authorizer: CognitoAuthorizer
+              Authorizer: CognitoAuthV2
         # 세션 목록 조회
         GetSessions:
           Type: Api
@@ -1513,7 +1582,7 @@ Resources:
             Path: /opic/sessions
             Method: GET
             Auth:
-              Authorizer: CognitoAuthorizer
+              Authorizer: CognitoAuthV2
         # 다음 질문 조회
         GetNextQuestion:
           Type: Api
@@ -1522,7 +1591,7 @@ Resources:
             Path: /opic/sessions/{sessionId}/questions/next
             Method: GET
             Auth:
-              Authorizer: CognitoAuthorizer
+              Authorizer: CognitoAuthV2
         # 답변 제출
         SubmitAnswer:
           Type: Api
@@ -1531,7 +1600,7 @@ Resources:
             Path: /opic/sessions/{sessionId}/answers
             Method: POST
             Auth:
-              Authorizer: CognitoAuthorizer
+              Authorizer: CognitoAuthV2
         # 세션 완료
         CompleteSession:
           Type: Api
@@ -1540,7 +1609,7 @@ Resources:
             Path: /opic/sessions/{sessionId}/complete
             Method: POST
             Auth:
-              Authorizer: CognitoAuthorizer
+              Authorizer: CognitoAuthV2
         # 음성 업로드 Presigned URL
         GetUploadUrl:
           Type: Api
@@ -1549,7 +1618,57 @@ Resources:
             Path: /opic/sessions/{sessionId}/upload-url
             Method: GET
             Auth:
-              Authorizer: CognitoAuthorizer
+              Authorizer: CognitoAuthV2
+
+  #############################################
+  # Speaking Lambda Functions
+  #############################################
+
+  SpeakingFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-speaking-handler"
+      CodeUri: .
+      Handler: com.mzc.secondproject.serverless.domain.speaking.handler.SpeakingHandler::handleRequest
+      Description: Handle speaking chat API
+      SnapStart:
+        ApplyOn: PublishedVersions
+      Environment:
+        Variables:
+          TRANSCRIBE_API_KEY: "/opic/transcribe-proxy-api-key"
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref SpeakingTable
+        - S3CrudPolicy:
+            BucketName: !Sub "${AWS::StackName}"
+        - Statement:
+            - Effect: Allow
+              Action:
+                - ssm:GetParameter
+              Resource: !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/opic/*"
+        - Statement:
+            - Effect: Allow
+              Action:
+                - bedrock:InvokeModel
+                - polly:SynthesizeSpeech
+              Resource: "*"
+      Events:
+        SpeakingChat:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /speaking/chat
+            Method: POST
+            Auth:
+              Authorizer: CognitoAuthV2
+        SpeakingReset:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /speaking/reset
+            Method: POST
+            Auth:
+              Authorizer: CognitoAuthV2
 
   #############################################
   # DynamoDB Tables
@@ -1752,12 +1871,17 @@ Resources:
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref NewsTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - bedrock:InvokeModel
+              Resource: "*"
       Events:
         DailySchedule:
           Type: Schedule
           Properties:
             Schedule: cron(0 9 * * ? *)
-            Name: news-collection-daily-schedule
+            Name: !Sub "${AWS::StackName}-news-collection-daily-schedule"
             Description: 매일 18시 KST (09:00 UTC)에 뉴스 수집
             Enabled: true
 
@@ -1770,13 +1894,18 @@ Resources:
       Description: 뉴스 학습 API
       MemorySize: 256
       Timeout: 30
+      Environment:
+        Variables:
+          NOTIFICATION_TOPIC_ARN: !Ref NotificationTopic
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref NewsTable
         - DynamoDBCrudPolicy:
-            TableName: !Ref VocabularyTable
+            TableName: !Ref VocabTable
         - S3CrudPolicy:
-            BucketName: !Ref ContentBucket
+            BucketName: !Sub "${AWS::StackName}"
+        - SNSPublishMessagePolicy:
+            TopicName: !GetAtt NotificationTopic.TopicName
         - Statement:
             - Effect: Allow
               Action:
@@ -1930,6 +2059,65 @@ Resources:
         AttributeName: ttl
         Enabled: true
 
+  SpeakingTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub "${AWS::StackName}-speaking"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: PK
+          AttributeType: S
+        - AttributeName: SK
+          AttributeType: S
+        - AttributeName: GSI1PK
+          AttributeType: S
+        - AttributeName: GSI1SK
+          AttributeType: S
+      KeySchema:
+        - AttributeName: PK
+          KeyType: HASH
+        - AttributeName: SK
+          KeyType: RANGE
+      GlobalSecondaryIndexes:
+        - IndexName: GSI1
+          KeySchema:
+            - AttributeName: GSI1PK
+              KeyType: HASH
+            - AttributeName: GSI1SK
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+
+  #############################################
+  # S3 Bucket for Content Storage
+  #############################################
+
+  ContentBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "${AWS::StackName}"
+      CorsConfiguration:
+        CorsRules:
+          - AllowedHeaders:
+              - "*"
+            AllowedMethods:
+              - GET
+              - PUT
+              - POST
+              - DELETE
+              - HEAD
+            AllowedOrigins:
+              - "*"
+            MaxAge: 3600
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: false
+        BlockPublicPolicy: false
+        IgnorePublicAcls: false
+        RestrictPublicBuckets: false
+
   #############################################
   # SNS / SQS for Async Statistics Processing
   #############################################
@@ -1983,6 +2171,59 @@ Resources:
       Endpoint: !GetAtt StatisticsQueue.Arn
       RawMessageDelivery: true
 
+  #############################################
+  # SNS / SQS for Real-time Notifications (SSE)
+  #############################################
+
+  # SNS Topic - 알림 이벤트 발행 (배지, 학습완료, 테스트결과 등)
+  NotificationTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub "${AWS::StackName}-notification-topic"
+
+  # SQS Dead Letter Queue - 실패한 알림 메시지 보관
+  NotificationDeadLetterQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub "${AWS::StackName}-notification-dlq"
+      MessageRetentionPeriod: 1209600  # 14일
+
+  # SQS Queue - SSE 알림 처리용
+  NotificationQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub "${AWS::StackName}-notification-queue"
+      VisibilityTimeout: 30
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt NotificationDeadLetterQueue.Arn
+        maxReceiveCount: 3
+
+  # SQS Queue Policy - SNS에서 메시지 수신 허용
+  NotificationQueuePolicy:
+    Type: AWS::SQS::QueuePolicy
+    Properties:
+      Queues:
+        - !Ref NotificationQueue
+      PolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: sns.amazonaws.com
+            Action: sqs:SendMessage
+            Resource: !GetAtt NotificationQueue.Arn
+            Condition:
+              ArnEquals:
+                aws:SourceArn: !Ref NotificationTopic
+
+  # SNS → SQS 구독
+  NotificationQueueSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      Protocol: sqs
+      TopicArn: !Ref NotificationTopic
+      Endpoint: !GetAtt NotificationQueue.Arn
+      RawMessageDelivery: true
+
   # Statistics Processor Lambda - SQS에서 메시지 소비하여 통계 업데이트
   StatisticsProcessorFunction:
     Type: AWS::Serverless::Function
@@ -2006,6 +2247,38 @@ Resources:
             Queue: !GetAtt StatisticsQueue.Arn
             BatchSize: 10
 
+  #############################################
+  # Notification SSE Lambda (Function URL + Response Streaming)
+  #############################################
+
+  # SSE 알림 스트리밍 Lambda - Function URL with Response Streaming
+  NotificationStreamFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-notification-stream"
+      CodeUri: .
+      Handler: com.mzc.secondproject.serverless.domain.notification.handler.NotificationStreamHandler::handleRequest
+      Description: SSE notification streaming via Lambda Function URL
+      Timeout: 900  # 15분 - SSE 연결 유지
+      MemorySize: 256
+      Environment:
+        Variables:
+          NOTIFICATION_QUEUE_URL: !Ref NotificationQueue
+      Policies:
+        - SQSPollerPolicy:
+            QueueName: !GetAtt NotificationQueue.QueueName
+      FunctionUrlConfig:
+        AuthType: NONE
+        InvokeMode: RESPONSE_STREAM
+        Cors:
+          AllowCredentials: false
+          AllowHeaders:
+            - "*"
+          AllowMethods:
+            - GET
+          AllowOrigins:
+            - "*"
+
 #############################################
 # Outputs
 #############################################
@@ -2013,15 +2286,15 @@ Resources:
 Outputs:
   ApiUrl:
     Description: Unified API Gateway endpoint URL
-    Value: !Sub 'https://${MainApi}.execute-api.${AWS::Region}.amazonaws.com/dev/'
+    Value: !Sub 'https://${MainApi}.execute-api.${AWS::Region}.amazonaws.com/${Environment}/'
 
   WebSocketUrl:
     Description: WebSocket API Gateway endpoint URL
-    Value: !Sub 'wss://${WebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/dev'
+    Value: !Sub 'wss://${WebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/${Environment}'
 
   GrammarWebSocketUrl:
     Description: Grammar Streaming WebSocket API endpoint URL
-    Value: !Sub 'wss://${GrammarWebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/dev'
+    Value: !Sub 'wss://${GrammarWebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/${Environment}'
 
   ChatTableName:
     Description: Chat DynamoDB Table Name
@@ -2033,16 +2306,28 @@ Outputs:
 
   BucketName:
     Description: S3 Bucket Name
-    Value: !Sub "${AWS::StackName}"
+    Value: !Ref ContentBucket
 
   CognitoUserPoolId:
     Description: Cognito User Pool ID
-    Value: !Ref CognitoUserPool
+    Value: !Ref ExistingCognitoUserPoolId
 
   CognitoUserPoolClientId:
     Description: Cognito User Pool Client ID
-    Value: !Ref CognitoUserPoolClient
+    Value: !Ref ExistingCognitoClientId
 
   OPIcTableName:
     Description: OPIc DynamoDB Table Name
     Value: !Ref OPIcTable
+
+  SpeakingTableName:
+    Description: Speaking DynamoDB Table Name
+    Value: !Ref SpeakingTable
+
+  NotificationStreamUrl:
+    Description: Notification SSE Stream Function URL
+    Value: !GetAtt NotificationStreamFunctionUrl.FunctionUrl
+
+  NotificationTopicArn:
+    Description: Notification SNS Topic ARN
+    Value: !Ref NotificationTopic
