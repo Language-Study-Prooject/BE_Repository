@@ -5,7 +5,6 @@ env:
     SAM_CLI_TELEMETRY: 0
     GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dorg.gradle.parallel=true -Dorg.gradle.caching=true"
     ENVIRONMENT: prod
-    STACK_NAME: group2-englishstudy-prod
 
 phases:
   install:
@@ -28,26 +27,17 @@ phases:
       - echo "Building SAM application for $ENVIRONMENT..."
       - cd $CODEBUILD_SRC_DIR/ServerlessFunction
       - sam build --parallel --cached
-      - echo "Build completed"
+      - echo "Packaging SAM application..."
+      - sam package --s3-bucket group2-englishstudy-pipeline-artifacts --s3-prefix sam-packages/$ENVIRONMENT --output-template-file packaged-template.yaml
 
   post_build:
     commands:
-      - echo "Deploying to $ENVIRONMENT environment..."
-      - cd $CODEBUILD_SRC_DIR/ServerlessFunction
-      - |
-        sam deploy \
-          --stack-name $STACK_NAME \
-          --s3-bucket group2-englishstudy-pipeline-artifacts \
-          --s3-prefix sam-deploy/prod \
-          --region ap-northeast-2 \
-          --capabilities CAPABILITY_IAM CAPABILITY_AUTO_EXPAND \
-          --no-confirm-changeset \
-          --no-fail-on-empty-changeset \
-          --parameter-overrides \
-            Environment=$ENVIRONMENT \
-            ExistingCognitoUserPoolId=ap-northeast-2_ezDwzFCzR \
-            ExistingCognitoClientId=4ns077jcr1pkue2vvisr6qdpu5
-      - echo "Deployment completed on $(date)"
+      - echo "Build completed on $(date)"
+
+artifacts:
+  files:
+    - packaged-template.yaml
+  base-directory: ServerlessFunction
 
 cache:
   paths:
