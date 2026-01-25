@@ -7,8 +7,10 @@ import com.mzc.secondproject.serverless.domain.user.model.User;
 import com.mzc.secondproject.serverless.domain.user.repository.UserRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
+import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
 import software.amazon.awssdk.services.s3.presigner.model.PresignedPutObjectRequest;
 import software.amazon.awssdk.services.s3.presigner.model.PutObjectPresignRequest;
 
@@ -23,24 +25,26 @@ public class UserService {
 	private static final Logger logger = LoggerFactory.getLogger(UserService.class);
 	private static final String BUCKET_NAME = System.getenv("PROFILE_BUCKET_NAME");
 	private static final String DEFAULT_PROFILE_URL = getDefaultProfileUrl();
-
-	private static String getDefaultProfileUrl() {
-		String bucket = BUCKET_NAME != null ? BUCKET_NAME : "group2-englishstudy";
-		return String.format("https://%s.s3.amazonaws.com/profile/default.png", bucket);
-	}
 	private static final List<String> VALID_LEVELS = Arrays.asList("BEGINNER", "INTERMEDIATE", "ADVANCED");
-	
 	private static final List<String> VALID_IMAGE_TYPES = Arrays.asList("image/jpeg", "image/png", "image/gif", "image/webp");
 	private static final int NICKNAME_MIN_LENGTH = 2;
 	private static final int NICKNAME_MAX_LENGTH = 20;
-	
 	private final UserRepository userRepository;
 	private final S3Presigner s3Presigner;
-	
+
 	public UserService(UserRepository userRepository) {
 		this.userRepository = userRepository;
 		// AwsClients 싱글톤 사용 - Cold Start 최적화
 		this.s3Presigner = AwsClients.s3Presigner();
+	}
+
+	public UserService() {
+		this(new UserRepository());
+	}
+	
+	private static String getDefaultProfileUrl() {
+		String bucket = BUCKET_NAME != null ? BUCKET_NAME : "group2-englishstudy";
+		return String.format("https://%s.s3.amazonaws.com/profile/default.png", bucket);
 	}
 	
 	/**
@@ -53,17 +57,57 @@ public class UserService {
 	 */
 	public User getProfile(String userId, APIGatewayProxyRequestEvent request) {
 		
-		return userRepository.findByCognitoSub(userId)
-				.map(user -> {
-					// 정상 DB에서 조회 완료
-					user.updateLastLoginAt();
-					userRepository.update(user);
-					return user;
+		User user = userRepository.findByCognitoSub(userId)
+				.map(u -> {
+					u.updateLastLoginAt();
+					userRepository.update(u);
+					return u;
 				})
-				.orElseGet(() -> {
-					// PostConfirmation 실패 대비 fallback
-					return createUserFromRequest(userId, request);
-				});
+				.orElseGet(() -> createUserFromRequest(userId, request));
+		
+		// 프로필 URL을 Presigned URL로 변환
+		String presignedProfileUrl = getPresignedProfileUrl(user.getProfileUrl());
+		user.setProfileUrlForResponse(presignedProfileUrl);  // 응답용으로만 설정
+		
+		return user;
+	}
+
+	// 단순 프로필 조회 메서드 (채팅용) - DB 조회만 수행
+	public User getUserProfile(String userId) {
+		return userRepository.findByCognitoSub(userId).orElse(null);
+	}
+	
+	public String getPresignedProfileUrl(String s3Url) {
+		if (s3Url == null || s3Url.isEmpty()) {
+			return generateGetPresignedUrl("profile/default.png");
+		}
+		String key = extractKeyFromS3Url(s3Url);
+		return generateGetPresignedUrl(key);
+	}
+	
+	private String generateGetPresignedUrl(String imageKey) {
+		GetObjectRequest getObjectRequest = GetObjectRequest.builder()
+				.bucket(BUCKET_NAME)
+				.key(imageKey)
+				.build();
+		
+		GetObjectPresignRequest presignRequest = GetObjectPresignRequest.builder()
+				.signatureDuration(Duration.ofHours(24))
+				.getObjectRequest(getObjectRequest)
+				.build();
+		
+		return s3Presigner.presignGetObject(presignRequest).url().toString();
+	}
+	
+	
+	private String extractKeyFromS3Url(String s3Url) {
+		// https://group2-englishstudy.s3.amazonaws.com/profile/user123/img.png
+		// → profile/user123/img.png
+		String prefix = String.format("https://%s.s3.amazonaws.com/", BUCKET_NAME);
+		if (s3Url.startsWith(prefix)) {
+			return s3Url.substring(prefix.length());
+		}
+		return s3Url;
 	}
 	
 	/**

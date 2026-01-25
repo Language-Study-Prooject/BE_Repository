@@ -17,7 +17,7 @@ import java.util.List;
 @AllArgsConstructor
 @DynamoDbBean
 public class QuizQuestion {
-
+	
 	private String questionId;      // 문제 ID (q1, q2, ...)
 	private String type;            // COMPREHENSION, WORD_MATCH, FILL_BLANK
 	private String question;        // 문제 내용
