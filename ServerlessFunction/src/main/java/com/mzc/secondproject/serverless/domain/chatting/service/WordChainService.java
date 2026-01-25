@@ -1,7 +1,10 @@
 package com.mzc.secondproject.serverless.domain.chatting.service;
 
+import com.mzc.secondproject.serverless.domain.chatting.model.ChatRoom;
 import com.mzc.secondproject.serverless.domain.chatting.model.Connection;
+import com.mzc.secondproject.serverless.domain.chatting.model.GameSettings;
 import com.mzc.secondproject.serverless.domain.chatting.model.WordChainSession;
+import com.mzc.secondproject.serverless.domain.chatting.repository.ChatRoomRepository;
 import com.mzc.secondproject.serverless.domain.chatting.repository.ConnectionRepository;
 import com.mzc.secondproject.serverless.domain.chatting.repository.WordChainSessionRepository;
 import com.mzc.secondproject.serverless.domain.user.model.User;
@@ -29,6 +32,7 @@ public class WordChainService {
 
 	private final WordChainSessionRepository sessionRepository;
 	private final ConnectionRepository connectionRepository;
+	private final ChatRoomRepository chatRoomRepository;
 	private final UserRepository userRepository;
 	private final DictionaryService dictionaryService;
 	private final Random random;
@@ -36,16 +40,19 @@ public class WordChainService {
 	public WordChainService() {
 		this(new WordChainSessionRepository(),
 				new ConnectionRepository(),
+				new ChatRoomRepository(),
 				new UserRepository(),
 				new DictionaryService());
 	}
 
 	public WordChainService(WordChainSessionRepository sessionRepository,
 	                        ConnectionRepository connectionRepository,
+	                        ChatRoomRepository chatRoomRepository,
 	                        UserRepository userRepository,
 	                        DictionaryService dictionaryService) {
 		this.sessionRepository = sessionRepository;
 		this.connectionRepository = connectionRepository;
+		this.chatRoomRepository = chatRoomRepository;
 		this.userRepository = userRepository;
 		this.dictionaryService = dictionaryService;
 		this.random = new Random();
@@ -67,6 +74,17 @@ public class WordChainService {
 			return GameStartResult.error("최소 2명 이상 필요합니다.");
 		}
 
+		// 방 정보에서 gameSettings 조회
+		Optional<ChatRoom> optRoom = chatRoomRepository.findById(roomId);
+		int baseTurnTimeLimit = 15; // 기본값
+		if (optRoom.isPresent()) {
+			ChatRoom room = optRoom.get();
+			GameSettings settings = room.getGameSettings();
+			if (settings != null && settings.getTurnTimeLimit() != null) {
+				baseTurnTimeLimit = settings.getTurnTimeLimit();
+			}
+		}
+
 		// 플레이어 순서 랜덤 셔플
 		List<String> players = connections.stream()
 				.map(Connection::getUserId)
@@ -81,7 +99,7 @@ public class WordChainService {
 		String sessionId = UUID.randomUUID().toString();
 		String now = Instant.now().toString();
 		long currentTime = System.currentTimeMillis();
-		int timeLimit = WordChainSession.calculateTimeLimit(1);
+		int timeLimit = baseTurnTimeLimit; // 사용자 설정 턴 시간 사용
 
 		WordChainSession session = WordChainSession.builder()
 				.pk("WORDCHAIN#" + sessionId)
@@ -100,6 +118,7 @@ public class WordChainService {
 				.nextLetter(nextLetter)
 				.turnStartTime(currentTime)
 				.timeLimit(timeLimit)
+				.baseTurnTimeLimit(baseTurnTimeLimit)
 				.players(players)
 				.activePlayers(new ArrayList<>(players))
 				.eliminatedPlayers(new ArrayList<>())
@@ -171,7 +190,7 @@ public class WordChainService {
 		char nextLetter = normalizedWord.charAt(normalizedWord.length() - 1);
 		String nextPlayerId = session.getNextPlayerId();
 		int nextRound = session.getCurrentRound() + 1;
-		int nextTimeLimit = WordChainSession.calculateTimeLimit(nextRound);
+		int nextTimeLimit = session.getNextRoundTimeLimit(nextRound);
 
 		session.setCurrentRound(nextRound);
 		session.setCurrentWord(normalizedWord);
@@ -227,7 +246,7 @@ public class WordChainService {
 		// 다음 턴 준비
 		String nextPlayerId = session.getNextPlayerId();
 		int nextRound = session.getCurrentRound() + 1;
-		int nextTimeLimit = WordChainSession.calculateTimeLimit(nextRound);
+		int nextTimeLimit = session.getNextRoundTimeLimit(nextRound);
 
 		session.setCurrentRound(nextRound);
 		session.setCurrentPlayerId(nextPlayerId);
