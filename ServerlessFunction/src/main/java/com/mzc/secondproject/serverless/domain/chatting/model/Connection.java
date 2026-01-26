@@ -22,6 +22,7 @@ public class Connection {
 	
 	private String connectionId;
 	private String userId;
+	private String nickname;
 	private String roomId;
 	private String connectedAt;
 	private Long ttl;           // 10분 후 자동 삭제

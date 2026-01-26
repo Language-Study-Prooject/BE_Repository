@@ -56,7 +56,42 @@ public class WebSocketConnectHandler implements RequestHandler<Map<String, Objec
 			RoomToken token = optToken.get();
 			String userId = token.getUserId();
 			String roomId = token.getRoomId();
-			
+			String nickname = "Unknown";
+
+			// Cognito Authorizer에서 닉네임 추출
+			try {
+				if (event.containsKey("requestContext")) {
+					Map<String, Object> reqCtx = (Map<String, Object>) event.get("requestContext");
+
+					if (reqCtx.containsKey("authorizer")) {
+						Map<String, Object> auth = (Map<String, Object>) reqCtx.get("authorizer");
+
+						Map<String, Object> claims = auth;
+						if (auth.containsKey("claims")) {
+							claims = (Map<String, Object>) auth.get("claims");
+						} else if (auth.containsKey("principalId")) {
+							claims = auth;
+						}
+
+						if (claims != null) {
+							if (claims.get("nickname") != null) {
+								nickname = (String) claims.get("nickname");
+							} else if (claims.get("custom:nickname") != null) {
+								nickname = (String) claims.get("custom:nickname");
+							} else if (claims.get("name") != null) {
+								nickname = (String) claims.get("name");
+							}
+						}
+					}
+				}
+				// 닉네임 못찾았으면 UserId 앞부분 표시
+				if ("Unknown".equals(nickname) && userId != null && userId.length() > 5) {
+					nickname = "User-" + userId.substring(0, 5);
+				}
+			} catch (Exception ex) {
+				logger.warn("닉네임 표시 실패: {}", ex.getMessage());
+			}
+
 			// 같은 방에서 기존 연결 삭제 (새로고침 시 중복 연결 방지)
 			connectionRepository.deleteUserConnectionsInRoom(userId, roomId);
 			
@@ -72,6 +107,7 @@ public class WebSocketConnectHandler implements RequestHandler<Map<String, Objec
 					.gsi2sk("CONN#" + connectionId)
 					.connectionId(connectionId)
 					.userId(userId)
+					.nickname(nickname)
 					.roomId(roomId)
 					.connectedAt(now)
 					.ttl(ttl)
