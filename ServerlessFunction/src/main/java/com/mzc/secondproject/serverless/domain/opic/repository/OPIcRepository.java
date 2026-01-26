@@ -151,35 +151,27 @@ public class OPIcRepository {
 		
 		return Optional.ofNullable(questionTable.getItem(key));
 	}
-	
+
 	/**
-	 * 주제 + 레벨로 질문 조회 (GSI1)
+	 * 질문 유형 + 질문 주제로 조회
 	 */
-	public List<OPIcQuestion> findQuestionsByTopicAndLevel(String topic, String level) {
+	public List<OPIcQuestion> findQuestionsByTopicAndSubTopic(String topic, String subTopic) {
 		DynamoDbIndex<OPIcQuestion> gsi1 = questionTable.index("GSI1");
-		
-		QueryConditional queryConditional = QueryConditional.keyEqualTo(
+
+		String pkVal = "TOPIC#" + topic.toUpperCase();
+		String skVal = "SUBTOPIC#" + subTopic.toUpperCase();
+
+		QueryConditional queryConditional = QueryConditional.sortBeginsWith(
 				Key.builder()
-						.partitionValue("TOPIC#" + topic)
-						.sortValue("LEVEL#" + level)
+						.partitionValue(pkVal)
+						.sortValue(skVal)
 						.build()
 		);
-		
+
 		return gsi1.query(queryConditional)
 				.stream()
 				.flatMap(page -> page.items().stream())
 				.filter(OPIcQuestion::isActive)
-				.collect(Collectors.toList());
-	}
-	
-	/**
-	 * 주제 + 소주제 + 레벨로 질문 조회 (subTopic 필터 추가)
-	 */
-	public List<OPIcQuestion> findQuestionsByTopicSubTopicAndLevel(
-			String topic, String subTopic, String level) {
-		
-		return findQuestionsByTopicAndLevel(topic, level).stream()
-				.filter(q -> subTopic == null || subTopic.equals(q.getSubTopic()))
 				.collect(Collectors.toList());
 	}
 	

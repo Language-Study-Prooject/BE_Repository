@@ -11,7 +11,9 @@ import com.mzc.secondproject.serverless.common.util.JwtUtil;
 import com.mzc.secondproject.serverless.common.util.ResponseGenerator;
 import com.mzc.secondproject.serverless.domain.opic.dto.request.CreateSessionRequest;
 import com.mzc.secondproject.serverless.domain.opic.dto.request.SubmitAnswerRequest;
+import com.mzc.secondproject.serverless.domain.opic.dto.response.CreateSessionResponse;
 import com.mzc.secondproject.serverless.domain.opic.dto.response.FeedbackResponse;
+import com.mzc.secondproject.serverless.domain.opic.dto.response.QuestionResponse;
 import com.mzc.secondproject.serverless.domain.opic.model.OPIcAnswer;
 import com.mzc.secondproject.serverless.domain.opic.model.OPIcQuestion;
 import com.mzc.secondproject.serverless.domain.opic.model.OPIcSession;
@@ -119,55 +121,59 @@ public class OPIcSessionHandler implements RequestHandler<APIGatewayProxyRequest
 	 */
 	private APIGatewayProxyResponseEvent createSession(APIGatewayProxyRequestEvent event, String userId) {
 		CreateSessionRequest request = gson.fromJson(event.getBody(), CreateSessionRequest.class);
-		
-		logger.info("세션 생성 요청: userId={}, topic={}, level={}",
-				userId, request.topic(), request.targetLevel());
-		
-		// 주제 + 소주제 + 레벨로 질문 세트 조회
-		List<OPIcQuestion> questions = repository.findQuestionsByTopicSubTopicAndLevel(
-				request.topic(),
-				request.subTopic(),
-				request.targetLevel()
+
+		logger.info("세션 생성 요청: userId={}, topic={}, subTopic={}, targetLevel={}",
+				userId, request.topic(), request.subTopic(), request.targetLevel());
+
+		// 질문 세트 조회 (주제+소주제로 조회)
+		List<OPIcQuestion> questions = repository.findQuestionsByTopicAndSubTopic(
+				request.topic(),      // 예: "DESCRIPTION"
+				request.subTopic()    // 예: "HOMES"
 		);
-		
+
+		// 질문 데이터 없음 예외 처리
 		if (questions.isEmpty()) {
-			return ResponseGenerator.notFound("해당 주제/레벨의 질문이 없습니다.");
+			String msg = String.format("해당 주제(%s)와 소주제(%s)에 해당하는 질문이 없습니다.",
+					request.topic(), request.subTopic());
+			return ResponseGenerator.notFound(msg);
 		}
-		
-		// 최대 3개 질문 선택 (랜덤 셔플)
+
+		// 질문 3개 랜덤 선택
 		Collections.shuffle(questions);
-		List<String> questionIds = questions.stream()
+		List<OPIcQuestion> selectedQuestions = questions.stream()
 				.limit(3)
+				.sorted(Comparator.comparingInt(OPIcQuestion::getOrderInSet))
+				.collect(Collectors.toList());
+
+		// 질문 ID 목록 추출
+		List<String> questionIds = selectedQuestions.stream()
 				.map(OPIcQuestion::getQuestionId)
 				.collect(Collectors.toList());
-		
-		// 세션 생성
+
+		// 세션 저장
 		OPIcSession session = repository.createSession(
 				userId,
 				request.topic(),
 				request.subTopic(),
-				request.targetLevel(),
+				request.targetLevel(), // 사용자가 선택한 레벨 저장 (AL, IM2 등)
 				questionIds
 		);
-		
-		// 첫 질문 Polly 음성 URL 생성 (#368 PollyService 연동)
-		OPIcQuestion firstQuestion = questions.get(0);
+
+		// 첫 번째 질문 응답 생성
+		OPIcQuestion firstQuestion = selectedQuestions.get(0);
 		String audioUrl = generateQuestionAudioUrl(firstQuestion);
-		
-		// Response
-		Map<String, Object> response = new LinkedHashMap<>();
-		response.put("sessionId", session.getSessionId());
-		response.put("totalQuestions", session.getTotalQuestions());
-		response.put("firstQuestion", Map.of(
-				"questionId", firstQuestion.getQuestionId(),
-				"questionText", firstQuestion.getQuestionText(),
-				"audioUrl", audioUrl,
-				"questionNumber", 1,
-				"totalQuestions", session.getTotalQuestions()
-		));
-		
-		logger.info("세션 생성 완료: sessionId={}", session.getSessionId());
-		return ResponseGenerator.created("세션이 생성되었습니다.", response);
+
+		QuestionResponse questionResponse = new QuestionResponse(
+				firstQuestion.getQuestionId(),
+				firstQuestion.getQuestionText(),
+				audioUrl,
+				1, // 현재 질문 번호
+				3  // 총 질문 수
+		);
+
+		return ResponseGenerator.ok(
+				new CreateSessionResponse(session.getSessionId(), questionResponse, 3)
+		);
 	}
 	
 	/**

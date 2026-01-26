@@ -10,12 +10,12 @@ public class OPIcQuestion {
 	
 	private String pk;                    // QUESTION#questionId
 	private String sk;                    // METADATA
-	private String gsi1pk;                // TOPIC#travel
-	private String gsi1sk;                // LEVEL#IM2
+	private String gsi1pk;                // TOPIC#DESCRIPTION  (질문 유형 - 대주제)
+	private String gsi1sk;                // SUBTOPIC#HOMES     (질문 소재 - 소주제)
 	
 	private String questionId;
-	private String topic;                 // 대주제
-	private String subTopic;              // 소주제
+	private String topic;                 // DESCRIPTION, HABIT, PAST_EXPERIENCE ...
+	private String subTopic;              // HOMES, BANKS, MUSIC ...
 	private String level;                 // 난이도 (IM1, IM2, IM3, IH, AL)
 	private String questionText;          // 질문 텍스트 (영어)
 	private String questionTextKo;        // 질문 텍스트 (한국어, 참고용)
