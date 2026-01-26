@@ -19,6 +19,8 @@ import com.mzc.secondproject.serverless.domain.chatting.repository.GameSessionRe
 import com.mzc.secondproject.serverless.domain.chatting.service.ChatMessageService;
 import com.mzc.secondproject.serverless.domain.chatting.service.CommandService;
 import com.mzc.secondproject.serverless.domain.chatting.service.GameService;
+import com.mzc.secondproject.serverless.domain.user.model.User;
+import com.mzc.secondproject.serverless.domain.user.service.UserService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -44,6 +46,7 @@ public class WebSocketMessageHandler implements RequestHandler<Map<String, Objec
 	private final WebSocketBroadcaster broadcaster;
 	private final CommandService commandService;
 	private final GameService gameService;
+	private final UserService userService;
 	
 	public WebSocketMessageHandler() {
 		this.chatMessageService = new ChatMessageService();
@@ -53,6 +56,7 @@ public class WebSocketMessageHandler implements RequestHandler<Map<String, Objec
 		this.broadcaster = new WebSocketBroadcaster();
 		this.commandService = new CommandService();
 		this.gameService = new GameService();
+		this.userService = new UserService();
 	}
 	
 	@Override
@@ -155,6 +159,21 @@ public class WebSocketMessageHandler implements RequestHandler<Map<String, Objec
 		// 일반 메시지 저장 및 브로드캐스트
 		String messageId = UUID.randomUUID().toString();
 		String now = Instant.now().toString();
+
+		// 닉네임 조회
+		String nickname = "Unknown";
+		try {
+			// DB에서 유저 정보(닉네임) 가져오기
+			User user = userService.getUserProfile(payload.userId);
+			if (user != null && user.getNickname() != null) {
+				nickname = user.getNickname();
+			} else {
+				// 혹시 없으면 UUID 사용
+				nickname = payload.userId;
+			}
+		} catch (Exception e) {
+			nickname = payload.userId;
+		}
 		
 		ChatMessage message = ChatMessage.builder()
 				.pk("ROOM#" + payload.roomId)
@@ -166,6 +185,7 @@ public class WebSocketMessageHandler implements RequestHandler<Map<String, Objec
 				.messageId(messageId)
 				.roomId(payload.roomId)
 				.userId(payload.userId)
+				.nickname(nickname)
 				.content(payload.content)
 				.messageType(messageType)
 				.createdAt(now)
@@ -182,6 +202,7 @@ public class WebSocketMessageHandler implements RequestHandler<Map<String, Objec
 		broadcastMessage.put("messageId", savedMessage.getMessageId());
 		broadcastMessage.put("roomId", savedMessage.getRoomId());
 		broadcastMessage.put("userId", savedMessage.getUserId());
+		broadcastMessage.put("nickname", savedMessage.getNickname());
 		broadcastMessage.put("content", savedMessage.getContent());
 		broadcastMessage.put("messageType", savedMessage.getMessageType());
 		broadcastMessage.put("createdAt", savedMessage.getCreatedAt());
@@ -362,13 +383,13 @@ public class WebSocketMessageHandler implements RequestHandler<Map<String, Objec
 	 */
 	private Map<String, Object> handleCommandResult(CommandResult result, String roomId, String userId) {
 		List<Connection> connections = connectionRepository.findByRoomId(roomId);
-		
+
 		// GAME_START는 특별 처리 (출제자에게만 제시어 전송 + serverTime 포함)
 		if (result.messageType() == MessageType.GAME_START && result.data() instanceof GameService.GameStartResult gameResult) {
 			broadcastGameStart(connections, result, gameResult, roomId);
 			return WebSocketEventUtil.ok("Command executed");
 		}
-		
+
 		// ROUND_END는 특별 처리 (다음 출제자에게만 제시어 전송 + serverTime 포함)
 		if (result.messageType() == MessageType.ROUND_END && result.data() instanceof Map) {
 			@SuppressWarnings("unchecked")
@@ -376,14 +397,17 @@ public class WebSocketMessageHandler implements RequestHandler<Map<String, Objec
 			broadcastRoundEnd(connections, result, data, roomId);
 			return WebSocketEventUtil.ok("Command executed");
 		}
-		
-		// 일반 시스템 메시지 (게임 관련 명령어 결과)
+
+		// 일반 시스템 메시지
 		String messageId = UUID.randomUUID().toString();
 		String now = Instant.now().toString();
-		
+
+		// 메시지 타입에 따라 domain 결정
+		String domain = determineDomain(result.messageType());
+
 		// domain 필드 포함을 위해 Map으로 생성
 		Map<String, Object> systemMessage = new HashMap<>();
-		systemMessage.put("domain", WebSocketMessageHelper.DOMAIN_GAME);
+		systemMessage.put("domain", domain);
 		systemMessage.put("messageId", messageId);
 		systemMessage.put("roomId", roomId);
 		systemMessage.put("userId", "SYSTEM");
@@ -391,13 +415,33 @@ public class WebSocketMessageHandler implements RequestHandler<Map<String, Objec
 		systemMessage.put("messageType", result.messageType().getCode());
 		systemMessage.put("createdAt", now);
 		systemMessage.put("timestamp", System.currentTimeMillis());
-		
+
+		// 추가 데이터가 있으면 포함
+		if (result.data() != null) {
+			systemMessage.put("data", result.data());
+		}
+
 		String broadcastPayload = gson.toJson(systemMessage);
 		List<String> failedConnections = broadcaster.broadcast(connections, broadcastPayload);
 		cleanupFailedConnections(failedConnections);
-		
-		logger.info("Command result broadcasted: type={}, roomId={}", result.messageType(), roomId);
+
+		logger.info("Command result broadcasted: type={}, domain={}, roomId={}", result.messageType(), domain, roomId);
 		return WebSocketEventUtil.ok("Command executed");
+	}
+
+	/**
+	 * 메시지 타입에 따라 domain 결정
+	 */
+	private String determineDomain(MessageType messageType) {
+		return switch (messageType) {
+			// 게임 관련 메시지
+			case GAME_START, GAME_END, ROUND_START, ROUND_END, DRAWING, DRAWING_CLEAR,
+			     CORRECT_ANSWER, SCORE_UPDATE, HINT -> WebSocketMessageHelper.DOMAIN_GAME;
+			// 방 상태 관련 메시지
+			case ROOM_STATUS_CHANGE, HOST_CHANGE -> WebSocketMessageHelper.DOMAIN_ROOM;
+			// 채팅 관련 메시지 (기본값)
+			default -> WebSocketMessageHelper.DOMAIN_CHAT;
+		};
 	}
 	
 	/**

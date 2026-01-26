@@ -7,6 +7,7 @@ import com.mzc.secondproject.serverless.domain.badge.model.UserBadge;
 import com.mzc.secondproject.serverless.domain.badge.repository.BadgeRepository;
 import com.mzc.secondproject.serverless.domain.badge.strategy.BadgeConditionStrategy;
 import com.mzc.secondproject.serverless.domain.badge.strategy.BadgeConditionStrategyFactory;
+import com.mzc.secondproject.serverless.domain.notification.service.NotificationPublisher;
 import com.mzc.secondproject.serverless.domain.stats.model.UserStats;
 import com.mzc.secondproject.serverless.domain.stats.repository.UserStatsRepository;
 import org.slf4j.Logger;
@@ -24,20 +25,23 @@ public class BadgeService {
 	
 	private final BadgeRepository badgeRepository;
 	private final UserStatsRepository userStatsRepository;
-	
+	private final NotificationPublisher notificationPublisher;
+
 	/**
 	 * 기본 생성자 (Lambda에서 사용)
 	 */
 	public BadgeService() {
-		this(new BadgeRepository(), new UserStatsRepository());
+		this(new BadgeRepository(), new UserStatsRepository(), NotificationPublisher.getInstance());
 	}
-	
+
 	/**
 	 * 의존성 주입 생성자 (테스트 용이성)
 	 */
-	public BadgeService(BadgeRepository badgeRepository, UserStatsRepository userStatsRepository) {
+	public BadgeService(BadgeRepository badgeRepository, UserStatsRepository userStatsRepository,
+						NotificationPublisher notificationPublisher) {
 		this.badgeRepository = badgeRepository;
 		this.userStatsRepository = userStatsRepository;
+		this.notificationPublisher = notificationPublisher;
 	}
 	
 	/**
@@ -98,6 +102,15 @@ public class BadgeService {
 				badgeRepository.save(badge);
 				newBadges.add(badge);
 				logger.info("Badge awarded: userId={}, badge={}", userId, type.name());
+
+				// 알림 발행
+				notificationPublisher.publishBadgeEarned(
+						userId,
+						type.name(),
+						type.getName(),
+						type.getDescription(),
+						badge.getImageUrl()
+				);
 			}
 		}
 		

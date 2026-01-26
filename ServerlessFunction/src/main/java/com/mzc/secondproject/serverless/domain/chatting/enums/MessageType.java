@@ -22,7 +22,25 @@ public enum MessageType {
 	
 	// 방 관련 메시지 타입
 	ROOM_STATUS_CHANGE("room_status_change", "방 상태 변경"),
-	HOST_CHANGE("host_change", "방장 변경");
+	HOST_CHANGE("host_change", "방장 변경"),
+
+	// 투표 관련 메시지 타입
+	POLL_CREATE("poll_create", "투표 생성"),
+	POLL_VOTE("poll_vote", "투표 참여"),
+	POLL_END("poll_end", "투표 종료"),
+
+	// 끝말잇기(Word Chain) 게임 메시지 타입
+	WORDCHAIN_START("wordchain_start", "끝말잇기 시작"),
+	WORDCHAIN_TURN("wordchain_turn", "턴 변경"),
+	WORDCHAIN_CORRECT("wordchain_correct", "정답"),
+	WORDCHAIN_WRONG("wordchain_wrong", "오답"),
+	WORDCHAIN_TIMEOUT("wordchain_timeout", "시간 초과"),
+	WORDCHAIN_ELIMINATED("wordchain_eliminated", "탈락"),
+	WORDCHAIN_END("wordchain_end", "끝말잇기 종료"),
+
+	// 유틸리티 메시지 타입
+	CLEAR_CHAT("clear_chat", "채팅 삭제"),
+	LEAVE_ROOM("leave_room", "채팅방 나가기");
 	
 	private final String code;
 	private final String displayName;

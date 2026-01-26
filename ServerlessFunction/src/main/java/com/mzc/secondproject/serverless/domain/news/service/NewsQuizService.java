@@ -1,9 +1,14 @@
 package com.mzc.secondproject.serverless.domain.news.service;
 
+import com.mzc.secondproject.serverless.domain.news.config.NewsConfig;
 import com.mzc.secondproject.serverless.domain.news.constants.NewsKey;
-import com.mzc.secondproject.serverless.domain.news.model.*;
+import com.mzc.secondproject.serverless.domain.news.model.NewsArticle;
+import com.mzc.secondproject.serverless.domain.news.model.NewsQuizResult;
+import com.mzc.secondproject.serverless.domain.news.model.QuizAnswerResult;
+import com.mzc.secondproject.serverless.domain.news.model.QuizQuestion;
 import com.mzc.secondproject.serverless.domain.news.repository.NewsArticleRepository;
 import com.mzc.secondproject.serverless.domain.news.repository.NewsQuizRepository;
+import com.mzc.secondproject.serverless.domain.notification.service.NotificationPublisher;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -15,22 +20,26 @@ import java.util.*;
  * 뉴스 퀴즈 서비스
  */
 public class NewsQuizService {
-
+	
 	private static final Logger logger = LoggerFactory.getLogger(NewsQuizService.class);
 
 	private final NewsArticleRepository articleRepository;
 	private final NewsQuizRepository quizRepository;
+	private final NotificationPublisher notificationPublisher;
 
 	public NewsQuizService() {
 		this.articleRepository = new NewsArticleRepository();
 		this.quizRepository = new NewsQuizRepository();
+		this.notificationPublisher = NotificationPublisher.getInstance();
 	}
 
-	public NewsQuizService(NewsArticleRepository articleRepository, NewsQuizRepository quizRepository) {
+	public NewsQuizService(NewsArticleRepository articleRepository, NewsQuizRepository quizRepository,
+						   NotificationPublisher notificationPublisher) {
 		this.articleRepository = articleRepository;
 		this.quizRepository = quizRepository;
+		this.notificationPublisher = notificationPublisher;
 	}
-
+	
 	/**
 	 * 퀴즈 조회
 	 */
@@ -40,18 +49,18 @@ public class NewsQuizService {
 			logger.warn("기사를 찾을 수 없음: {}", articleId);
 			return Optional.empty();
 		}
-
+		
 		NewsArticle article = articleOpt.get();
 		List<QuizQuestion> questions = article.getQuiz();
-
+		
 		if (questions == null || questions.isEmpty()) {
 			logger.warn("퀴즈가 없는 기사: {}", articleId);
 			return Optional.empty();
 		}
-
+		
 		// 이미 제출했는지 확인
 		boolean submitted = quizRepository.hasSubmitted(userId, articleId);
-
+		
 		// 정답 제거한 퀴즈 반환
 		List<QuizQuestionView> questionViews = questions.stream()
 				.map(q -> QuizQuestionView.builder()
@@ -62,7 +71,7 @@ public class NewsQuizService {
 						.points(q.getPoints())
 						.build())
 				.toList();
-
+		
 		return Optional.of(QuizData.builder()
 				.articleId(articleId)
 				.articleTitle(article.getTitle())
@@ -72,7 +81,7 @@ public class NewsQuizService {
 				.submitted(submitted)
 				.build());
 	}
-
+	
 	/**
 	 * 퀴즈 제출 및 채점
 	 */
@@ -82,42 +91,42 @@ public class NewsQuizService {
 			logger.warn("이미 제출한 퀴즈: userId={}, articleId={}", userId, articleId);
 			return null;
 		}
-
+		
 		// 기사 조회
 		Optional<NewsArticle> articleOpt = articleRepository.findById(articleId);
 		if (articleOpt.isEmpty()) {
 			logger.warn("기사를 찾을 수 없음: {}", articleId);
 			return null;
 		}
-
+		
 		NewsArticle article = articleOpt.get();
 		List<QuizQuestion> questions = article.getQuiz();
-
+		
 		if (questions == null || questions.isEmpty()) {
 			logger.warn("퀴즈가 없는 기사: {}", articleId);
 			return null;
 		}
-
+		
 		// 정답 맵 생성
 		Map<String, QuizQuestion> questionMap = new HashMap<>();
 		for (QuizQuestion q : questions) {
 			questionMap.put(q.getQuestionId(), q);
 		}
-
+		
 		// 채점
 		List<QuizAnswerResult> answerResults = new ArrayList<>();
 		int earnedPoints = 0;
 		int totalPoints = 0;
-
+		
 		for (QuizAnswer answer : answers) {
 			QuizQuestion question = questionMap.get(answer.questionId());
 			if (question == null) continue;
-
+			
 			boolean correct = question.getCorrectAnswer().equalsIgnoreCase(answer.answer());
 			int points = correct ? question.getPoints() : 0;
 			earnedPoints += points;
 			totalPoints += question.getPoints();
-
+			
 			answerResults.add(QuizAnswerResult.builder()
 					.questionId(answer.questionId())
 					.type(question.getType())
@@ -127,14 +136,14 @@ public class NewsQuizService {
 					.points(points)
 					.build());
 		}
-
+		
 		// 점수 계산 (100점 만점)
 		int score = totalPoints > 0 ? (earnedPoints * 100) / totalPoints : 0;
-
+		
 		// 결과 저장
 		String now = Instant.now().toString();
 		String today = LocalDate.now().toString();
-
+		
 		NewsQuizResult result = NewsQuizResult.builder()
 				.pk(NewsKey.userNewsPk(userId))
 				.sk(NewsKey.quizSk(articleId))
@@ -151,12 +160,25 @@ public class NewsQuizService {
 				.timeTaken(timeTaken)
 				.submittedAt(now)
 				.build();
-
+		
 		quizRepository.save(result);
 		logger.info("퀴즈 제출 완료: userId={}, articleId={}, score={}", userId, articleId, score);
 
+		// 알림 발행
+		int correctCount = (int) answerResults.stream().filter(QuizAnswerResult::isCorrect).count();
+		boolean isPerfect = score == 100;
+		notificationPublisher.publishNewsQuizComplete(
+				userId,
+				articleId,
+				article.getTitle(),
+				score,
+				correctCount,
+				answerResults.size(),
+				isPerfect
+		);
+
 		// 피드백 생성
-		String feedback = generateFeedback(score, answerResults);
+		String feedback = generateFeedback(score);
 
 		return QuizSubmitResult.builder()
 				.score(score)
@@ -166,21 +188,21 @@ public class NewsQuizService {
 				.feedback(feedback)
 				.build();
 	}
-
+	
 	/**
 	 * 사용자 퀴즈 결과 조회
 	 */
 	public Optional<NewsQuizResult> getQuizResult(String userId, String articleId) {
 		return quizRepository.findByUserAndArticle(userId, articleId);
 	}
-
+	
 	/**
 	 * 사용자 퀴즈 기록 목록 조회
 	 */
 	public List<NewsQuizResult> getUserQuizHistory(String userId, int limit) {
 		return quizRepository.getUserQuizResults(userId, limit);
 	}
-
+	
 	/**
 	 * 사용자 퀴즈 통계 조회
 	 */
@@ -192,24 +214,14 @@ public class NewsQuizService {
 				"perfectScores", stats.perfectScores()
 		);
 	}
-
+	
 	/**
 	 * 피드백 생성
 	 */
-	private String generateFeedback(int score, List<QuizAnswerResult> results) {
-		if (score == 100) {
-			return "Perfect! You understood the article completely.";
-		} else if (score >= 80) {
-			return "Great job! You have a solid understanding of the article.";
-		} else if (score >= 60) {
-			return "Good effort! Review the highlighted words for better comprehension.";
-		} else if (score >= 40) {
-			return "Keep practicing! Try reading the article again before retaking the quiz.";
-		} else {
-			return "Don't give up! Focus on vocabulary and main ideas.";
-		}
+	private String generateFeedback(int score) {
+		return NewsConfig.getFeedbackByScore(score);
 	}
-
+	
 	/**
 	 * 퀴즈 데이터 (정답 제외)
 	 */
@@ -225,7 +237,7 @@ public class NewsQuizService {
 		private int totalPoints;
 		private boolean submitted;
 	}
-
+	
 	/**
 	 * 퀴즈 문제 뷰 (정답 제외)
 	 */
@@ -240,12 +252,13 @@ public class NewsQuizService {
 		private List<String> options;
 		private int points;
 	}
-
+	
 	/**
 	 * 사용자 답변
 	 */
-	public record QuizAnswer(String questionId, String answer) {}
-
+	public record QuizAnswer(String questionId, String answer) {
+	}
+	
 	/**
 	 * 퀴즈 제출 결과
 	 */

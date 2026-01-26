@@ -24,34 +24,34 @@ import java.util.Map;
  * BBC, VOA, NPR 등의 RSS 피드에서 뉴스 수집
  */
 public class RssFeedParser {
-
+	
 	private static final Logger logger = LoggerFactory.getLogger(RssFeedParser.class);
-
+	
 	private static final Map<String, String> RSS_FEEDS = Map.of(
 			"BBC", "https://feeds.bbci.co.uk/news/world/rss.xml",
 			"VOA", "https://www.voanews.com/api/ziqpoe-mqm",
 			"NPR", "https://feeds.npr.org/1001/rss.xml"
 	);
-
+	
 	private final HttpClient httpClient;
-
+	
 	public RssFeedParser() {
 		this.httpClient = HttpClient.newBuilder()
 				.connectTimeout(Duration.ofSeconds(10))
 				.followRedirects(HttpClient.Redirect.NORMAL)
 				.build();
 	}
-
+	
 	/**
 	 * 모든 RSS 피드에서 뉴스 수집
 	 */
 	public List<RawNewsArticle> fetchAllFeeds(int maxPerSource) {
 		List<RawNewsArticle> allArticles = new ArrayList<>();
-
+		
 		for (Map.Entry<String, String> entry : RSS_FEEDS.entrySet()) {
 			String source = entry.getKey();
 			String feedUrl = entry.getValue();
-
+			
 			try {
 				List<RawNewsArticle> articles = fetchFeed(feedUrl, source, maxPerSource);
 				allArticles.addAll(articles);
@@ -60,16 +60,16 @@ public class RssFeedParser {
 				logger.error("{} RSS 피드 수집 실패: {}", source, e.getMessage());
 			}
 		}
-
+		
 		return allArticles;
 	}
-
+	
 	/**
 	 * 특정 RSS 피드에서 뉴스 수집
 	 */
 	public List<RawNewsArticle> fetchFeed(String feedUrl, String source, int maxItems) {
 		List<RawNewsArticle> articles = new ArrayList<>();
-
+		
 		try {
 			HttpRequest request = HttpRequest.newBuilder()
 					.uri(URI.create(feedUrl))
@@ -77,22 +77,22 @@ public class RssFeedParser {
 					.timeout(Duration.ofSeconds(30))
 					.GET()
 					.build();
-
+			
 			HttpResponse<InputStream> response = httpClient.send(request, HttpResponse.BodyHandlers.ofInputStream());
-
+			
 			if (response.statusCode() != 200) {
 				logger.error("RSS 피드 요청 실패 - url: {}, status: {}", feedUrl, response.statusCode());
 				return articles;
 			}
-
+			
 			DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
 			factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
 			DocumentBuilder builder = factory.newDocumentBuilder();
 			Document document = builder.parse(response.body());
-
+			
 			NodeList items = document.getElementsByTagName("item");
 			int count = Math.min(items.getLength(), maxItems);
-
+			
 			for (int i = 0; i < count; i++) {
 				Element item = (Element) items.item(i);
 				RawNewsArticle article = parseRssItem(item, source);
@@ -100,14 +100,14 @@ public class RssFeedParser {
 					articles.add(article);
 				}
 			}
-
+			
 		} catch (Exception e) {
 			logger.error("RSS 피드 파싱 중 오류 발생 - url: {}", feedUrl, e);
 		}
-
+		
 		return articles;
 	}
-
+	
 	/**
 	 * RSS item 요소를 RawNewsArticle로 변환
 	 */
@@ -121,7 +121,7 @@ public class RssFeedParser {
 				.publishedAt(parsePublishedDate(getElementText(item, "pubDate")))
 				.build();
 	}
-
+	
 	/**
 	 * 요소에서 텍스트 추출
 	 */
@@ -132,7 +132,7 @@ public class RssFeedParser {
 		}
 		return null;
 	}
-
+	
 	/**
 	 * 이미지 URL 추출 (media:content, enclosure 등)
 	 */
@@ -142,7 +142,7 @@ public class RssFeedParser {
 			Element media = (Element) mediaContent.item(0);
 			return media.getAttribute("url");
 		}
-
+		
 		NodeList enclosure = item.getElementsByTagName("enclosure");
 		if (enclosure.getLength() > 0) {
 			Element enc = (Element) enclosure.item(0);
@@ -151,16 +151,16 @@ public class RssFeedParser {
 				return enc.getAttribute("url");
 			}
 		}
-
+		
 		NodeList mediaThumbnail = item.getElementsByTagName("media:thumbnail");
 		if (mediaThumbnail.getLength() > 0) {
 			Element thumbnail = (Element) mediaThumbnail.item(0);
 			return thumbnail.getAttribute("url");
 		}
-
+		
 		return null;
 	}
-
+	
 	/**
 	 * RSS pubDate를 ISO 8601 형식으로 변환
 	 */
@@ -170,7 +170,7 @@ public class RssFeedParser {
 		}
 		return pubDate;
 	}
-
+	
 	/**
 	 * HTML 태그 제거
 	 */
