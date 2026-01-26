@@ -202,6 +202,7 @@ public class WebSocketMessageHandler implements RequestHandler<Map<String, Objec
 		broadcastMessage.put("messageId", savedMessage.getMessageId());
 		broadcastMessage.put("roomId", savedMessage.getRoomId());
 		broadcastMessage.put("userId", savedMessage.getUserId());
+		broadcastMessage.put("nickname", savedMessage.getNickname());
 		broadcastMessage.put("content", savedMessage.getContent());
 		broadcastMessage.put("messageType", savedMessage.getMessageType());
 		broadcastMessage.put("createdAt", savedMessage.getCreatedAt());
