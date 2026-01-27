@@ -30,6 +30,7 @@ Globals:
     Architectures:
       - x86_64
     Tracing: Active
+    AutoPublishAlias: live
     Environment:
       Variables:
         USER_TABLE_NAME: !Ref UserTable
