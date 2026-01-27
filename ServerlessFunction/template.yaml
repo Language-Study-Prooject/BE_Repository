@@ -1622,7 +1622,7 @@ Resources:
             Method: POST
             Auth:
               Authorizer: CognitoAuthV2
-        # 답변 상태 조회 (폴링용) ← 새로 추가!
+        # 답변 상태 조회 (폴링용)
         GetAnswerStatus:
           Type: Api
           Properties:
@@ -1686,6 +1686,25 @@ Resources:
           Type: SNS
           Properties:
             Topic: !Ref AnswerProcessTopic
+
+  # 이메일 발송 전용 비동기 Lambda
+  OPIcEmailFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-opic-email-handler"
+      Handler: com.mzc.secondproject.serverless.domain.opic.handler.EmailAsyncHandler::handleRequest
+      Events:
+        SNSEvent:
+          Type: SNS
+          Properties:
+            Topic: !Ref NotificationTopic
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action:
+                - ses:SendEmail
+                - ses:SendRawEmail
+              Resource: "*"
 
   #############################################
   # Speaking Lambda Functions
