@@ -528,7 +528,7 @@ public class OPIcSessionHandler implements RequestHandler<APIGatewayProxyRequest
 				session.getTargetLevel()
 		);
 
-		// 이메일 발송 (비동기로 처리해도 됨 - 현재는 동기)
+		//  이메일 발송
 		try {
 			String userEmail = CognitoUtil.extractEmail(event).orElse(null);
 			String userName = CognitoUtil.extractNickname(event).orElse("학습자");
