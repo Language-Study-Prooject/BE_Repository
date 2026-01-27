@@ -10,6 +10,7 @@ import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.polly.PollyClient;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
+import software.amazon.awssdk.services.ses.SesClient;
 import software.amazon.awssdk.services.sns.SnsClient;
 import software.amazon.awssdk.services.sqs.SqsClient;
 import software.amazon.awssdk.services.ssm.SsmClient;
@@ -67,6 +68,11 @@ public final class AwsClients {
 			.overrideConfiguration(XRAY_CONFIG)
 			.build();
 
+	// SES
+	private static final SesClient SES_CLIENT = SesClient.builder()
+			.overrideConfiguration(XRAY_CONFIG)
+			.build();
+
 	private AwsClients() {
 		// 인스턴스화 방지
 	}
@@ -114,4 +120,6 @@ public final class AwsClients {
 	public static SqsClient sqs() {
 		return SQS_CLIENT;
 	}
+
+	public static SesClient ses() { return SES_CLIENT; }
 }
