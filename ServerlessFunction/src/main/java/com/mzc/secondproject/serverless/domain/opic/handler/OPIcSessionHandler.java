@@ -15,6 +15,7 @@ import com.mzc.secondproject.serverless.domain.opic.dto.request.SubmitAnswerRequ
 import com.mzc.secondproject.serverless.domain.opic.dto.response.CreateSessionResponse;
 import com.mzc.secondproject.serverless.domain.opic.dto.response.FeedbackResponse;
 import com.mzc.secondproject.serverless.domain.opic.dto.response.QuestionResponse;
+import com.mzc.secondproject.serverless.domain.opic.dto.response.SessionReportResponse;
 import com.mzc.secondproject.serverless.domain.opic.model.OPIcAnswer;
 import com.mzc.secondproject.serverless.domain.opic.model.OPIcQuestion;
 import com.mzc.secondproject.serverless.domain.opic.model.OPIcSession;
@@ -533,8 +534,8 @@ public class OPIcSessionHandler implements RequestHandler<APIGatewayProxyRequest
 			String userName = CognitoUtil.extractNickname(event).orElse("학습자");
 
 			if (userEmail != null && !userEmail.isEmpty()) {
-				emailService.sendOPIcReportEmail(userEmail, userName, sessionReport);
-				logger.info("리포트 이메일 발송 완료: to={}", userEmail);
+                publishEmailToSNS(userEmail, userName, sessionReport);
+                logger.info("이메일 발송 SNS 요청 발행: to={}", userEmail);
 			}
 		} catch (Exception e) {
 			// 이메일 실패해도 세션 완료는 성공 처리
@@ -554,7 +555,29 @@ public class OPIcSessionHandler implements RequestHandler<APIGatewayProxyRequest
 		return ResponseGenerator.ok("세션이 완료되었습니다.", sessionReport);
 	}
 
-	// ==================== 유틸리티 ====================
+    /**
+     * 이메일 발송용 SNS 메시지 발행
+     */
+    private void publishEmailToSNS(String email, String userName, SessionReportResponse report) {
+        try {
+            String topicArn = System.getenv("NOTIFICATION_TOPIC_ARN");
+
+            Map<String, Object> message = new HashMap<>();
+            message.put("type", "OPIC_REPORT_EMAIL");
+            message.put("recipientEmail", email);
+            message.put("userName", userName);
+            message.put("report", report); // 세션 리포트 객체 전달
+
+            AwsClients.sns().publish(PublishRequest.builder()
+                    .topicArn(topicArn)
+                    .message(gson.toJson(message))
+                    .build());
+        } catch (Exception e) {
+            logger.error("이메일 SNS 발행 실패", e);
+        }
+    }
+
+	// ==================== 유틸리티 ====================Z
 
 	/**
 	 * 질문 음성 URL 생성 (Polly + S3 캐싱)
