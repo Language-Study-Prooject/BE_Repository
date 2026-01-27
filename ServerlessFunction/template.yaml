@@ -48,6 +48,7 @@ Globals:
         AWS_REGION_NAME: !Ref AWS::Region
         ROOM_TOKEN_TTL_SECONDS: "300"
         TRANSCRIBE_PROXY_URL: "https://tfo1zm7vec.execute-api.ap-northeast-2.amazonaws.com/prod/transcribe"
+        SES_SENDER_EMAIL: "hye.ina0130@gmail.com"
   Api:
     TracingEnabled: true
 
@@ -1553,6 +1554,12 @@ Resources:
               Action:
                 - ssm:GetParameter
               Resource: !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/opic/*"
+        - Statement:
+            - Effect: Allow
+              Action:
+                - ses:SendEmail
+                - ses:SendRawEmail
+              Resource: "*"
         - SNSPublishMessagePolicy:
             TopicName: !GetAtt NotificationTopic.TopicName
       Events:
