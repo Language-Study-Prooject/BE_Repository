@@ -18,7 +18,6 @@ public class EmailAsyncHandler implements RequestHandler<SNSEvent, Void> {
         }
         return null;
     }
-
     private void processMessage(String body) {
         // 메시지 파싱 및 타입 확인 (OPIC_REPORT_EMAIL)
         // emailService.sendOPIcReportEmail 호출
