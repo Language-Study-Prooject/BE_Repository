@@ -1514,6 +1514,16 @@ Resources:
             Enabled: true
 
   #############################################
+  # OPIc SNS Topics
+  #############################################
+
+  AnswerProcessTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub "${AWS::StackName}-opic-answer-process"
+      DisplayName: "OPIc Answer Processing Topic"
+
+  #############################################
   # OPIc Lambda Functions
   #############################################
 
@@ -1524,7 +1534,7 @@ Resources:
       CodeUri: .
       Handler: com.mzc.secondproject.serverless.domain.opic.handler.OPIcSessionHandler::handleRequest
       Description: Handle OPIc speaking practice sessions
-      Timeout: 180
+      Timeout: 30
       MemorySize: 1024
       SnapStart:
         ApplyOn: PublishedVersions
@@ -1532,11 +1542,14 @@ Resources:
         Variables:
           TRANSCRIBE_API_KEY: "/opic/transcribe-proxy-api-key"
           NOTIFICATION_TOPIC_ARN: !Ref NotificationTopic
+          ANSWER_PROCESS_TOPIC_ARN: !Ref AnswerProcessTopic
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref OPIcTable
         - S3CrudPolicy:
             BucketName: !Sub "${AWS::StackName}"
+        - SNSPublishMessagePolicy:
+            TopicName: !GetAtt AnswerProcessTopic.TopicName
         - Statement:
             - Effect: Allow
               Action:
@@ -1609,6 +1622,15 @@ Resources:
             Method: POST
             Auth:
               Authorizer: CognitoAuthV2
+        # 답변 상태 조회 (폴링용) ← 새로 추가!
+        GetAnswerStatus:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MainApi
+            Path: /opic/sessions/{sessionId}/answers/{questionIndex}/status
+            Method: GET
+            Auth:
+              Authorizer: CognitoAuthV2
         # 세션 완료
         CompleteSession:
           Type: Api
@@ -1627,6 +1649,43 @@ Resources:
             Method: GET
             Auth:
               Authorizer: CognitoAuthV2
+
+  # 비동기 답변 처리 Lambda
+  OPIcAnswerProcessFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-opic-answer-processor"
+      CodeUri: .
+      Handler: com.mzc.secondproject.serverless.domain.opic.handler.AnswerProcessHandler::handleRequest
+      Description: Process OPIc answers asynchronously (STT + AI Feedback)
+      Timeout: 600
+      MemorySize: 1024
+      SnapStart:
+        ApplyOn: PublishedVersions
+      Environment:
+        Variables:
+          TRANSCRIBE_API_KEY: "/opic/transcribe-proxy-api-key"
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref OPIcTable
+        - S3ReadPolicy:
+            BucketName: !Sub "${AWS::StackName}"
+        - Statement:
+            - Effect: Allow
+              Action:
+                - bedrock:InvokeModel
+                - bedrock:InvokeModelWithResponseStream
+              Resource: "*"
+        - Statement:
+            - Effect: Allow
+              Action:
+                - ssm:GetParameter
+              Resource: !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/opic/*"
+      Events:
+        SNSTrigger:
+          Type: SNS
+          Properties:
+            Topic: !Ref AnswerProcessTopic
 
   #############################################
   # Speaking Lambda Functions
