@@ -7,6 +7,7 @@ import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyResponseEvent
 import com.google.gson.*;
 import com.mzc.secondproject.serverless.common.config.AwsClients;
 import com.mzc.secondproject.serverless.common.service.PollyService;
+import com.mzc.secondproject.serverless.common.util.CognitoUtil;
 import com.mzc.secondproject.serverless.common.util.JwtUtil;
 import com.mzc.secondproject.serverless.common.util.ResponseGenerator;
 import com.mzc.secondproject.serverless.domain.opic.dto.request.CreateSessionRequest;
@@ -18,6 +19,7 @@ import com.mzc.secondproject.serverless.domain.opic.model.OPIcAnswer;
 import com.mzc.secondproject.serverless.domain.opic.model.OPIcQuestion;
 import com.mzc.secondproject.serverless.domain.opic.model.OPIcSession;
 import com.mzc.secondproject.serverless.domain.opic.repository.OPIcRepository;
+import com.mzc.secondproject.serverless.domain.opic.service.EmailService;
 import com.mzc.secondproject.serverless.domain.opic.service.FeedbackService;
 import com.mzc.secondproject.serverless.domain.opic.service.TranscribeProxyService;
 import org.slf4j.Logger;
@@ -52,12 +54,15 @@ public class OPIcSessionHandler implements RequestHandler<APIGatewayProxyRequest
 	private final PollyService pollyService;
 	private final TranscribeProxyService transcribeService;
 	private final FeedbackService feedbackService;
+
+	private final EmailService emailService;
 	
 	public OPIcSessionHandler() {
 		this.repository = new OPIcRepository();
 		this.pollyService = new PollyService(OPIC_BUCKET, "opic/voice/questions/");
 		this.transcribeService = new TranscribeProxyService();
 		this.feedbackService = new FeedbackService();
+		this.emailService = new EmailService();
 	}
 	
 	@Override
@@ -450,6 +455,20 @@ public class OPIcSessionHandler implements RequestHandler<APIGatewayProxyRequest
 				summaryBuilder.toString(),
 				session.getTargetLevel()
 		);
+
+		//  이메일 발송
+		try {
+			String userEmail = CognitoUtil.extractEmail(event).orElse(null);
+			String userName = CognitoUtil.extractNickname(event).orElse("학습자");
+
+			if (userEmail != null && !userEmail.isEmpty()) {
+				emailService.sendOPIcReportEmail(userEmail, userName, sessionReport);
+				logger.info("리포트 이메일 발송 완료: to={}", userEmail);
+			}
+		} catch (Exception e) {
+			// 이메일 실패해도 세션 완료는 성공 처리
+			logger.warn("리포트 이메일 발송 실패 (무시됨): {}", e.getMessage());
+		}
 		
 		// 세션 완료 처리
 		repository.completeSession(
