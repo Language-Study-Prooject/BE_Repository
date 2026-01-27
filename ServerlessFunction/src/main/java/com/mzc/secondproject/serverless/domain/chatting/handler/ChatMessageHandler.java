@@ -14,6 +14,8 @@ import com.mzc.secondproject.serverless.domain.chatting.exception.ChattingErrorC
 import com.mzc.secondproject.serverless.domain.chatting.model.ChatMessage;
 import com.mzc.secondproject.serverless.domain.chatting.repository.ChatRoomRepository;
 import com.mzc.secondproject.serverless.domain.chatting.service.ChatMessageService;
+import com.mzc.secondproject.serverless.domain.user.model.User;
+import com.mzc.secondproject.serverless.domain.user.service.UserService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -29,21 +31,23 @@ public class ChatMessageHandler implements RequestHandler<APIGatewayProxyRequest
 	
 	private final ChatMessageService chatMessageService;
 	private final ChatRoomRepository chatRoomRepository;
+	private final UserService userService;
 	private final HandlerRouter router;
 	
 	/**
 	 * 기본 생성자 (Lambda에서 사용)
 	 */
 	public ChatMessageHandler() {
-		this(new ChatMessageService(), new ChatRoomRepository());
+		this(new ChatMessageService(), new ChatRoomRepository(), new UserService());
 	}
 	
 	/**
 	 * 의존성 주입 생성자 (테스트 용이성)
 	 */
-	public ChatMessageHandler(ChatMessageService chatMessageService, ChatRoomRepository chatRoomRepository) {
+	public ChatMessageHandler(ChatMessageService chatMessageService, ChatRoomRepository chatRoomRepository, UserService userService) {
 		this.chatMessageService = chatMessageService;
 		this.chatRoomRepository = chatRoomRepository;
+		this.userService = userService;
 		this.router = initRouter();
 	}
 	
@@ -69,6 +73,19 @@ public class ChatMessageHandler implements RequestHandler<APIGatewayProxyRequest
 			String messageType = dto.getMessageType() != null ? dto.getMessageType() : "TEXT";
 			String messageId = UUID.randomUUID().toString();
 			String now = Instant.now().toString();
+
+			String nickname = "Unknown";
+			try {
+				User user = userService.getUserProfile(userId);
+				if (user != null && user.getNickname() != null) {
+					nickname = user.getNickname();
+				} else {
+					nickname = "User-" + userId.substring(0, 5);
+				}
+			} catch (Exception e) {
+				logger.warn("닉네임 조회 실패: {}", e.getMessage());
+				nickname = "User-" + userId.substring(0, 5);
+			}
 			
 			ChatMessage message = ChatMessage.builder()
 					.pk("ROOM#" + roomId)
@@ -80,6 +97,7 @@ public class ChatMessageHandler implements RequestHandler<APIGatewayProxyRequest
 					.messageId(messageId)
 					.roomId(roomId)
 					.userId(userId)
+					.nickname(nickname)
 					.content(dto.getContent())
 					.messageType(messageType)
 					.createdAt(now)
