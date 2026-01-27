@@ -30,6 +30,7 @@ Globals:
     Architectures:
       - x86_64
     Tracing: Active
+    AutoPublishAlias: live
     Environment:
       Variables:
         USER_TABLE_NAME: !Ref UserTable
@@ -1685,25 +1686,6 @@ Resources:
           Type: SNS
           Properties:
             Topic: !Ref AnswerProcessTopic
-
-  # 이메일 발송 전용 비동기 Lambda
-  OPIcEmailFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      Handler: com.mzc.secondproject.serverless.domain.opic.handler.EmailAsyncHandler::handleRequest
-      # ... 나머지 설정 (java21, memory 등) ...
-      Events:
-        SNSEvent:
-          Type: SNS
-          Properties:
-            Topic: !Ref NotificationTopic # 기존 알림 토픽 연결
-      Policies:
-        - Statement:
-            - Effect: Allow
-              Action:
-                - ses:SendEmail
-                - ses:SendRawEmail
-              Resource: "*"
 
   #############################################
   # Speaking Lambda Functions
